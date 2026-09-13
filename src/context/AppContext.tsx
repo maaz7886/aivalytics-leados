@@ -1,6 +1,13 @@
 // src/context/AppContext.tsx
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Lead, Task, Program, IntegrationItem, Stage } from '../types';
+import {
+  fetchLeadsFromSupabase,
+  insertLeadToSupabase,
+  updateLeadStageInSupabase,
+  fetchProgramsFromSupabase,
+  upsertProgramInSupabase
+} from '../lib/supabase';
 
 // Pre-populated realistic demo lead: Rahul Sharma & others
 const initialLeads: Lead[] = [
@@ -437,20 +444,86 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  // Initialize state from localStorage or fall back to initial dataset
+  const [leads, setLeads] = useState<Lead[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_LEADS');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading saved leads:', e);
+      }
+    }
+    return initialLeads;
+  });
+
   const [selectedLeadId, setSelectedLeadId] = useState<string>('lead-rahul-001');
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [programs, setPrograms] = useState<Program[]>(initialPrograms);
+
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_TASKS');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading saved tasks:', e);
+      }
+    }
+    return initialTasks;
+  });
+
+  const [programs, setPrograms] = useState<Program[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_PROGRAMS');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading saved programs:', e);
+      }
+    }
+    return initialPrograms;
+  });
+
   const [integrations, setIntegrations] = useState<IntegrationItem[]>(initialIntegrations);
+
+  // Sync state to localStorage on changes
+  useEffect(() => {
+    localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(leads));
+  }, [leads]);
+
+  useEffect(() => {
+    localStorage.setItem('AIVALYTICS_PROGRAMS', JSON.stringify(programs));
+  }, [programs]);
+
+  useEffect(() => {
+    localStorage.setItem('AIVALYTICS_TASKS', JSON.stringify(tasks));
+  }, [tasks]);
+
+  // Initial Supabase DB Sync on mount if connected
+  useEffect(() => {
+    async function syncSupabaseOnBoot() {
+      const dbLeads = await fetchLeadsFromSupabase();
+      if (dbLeads && dbLeads.length > 0) {
+        setLeads(dbLeads);
+      }
+
+      const dbPrograms = await fetchProgramsFromSupabase();
+      if (dbPrograms && dbPrograms.length > 0) {
+        setPrograms(dbPrograms);
+      }
+    }
+    syncSupabaseOnBoot();
+  }, []);
 
   const addLead = (newLead: Lead) => {
     setLeads((prev) => [newLead, ...prev]);
+    insertLeadToSupabase(newLead);
   };
 
   const updateLeadStage = (id: string, stage: Stage) => {
     setLeads((prev) =>
       prev.map((l) => (l.id === id ? { ...l, crmStage: stage } : l))
     );
+    updateLeadStageInSupabase(id, stage);
   };
 
   const addCallNote = (leadId: string, rawNotes: string) => {
@@ -476,11 +549,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((l) => {
         if (l.id === leadId) {
           const updatedHistory = [newNote, ...l.callNotesHistory];
-          return {
+          const updatedLead = {
             ...l,
             callNotesHistory: updatedHistory,
             intentScore: newNote.aiAnalysis.purchaseIntent
           };
+          insertLeadToSupabase(updatedLead);
+          return updatedLead;
         }
         return l;
       })
@@ -505,10 +580,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPrograms((prev) =>
       prev.map((p) => (p.id === updatedProg.id ? updatedProg : p))
     );
+    upsertProgramInSupabase(updatedProg);
   };
 
   const addProgram = (newProg: Program) => {
     setPrograms((prev) => [...prev, newProg]);
+    upsertProgramInSupabase(newProg);
   };
 
   const toggleIntegration = (id: string) => {
@@ -542,6 +619,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleTaskStatus,
         addTask,
         updateProgram,
+        addProgram,
         toggleIntegration,
         simulateAiPrep
       }}
