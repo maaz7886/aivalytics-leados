@@ -2,136 +2,171 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Lead, Stage } from '../types';
+import * as XLSX from 'xlsx';
 
 interface CsvImportModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+interface ParsedLeadRow {
+  fullName: string;
+  email: string;
+  phone: string;
+  currentRole: string;
+  currentCompany: string;
+  city: string;
+  yearsOfExperience: number;
+  primaryGoal: string;
+  programName: string;
+}
+
 export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps) {
   const { addLead } = useApp();
-  const [fileContent, setFileContent] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
-  const [parsedCount, setParsedCount] = useState<number | null>(null);
+  const [parsedRows, setParsedRows] = useState<ParsedLeadRow[]>([]);
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
 
   if (!isOpen) return null;
+
+  const processRawRows = (rows: Record<string, any>[]): ParsedLeadRow[] => {
+    return rows.map((row, idx) => {
+      const getVal = (keys: string[]): string => {
+        for (const k of keys) {
+          const foundKey = Object.keys(row).find((rk) => rk.toLowerCase().replace(/[^a-z0-9]/g, '') === k);
+          if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null) {
+            return String(row[foundKey]).trim();
+          }
+        }
+        return '';
+      };
+
+      const fullName = getVal(['fullname', 'name', 'leadname', 'candidate']) || `Excel Candidate ${idx + 1}`;
+      const email = getVal(['email', 'emailaddress', 'mail']) || `lead${Date.now()}_${idx}@excelimport.com`;
+      const phone = getVal(['phone', 'phonenumber', 'mobile', 'contact']) || '+91 90000 00000';
+      const currentRole = getVal(['currentrole', 'role', 'title', 'designation']) || 'Project Manager';
+      const currentCompany = getVal(['currentcompany', 'company', 'organization']) || 'Tech Organization';
+      const city = getVal(['city', 'location', 'place']) || 'Bengaluru';
+      const expStr = getVal(['yearsofexperience', 'experience', 'exp', 'years']);
+      const yearsOfExperience = parseInt(expStr || '5', 10) || 5;
+      const primaryGoal = getVal(['primarygoal', 'goal', 'objective']) || 'Upskill in Current Role';
+      const programName = getVal(['targetprogram', 'program', 'programname']) || 'AI-Native Project Management';
+
+      return {
+        fullName,
+        email,
+        phone,
+        currentRole,
+        currentCompany,
+        city,
+        yearsOfExperience,
+        primaryGoal,
+        programName
+      };
+    });
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      setFileContent(text);
-      previewParsedLeads(text);
-    };
-    reader.readAsText(file);
-  };
 
-  const parseCsvText = (text: string): Record<string, string>[] => {
-    const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
-    if (lines.length < 2) return [];
-
-    const parseLine = (line: string): string[] => {
-      const result: string[] = [];
-      let current = '';
-      let inQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          result.push(current.trim());
-          current = '';
-        } else {
-          current += char;
+    if (isExcel) {
+      reader.onload = (evt) => {
+        try {
+          const bstr = evt.target?.result;
+          const workbook = XLSX.read(bstr, { type: 'binary' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet);
+          const parsed = processRawRows(jsonRows);
+          setParsedRows(parsed);
+        } catch (err) {
+          console.error('Error parsing Excel file:', err);
+          alert('Failed to parse Excel file. Please ensure it is a valid .xlsx or .xls worksheet.');
         }
-      }
-      result.push(current.trim());
-      return result;
-    };
-
-    const headers = parseLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
-    const rows: Record<string, string>[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseLine(lines[i]);
-      if (values.length === 0 || (values.length === 1 && !values[0])) continue;
-      const row: Record<string, string> = {};
-      headers.forEach((header, idx) => {
-        row[header] = values[idx] || '';
-      });
-      rows.push(row);
+      };
+      reader.readAsBinaryString(file);
+    } else {
+      // CSV or TXT
+      reader.onload = (evt) => {
+        try {
+          const text = evt.target?.result as string;
+          const workbook = XLSX.read(text, { type: 'string' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet);
+          const parsed = processRawRows(jsonRows);
+          setParsedRows(parsed);
+        } catch (err) {
+          console.error('Error parsing CSV file:', err);
+          alert('Failed to parse CSV file.');
+        }
+      };
+      reader.readAsText(file);
     }
-    return rows;
   };
 
-  const previewParsedLeads = (text: string) => {
-    const rows = parseCsvText(text);
-    setParsedCount(rows.length);
+  const handleRowChange = (index: number, field: keyof ParsedLeadRow, value: any) => {
+    setParsedRows((prev) =>
+      prev.map((row, idx) => (idx === index ? { ...row, [field]: value } : row))
+    );
   };
 
-  const handleImport = () => {
-    if (!fileContent) return;
-    setIsImporting(true);
+  const handleDeleteRow = (index: number) => {
+    setParsedRows((prev) => prev.filter((_, idx) => idx !== index));
+  };
 
-    const rows = parseCsvText(fileContent);
-    if (rows.length === 0) {
-      alert('No valid lead rows found in the CSV file.');
-      setIsImporting(false);
+  const handleCommitImport = () => {
+    if (parsedRows.length === 0) {
+      alert('No valid lead rows to import.');
       return;
     }
 
-    let addedCount = 0;
-    rows.forEach((row, index) => {
-      const name = row['fullname'] || row['name'] || row['leadname'] || `CSV Lead ${index + 1}`;
-      const email = row['email'] || row['emailaddress'] || `lead${Date.now()}_${index}@csvimport.com`;
-      const phone = row['phone'] || row['phonenumber'] || row['mobile'] || '+91 90000 00000';
-      const role = row['role'] || row['currentrole'] || row['title'] || 'Manager';
-      const company = row['company'] || row['currentcompany'] || 'Imported Corp';
-      const city = row['city'] || row['location'] || 'Bengaluru';
-      const exp = parseInt(row['experience'] || row['yearsofexperience'] || row['exp'] || '5', 10);
-      const program = row['program'] || row['targetprogram'] || 'AI-Native Project Management';
-      const goal = row['goal'] || row['primarygoal'] || 'Upskill in Current Role';
+    setIsImporting(true);
+    let count = 0;
 
-      const fitScore = Math.floor(Math.random() * 20) + 78;
-      const intentScore = Math.floor(Math.random() * 25) + 65;
+    parsedRows.forEach((row, index) => {
+      const fitScore = Math.floor(Math.random() * 18) + 80;
+      const intentScore = Math.floor(Math.random() * 20) + 70;
+      const progLower = row.programName.toLowerCase();
 
       const newLead: Lead = {
-        id: `lead-csv-${Date.now()}-${index}`,
-        fullName: name,
-        phone,
-        email,
-        city,
+        id: `lead-excel-${Date.now()}-${index}`,
+        fullName: row.fullName,
+        phone: row.phone,
+        email: row.email,
+        city: row.city,
         state: 'State',
         country: 'India',
-        source: 'CSV Bulk Import',
-        metaCampaign: 'CSV_Bulk_Import_Q3',
+        source: 'Microsoft Excel Ingestion',
+        metaCampaign: 'Excel_Worksheet_Q3',
         metaAdSet: 'Direct_Import',
-        metaAd: 'CSV_File_Upload',
-        campaignId: `cmp_csv_${Date.now()}`,
+        metaAd: 'XLSX_File_Upload',
+        campaignId: `cmp_xlsx_${Date.now()}`,
         dateCaptured: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        programId: program.toLowerCase().includes('gtm') ? 'ai-gtm' : program.toLowerCase().includes('fellowship') ? 'ai-fellowship' : 'ai-pm',
-        programName: program,
+        programId: progLower.includes('gtm') ? 'ai-gtm' : progLower.includes('fellowship') ? 'ai-fellowship' : 'ai-pm',
+        programName: row.programName,
         professionalStatus: 'Working Professional',
-        currentRole: role,
-        currentCompany: company,
+        currentRole: row.currentRole,
+        currentCompany: row.currentCompany,
         industry: 'Technology',
-        yearsOfExperience: isNaN(exp) ? 5 : exp,
-        currentResponsibilities: `Imported via CSV file (${fileName || 'Leads.csv'}). ${role} at ${company}.`,
-        currentSkillSet: ['Domain Expertise', 'Team Management', 'Project Delivery'],
+        yearsOfExperience: row.yearsOfExperience,
+        currentResponsibilities: `Uploaded via Excel worksheet (${fileName || 'Leads.xlsx'}). ${row.currentRole} at ${row.currentCompany}.`,
+        currentSkillSet: ['Domain Expertise', 'Execution Management', 'Team Leadership'],
         currentAiUsageLevel: 'Intermediate',
-        primaryGoal: (goal as any) || 'Upskill in Current Role',
-        desiredRole: `Senior ${role} (AI Enabled)`,
+        primaryGoal: (row.primaryGoal as any) || 'Upskill in Current Role',
+        desiredRole: `Senior ${row.currentRole} (AI-Native)`,
         expectedTimeline: '3–6 months',
-        mainChallenge: 'Looking to integrate AI automation workflows into daily team operations.',
-        whyNow: 'Uploaded via CSV batch lead ingestion.',
-        expectedOutcome: 'Achieve AI productivity and role growth.',
-        comments: `Bulk imported from ${fileName || 'CSV file'}.`,
+        mainChallenge: 'Needs multi-agent workflow & SOP automation capability.',
+        whyNow: 'Committed via Excel bulk lead import.',
+        expectedOutcome: 'Achieve AI productivity and career progression.',
+        comments: `Bulk imported from Excel file ${fileName || 'Worksheet.xlsx'}.`,
         assignedSalesperson: 'Alex Rivera',
         crmStage: 'New Lead' as Stage,
         leadTemperature: fitScore > 85 ? 'Hot' : 'Warm',
@@ -145,71 +180,102 @@ export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps)
         fitScore,
         intentScore,
         fitScoreBreakdown: [
-          { factor: 'Domain Experience', score: fitScore, reason: `${exp} years experience as ${role}.` }
+          { factor: 'Domain Experience', score: fitScore, reason: `${row.yearsOfExperience} years experience as ${row.currentRole}.` }
         ],
         intentScoreBreakdown: [
-          { factor: 'Bulk Ingestion Priority', score: intentScore, reason: 'Imported via active marketing campaign batch.' }
+          { factor: 'Excel Batch Priority', score: intentScore, reason: 'Imported via active Excel lead ingestion batch.' }
         ],
-        likelyDesiredOutcome: `${name} is seeking to integrate AI workflows into their role at ${company}.`,
-        evidenceLeadProvided: [`Role: ${role}`, `Company: ${company}`, `Experience: ${exp} yrs`],
+        likelyDesiredOutcome: `${row.fullName} is seeking to integrate AI execution frameworks into their role at ${row.currentCompany}.`,
+        evidenceLeadProvided: [`Role: ${row.currentRole}`, `Company: ${row.currentCompany}`, `Experience: ${row.yearsOfExperience} yrs`],
         evidenceAiInterpretation: ['Needs fast-track AI preparation and custom sales outreach.'],
-        recommendedPositioning: `Position ${program} as a high-impact accelerator for ${role} professionals.`,
-        recommendedOpening: `Hi ${name.split(' ')[0]}, following up on your ${program} registration from our batch import.`,
+        recommendedPositioning: `Position ${row.programName} as a high-impact execution multiplier.`,
+        recommendedOpening: `Hi ${row.fullName.split(' ')[0]}, following up on your ${row.programName} registration.`,
         discoveryQuestions: [
-          `How are AI workflows currently utilized in your role at ${company}?`,
-          `What key milestone over the next 3–6 months would define success for you?`
+          `How are AI workflows currently utilized at ${row.currentCompany}?`,
+          `What milestone over the next 3–6 months defines success for you?`
         ],
-        existingSkills: ['Domain Knowledge', 'Operational Management'],
-        aiSkillsToDevelop: ['AI Workflow Design', 'Agent Orchestration', 'Automated Reporting'],
-        whyProgramFits: `Matches target profile for ${program}.`,
+        existingSkills: ['Domain Expertise', 'Operations'],
+        aiSkillsToDevelop: ['AI Agent Orchestration', 'SOP Engineering', 'Automated Reporting'],
+        whyProgramFits: `Matches target profile for ${row.programName}.`,
         objections: [],
         recommendedNextAction: 'Review AI profile and initiate first contact call within 24 hours.',
         callNotesHistory: []
       };
 
       addLead(newLead);
-      addedCount++;
+      count++;
     });
 
     setIsImporting(false);
-    setSuccessMessage(`Successfully imported ${addedCount} leads from CSV!`);
+    setSuccessMessage(`Successfully imported and committed ${count} leads from Excel!`);
     setTimeout(() => {
       setSuccessMessage('');
       onClose();
     }, 1500);
   };
 
-  const downloadSampleCsv = () => {
-    const csvHeader = 'Full Name,Email,Phone,Current Role,Current Company,City,Years of Experience,Primary Goal,Target Program\n';
-    const sampleRows = [
-      'Anish Kapoor,anish.k@techcorp.in,+91 98123 45678,Senior Engineering Manager,TechCorp,Bengaluru,8,Switch Company,AI-Native Project Management',
-      'Meera Nair,meera.nair@growthscale.com,+91 97654 32109,Marketing Lead,Growth Scale Studio,Mumbai,6,Learn Automation,AI-Native GTM',
-      'Rajesh Verma,rajesh@vermaconsulting.in,+91 99112 23344,Founding Director,Verma Advisory,Delhi NCR,12,Start a Business,AI Leadership Fellowship'
-    ].join('\n');
+  const downloadSampleExcel = () => {
+    const data = [
+      {
+        'Full Name': 'Anish Kapoor',
+        'Email': 'anish.k@techcorp.in',
+        'Phone': '+91 98123 45678',
+        'Current Role': 'Senior Engineering Manager',
+        'Current Company': 'TechCorp',
+        'City': 'Bengaluru',
+        'Years of Experience': 8,
+        'Primary Goal': 'Switch Company',
+        'Target Program': 'AI-Native Project Management'
+      },
+      {
+        'Full Name': 'Meera Nair',
+        'Email': 'meera.nair@growthscale.com',
+        'Phone': '+91 97654 32109',
+        'Current Role': 'Marketing Lead',
+        'Current Company': 'Growth Scale Studio',
+        'City': 'Mumbai',
+        'Years of Experience': 6,
+        'Primary Goal': 'Learn Automation',
+        'Target Program': 'AI-Native GTM'
+      },
+      {
+        'Full Name': 'Rajesh Verma',
+        'Email': 'rajesh@vermaconsulting.in',
+        'Phone': '+91 99112 23344',
+        'Current Role': 'Founding Director',
+        'Current Company': 'Verma Advisory',
+        'City': 'Delhi NCR',
+        'Years of Experience': 12,
+        'Primary Goal': 'Start a Business',
+        'Target Program': 'AI Leadership Fellowship'
+      }
+    ];
 
-    const blob = new Blob([csvHeader + sampleRows], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'Aivalytics_Sample_Leads_Import.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
+    XLSX.writeFile(workbook, 'Aivalytics_Sample_Leads_Template.xlsx');
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-gray-200 dark:border-gray-800 animate-in fade-in zoom-in duration-200">
-        <div className="flex justify-between items-center pb-4 border-b border-gray-200 dark:border-gray-800">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-gray-200 dark:border-gray-800 animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
+        {/* Modal Header */}
+        <div className="flex justify-between items-center pb-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">📥</span>
+            <span className="text-3xl">📊</span>
             <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Upload Leads CSV / Excel</h2>
-              <p className="text-xs text-gray-500">Import bulk leads and auto-run AI profile preparation</p>
+              <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-100">
+                Upload & Edit Excel Worksheets (.xlsx / .xls / .csv)
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Upload Microsoft Excel spreadsheets, edit lead details inline, and commit changes directly to LeadOS.
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl font-bold p-1"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl font-bold p-1 cursor-pointer"
           >
             ✕
           </button>
@@ -219,58 +285,168 @@ export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps)
           <div className="py-12 text-center space-y-3">
             <div className="text-5xl">🎉</div>
             <div className="text-lg font-bold text-green-600 dark:text-green-400">{successMessage}</div>
-            <p className="text-xs text-gray-500">Redirecting to Leads Database...</p>
+            <p className="text-xs text-gray-500">Committed to LeadOS CRM database...</p>
           </div>
         ) : (
-          <div className="space-y-5 pt-4">
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-6 text-center hover:border-primary-500 transition-colors">
-              <input
-                type="file"
-                accept=".csv, .txt"
-                id="csv-file-input"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <label htmlFor="csv-file-input" className="cursor-pointer space-y-2 block">
-                <div className="text-4xl text-primary-600 dark:text-primary-400">📄</div>
-                <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                  {fileName ? fileName : 'Click to select CSV file'}
-                </div>
-                <p className="text-xs text-gray-400">Supports standard .csv format with lead headers</p>
-              </label>
-            </div>
-
-            {parsedCount !== null && (
-              <div className="bg-primary-50 dark:bg-primary-950/40 p-3 rounded-lg border border-primary-200 dark:border-primary-800 text-xs text-primary-800 dark:text-primary-300 flex items-center justify-between">
-                <span>Found <strong>{parsedCount}</strong> valid lead rows in file</span>
-                <span className="text-green-600 dark:text-green-400 font-bold">✓ Ready for AI scoring</span>
+          <div className="space-y-4 pt-4 flex-1 flex flex-col min-h-0">
+            {/* Upload Area */}
+            {parsedRows.length === 0 && (
+              <div className="border-2 border-dashed border-primary-300 dark:border-gray-700 rounded-2xl p-8 text-center hover:border-primary-500 bg-gray-50/50 dark:bg-gray-800/40 transition-all cursor-pointer">
+                <input
+                  type="file"
+                  accept=".xlsx, .xls, .csv, .txt"
+                  id="excel-file-input"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <label htmlFor="excel-file-input" className="cursor-pointer space-y-3 block">
+                  <div className="text-5xl">📈</div>
+                  <div>
+                    <div className="text-base font-extrabold text-gray-800 dark:text-gray-200">
+                      {fileName ? fileName : 'Click or Drag & Drop Excel Worksheet (.xlsx, .xls, .csv)'}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Supports Microsoft Excel 2007+ Worksheets (.xlsx), Legacy Excel (.xls), and CSV files.
+                    </p>
+                  </div>
+                </label>
               </div>
             )}
 
-            <div className="flex justify-between items-center text-xs pt-2">
+            {/* Editable Preview Table */}
+            {parsedRows.length > 0 && (
+              <div className="flex-1 flex flex-col min-h-0 space-y-2">
+                <div className="flex justify-between items-center bg-primary-50 dark:bg-primary-950/40 p-3 rounded-xl border border-primary-200 dark:border-primary-800 text-xs">
+                  <span className="font-bold text-primary-900 dark:text-primary-200">
+                    File: <span className="underline">{fileName}</span> ({parsedRows.length} Leads Parsed)
+                  </span>
+                  <label htmlFor="excel-file-input" className="text-primary-600 dark:text-primary-400 font-bold underline cursor-pointer">
+                    Change File
+                  </label>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls, .csv, .txt"
+                    id="excel-file-input"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                </div>
+
+                <div className="flex-1 overflow-auto border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead className="sticky top-0 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold border-b border-gray-200 dark:border-gray-600">
+                      <tr>
+                        <th className="p-2.5">Full Name</th>
+                        <th className="p-2.5">Phone</th>
+                        <th className="p-2.5">Email</th>
+                        <th className="p-2.5">Current Role</th>
+                        <th className="p-2.5">Company</th>
+                        <th className="p-2.5">Exp (Yrs)</th>
+                        <th className="p-2.5">Target Program</th>
+                        <th className="p-2.5 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {parsedRows.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={row.fullName}
+                              onChange={(e) => handleRowChange(idx, 'fullName', e.target.value)}
+                              className="w-full p-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-semibold"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={row.phone}
+                              onChange={(e) => handleRowChange(idx, 'phone', e.target.value)}
+                              className="w-full p-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-[11px]"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="email"
+                              value={row.email}
+                              onChange={(e) => handleRowChange(idx, 'email', e.target.value)}
+                              className="w-full p-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={row.currentRole}
+                              onChange={(e) => handleRowChange(idx, 'currentRole', e.target.value)}
+                              className="w-full p-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={row.currentCompany}
+                              onChange={(e) => handleRowChange(idx, 'currentCompany', e.target.value)}
+                              className="w-full p-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              value={row.yearsOfExperience}
+                              onChange={(e) => handleRowChange(idx, 'yearsOfExperience', Number(e.target.value))}
+                              className="w-16 p-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-bold"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={row.programName}
+                              onChange={(e) => handleRowChange(idx, 'programName', e.target.value)}
+                              className="w-full p-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-medium"
+                            />
+                          </td>
+                          <td className="p-2 text-center">
+                            <button
+                              onClick={() => handleDeleteRow(idx)}
+                              className="text-red-500 hover:text-red-700 font-bold px-2 py-0.5 cursor-pointer text-xs"
+                              title="Delete Row"
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Footer Buttons */}
+            <div className="flex justify-between items-center text-xs pt-3 border-t border-gray-200 dark:border-gray-800 shrink-0">
               <button
                 type="button"
-                onClick={downloadSampleCsv}
-                className="text-primary-600 hover:text-primary-700 underline font-medium flex items-center gap-1"
+                onClick={downloadSampleExcel}
+                className="text-primary-600 dark:text-primary-400 hover:underline font-extrabold flex items-center gap-1.5 cursor-pointer"
               >
-                <span>📥</span> Download Sample CSV Template
+                <span>📥</span> Download Sample Excel Template (.xlsx)
               </button>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2.5">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-semibold hover:bg-gray-200 dark:hover:bg-gray-700"
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-bold hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  disabled={!fileContent || isImporting}
-                  onClick={handleImport}
-                  className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg font-bold shadow-md transition-all flex items-center gap-2"
+                  disabled={parsedRows.length === 0 || isImporting}
+                  onClick={handleCommitImport}
+                  className="px-5 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
                 >
-                  {isImporting ? '⚙️ Processing AI Prep...' : `🚀 Import ${parsedCount ? parsedCount : ''} Leads`}
+                  {isImporting ? '⚙️ Ingesting to LeadOS...' : `🚀 Commit & Ingest ${parsedRows.length > 0 ? parsedRows.length : ''} Leads`}
                 </button>
               </div>
             </div>
