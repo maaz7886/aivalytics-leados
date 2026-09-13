@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
     
     -- Professional Profile
     professional_status TEXT DEFAULT 'Working Professional',
-    current_role TEXT DEFAULT 'Project Manager',
+    "current_role" TEXT DEFAULT 'Project Manager',
     current_company TEXT DEFAULT 'Tech Organization',
     industry TEXT DEFAULT 'Technology',
     years_of_experience INT DEFAULT 5,

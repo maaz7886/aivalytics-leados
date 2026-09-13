@@ -2,20 +2,18 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Lead, Program, Stage } from '../types';
 
-// Read Supabase Credentials from Environment or Local Storage
+// Read Supabase Credentials from Environment or Local Storage with explicit live production fallbacks
 const SUPABASE_URL =
   import.meta.env.VITE_SUPABASE_URL ||
   localStorage.getItem('VITE_SUPABASE_URL') ||
-  'https://YOUR_SUPABASE_PROJECT.supabase.co';
+  'https://rremewvutfmfkawuuckl.supabase.co';
 
 const SUPABASE_ANON_KEY =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   localStorage.getItem('VITE_SUPABASE_ANON_KEY') ||
-  'YOUR_ANON_PUBLIC_KEY';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyZW1ld3Z1dGZtZmthd3V1Y2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyODc3MDIsImV4cCI6MjEwNDg2MzcwMn0.nXKrHJqqcvTq_HpTunoKjKo8a9IgNgj49G3eoRPBOo8';
 
-export const isSupabaseConfigured =
-  SUPABASE_URL !== 'https://YOUR_SUPABASE_PROJECT.supabase.co' &&
-  SUPABASE_ANON_KEY !== 'YOUR_ANON_PUBLIC_KEY';
+export const isSupabaseConfigured = true;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

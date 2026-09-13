@@ -59,6 +59,9 @@ export default function Header() {
         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200">
           v1.0 Production MVP
         </span>
+        <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800" title="If using Brave Browser, click the Lion icon 🦁 in address bar and turn Shields DOWN to allow Cloud DB sync.">
+          <span>🦁 Brave User? Turn Shields DOWN for Cloud Sync</span>
+        </span>
       </div>
 
       <div className="flex items-center space-x-4">

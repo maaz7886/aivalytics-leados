@@ -1,0 +1,4 @@
+id,full_name,phone,email,city,current_role,current_company,years_of_experience,crm_stage,fit_score
+lead-rahul-001,Rahul Sharma,+91 98765 43210,rahul.sharma@techcorp.io,Bengaluru,Project Manager,TechCorp Solutions,10,Qualified,92
+lead-priya-002,Priya Sundaram,+91 91234 56789,priya.s@gtmscale.com,Mumbai,Growth Marketing Lead,GTM Scale Studio,7,Interested,88
+lead-vikram-003,Vikram Mehta,+91 99887 76655,vikram@mehtaconsulting.com,Delhi NCR,Managing Director,Mehta Consulting Group,14,Details sent,96
