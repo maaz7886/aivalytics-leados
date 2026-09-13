@@ -429,6 +429,7 @@ interface AppContextType {
   toggleTaskStatus: (taskId: string) => void;
   addTask: (task: Task) => void;
   updateProgram: (program: Program) => void;
+  addProgram: (program: Program) => void;
   toggleIntegration: (id: string) => void;
   simulateAiPrep: (leadId: string) => void;
 }
@@ -504,6 +505,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPrograms((prev) =>
       prev.map((p) => (p.id === updatedProg.id ? updatedProg : p))
     );
+  };
+
+  const addProgram = (newProg: Program) => {
+    setPrograms((prev) => [...prev, newProg]);
   };
 
   const toggleIntegration = (id: string) => {
