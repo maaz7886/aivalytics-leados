@@ -5,6 +5,8 @@ import {
   fetchLeadsFromSupabase,
   insertLeadToSupabase,
   updateLeadStageInSupabase,
+  deleteLeadFromSupabase,
+  deleteBulkLeadsFromSupabase,
   fetchProgramsFromSupabase,
   upsertProgramInSupabase
 } from '../lib/supabase';
@@ -635,6 +637,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         integrations,
         addLead,
         updateLeadStage,
+        deleteLead,
+        deleteBulkLeads,
+        bulkUpdateStage,
         addCallNote,
         toggleTaskStatus,
         addTask,

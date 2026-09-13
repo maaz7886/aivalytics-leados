@@ -36,7 +36,7 @@ export default function Dashboard() {
   const followUpsDueCount = pendingTasksCount + filteredLeads.filter((l) => l.numberOfFollowUps > 0 || l.nextFollowUp).length;
 
   const seatReservationsCount = filteredLeads.filter(
-    (l) => l.crmStage === 'Seat Reserved' || l.enrollmentStatus === 'Seat Reserved' || l.crmStage === 'Details sent'
+    (l) => l.crmStage === 'Seat Reserved' || l.enrollmentStatus === 'Reserved' || l.crmStage === 'Details sent'
   ).length;
 
   const enrollmentsCount = filteredLeads.filter(
@@ -78,7 +78,7 @@ export default function Dashboard() {
   const interestedStageCount = filteredLeads.filter((l) => l.crmStage === 'Interested').length;
   const qualifiedStageCount = filteredLeads.filter((l) => l.crmStage === 'Qualified').length;
   const detailsSentStageCount = filteredLeads.filter((l) => l.crmStage === 'Details sent').length;
-  const seatReservedStageCount = filteredLeads.filter((l) => l.crmStage === 'Seat Reserved' || l.enrollmentStatus === 'Seat Reserved').length;
+  const seatReservedStageCount = filteredLeads.filter((l) => l.crmStage === 'Seat Reserved' || l.enrollmentStatus === 'Reserved').length;
   const enrolledStageCount = filteredLeads.filter((l) => l.crmStage === 'Enrolled' || l.paymentStatus === 'Paid').length;
 
   const funnelData = [
