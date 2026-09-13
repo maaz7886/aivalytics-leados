@@ -108,7 +108,7 @@ export default function Settings() {
   // 5. AI Key Settings
   const [aiModel, setAiModel] = useState<string>('Groq Llama 3 70B (Free Tier)');
   const [apiKey, setApiKey] = useState<string>(
-    localStorage.getItem('GROQ_API_KEY') || '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'
+    localStorage.getItem('GROQ_API_KEY') || ''
   );
 
   const handleSaveAiEngine = () => {

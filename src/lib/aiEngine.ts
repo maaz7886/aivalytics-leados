@@ -22,11 +22,18 @@ export async function evaluateLeadWithGrok(
   },
   apiKey?: string
 ): Promise<AiEvaluationResult> {
-  const userKey = apiKey || localStorage.getItem('GROQ_API_KEY') || localStorage.getItem('GROK_API_KEY') || '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';
+  const userKey =
+    apiKey ||
+    localStorage.getItem('GROQ_API_KEY') ||
+    localStorage.getItem('GROK_API_KEY') ||
+    (import.meta.env.VITE_GROQ_API_KEY as string) ||
+    '';
 
   // Check if key is a Groq key (starts with gsk_) or standard key
   const isGroq = userKey.startsWith('gsk_');
-  const endpoint = isGroq ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://api.x.ai/v1/chat/completions';
+  const endpoint = isGroq
+    ? 'https://api.groq.com/openai/v1/chat/completions'
+    : 'https://api.x.ai/v1/chat/completions';
   const modelName = isGroq ? 'llama-3.3-70b-versatile' : 'grok-2-mini';
 
   if (userKey) {
@@ -35,14 +42,15 @@ export async function evaluateLeadWithGrok(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userKey}`
+          Authorization: `Bearer ${userKey}`
         },
         body: JSON.stringify({
           model: modelName,
           messages: [
             {
               role: 'system',
-              content: 'You are an executive sales revenue AI for Aivalytics LeadOS. Evaluate the B2B lead payload and return ONLY a valid JSON object matching the schema: { "fitScore": number, "intentScore": number, "likelyDesiredOutcome": string, "recommendedPositioning": string, "recommendedOpening": string, "discoveryQuestions": string[], "recommendedNextAction": string }.'
+              content:
+                'You are an executive sales revenue AI for Aivalytics LeadOS. Evaluate the B2B lead payload and return ONLY a valid JSON object matching the schema: { "fitScore": number, "intentScore": number, "likelyDesiredOutcome": string, "recommendedPositioning": string, "recommendedOpening": string, "discoveryQuestions": string[], "recommendedNextAction": string }.'
             },
             {
               role: 'user',
@@ -65,7 +73,6 @@ export async function evaluateLeadWithGrok(
       console.warn('API call failed, switching to local high-performance profiling:', e);
     }
   }
-
 
   // Fallback high-performance AI profiling algorithm
   const baseFit = Math.min(98, 75 + leadPayload.yearsOfExperience * 2);
