@@ -432,6 +432,9 @@ interface AppContextType {
   integrations: IntegrationItem[];
   addLead: (lead: Lead) => void;
   updateLeadStage: (id: string, stage: Stage) => void;
+  deleteLead: (id: string) => void;
+  deleteBulkLeads: (ids: string[]) => void;
+  bulkUpdateStage: (ids: string[], stage: Stage) => void;
   addCallNote: (leadId: string, rawNotes: string) => void;
   toggleTaskStatus: (taskId: string) => void;
   addTask: (task: Task) => void;
@@ -524,6 +527,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((l) => (l.id === id ? { ...l, crmStage: stage } : l))
     );
     updateLeadStageInSupabase(id, stage);
+  };
+
+  const deleteLead = (id: string) => {
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+    deleteLeadFromSupabase(id);
+  };
+
+  const deleteBulkLeads = (ids: string[]) => {
+    setLeads((prev) => prev.filter((l) => !ids.includes(l.id)));
+    deleteBulkLeadsFromSupabase(ids);
+  };
+
+  const bulkUpdateStage = (ids: string[], stage: Stage) => {
+    setLeads((prev) =>
+      prev.map((l) => (ids.includes(l.id) ? { ...l, crmStage: stage } : l))
+    );
+    ids.forEach((id) => updateLeadStageInSupabase(id, stage));
   };
 
   const addCallNote = (leadId: string, rawNotes: string) => {

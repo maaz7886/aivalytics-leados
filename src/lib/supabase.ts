@@ -177,6 +177,38 @@ export async function updateLeadStageInSupabase(id: string, stage: Stage): Promi
   }
 }
 
+// 3b. Delete Lead from Supabase
+export async function deleteLeadFromSupabase(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const { error } = await supabase.from('leads').delete().eq('id', id);
+    if (error) {
+      console.warn('Supabase Delete Lead Error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase Exception on Delete Lead:', err);
+    return false;
+  }
+}
+
+// 3c. Bulk Delete Leads from Supabase
+export async function deleteBulkLeadsFromSupabase(ids: string[]): Promise<boolean> {
+  if (!isSupabaseConfigured || ids.length === 0) return false;
+  try {
+    const { error } = await supabase.from('leads').delete().in('id', ids);
+    if (error) {
+      console.warn('Supabase Bulk Delete Error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase Exception on Bulk Delete:', err);
+    return false;
+  }
+}
+
 // 4. Fetch Programs Catalog from Supabase
 export async function fetchProgramsFromSupabase(): Promise<Program[] | null> {
   if (!isSupabaseConfigured) return null;
