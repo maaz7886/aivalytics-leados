@@ -1,5 +1,6 @@
 // src/pages/Leads.tsx
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import LeadTable from '../components/LeadTable';
 import MetaLeadSimulatorModal from '../components/MetaLeadSimulatorModal';
 import CsvImportModal from '../components/CsvImportModal';
@@ -7,6 +8,7 @@ import LeadCalendarView from '../components/LeadCalendarView';
 import Pipeline from './Pipeline';
 
 export default function Leads() {
+  const navigate = useNavigate();
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar'>('calendar');
@@ -53,6 +55,12 @@ export default function Leads() {
             </button>
           </div>
 
+          <button
+            onClick={() => navigate('/sales-wizard')}
+            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>⚡</span> Guided Sales Call Wizard
+          </button>
           <button
             onClick={() => setIsCsvImportOpen(true)}
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"

@@ -6,6 +6,7 @@ import Leads from "./pages/Leads";
 import Pipeline from "./pages/Pipeline";
 import TasksPage from "./pages/Tasks";
 import AIIntelligence from "./pages/AIIntelligence";
+import GuidedSalesPage from "./pages/GuidedSalesPage";
 import Conversations from "./pages/Conversations";
 import Programs from "./pages/Programs";
 import AiPmProgram from "./pages/programs/AiPmProgram";
@@ -33,6 +34,7 @@ function App() {
             <Route path="/leads" element={<Leads />} />
             <Route path="/pipeline" element={<Pipeline />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/sales-wizard" element={<GuidedSalesPage />} />
             <Route path="/ai" element={<AIIntelligence />} />
             <Route path="/conversations" element={<Conversations />} />
             <Route path="/programs" element={<Programs />} />

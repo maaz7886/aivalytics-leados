@@ -469,10 +469,22 @@ END:VCALENDAR`;
                             <span>📞 Call</span>
                           </a>
 
+                          {/* Guided Sales Call Button */}
+                          <button
+                            onClick={() => {
+                              setSelectedLeadId(lead.id);
+                              navigate('/sales-wizard');
+                            }}
+                            className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-[10px] rounded-lg shadow-2xs cursor-pointer flex items-center gap-1"
+                            title="Launch 24-Phase Guided Sales Teleprompter"
+                          >
+                            <span>⚡ Sales Call</span>
+                          </button>
+
                           {/* Full Call & Log Modal Button */}
                           <button
                             onClick={() => handleStartCall(lead)}
-                            className="px-2 py-1 bg-primary-600 hover:bg-primary-700 text-white font-bold text-[10px] rounded-lg shadow-2xs cursor-pointer flex-1 text-center truncate"
+                            className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-[10px] rounded-lg shadow-2xs cursor-pointer text-center truncate"
                           >
                             Log Notes
                           </button>

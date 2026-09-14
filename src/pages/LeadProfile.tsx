@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Lead } from '../types';
+import GuidedSalesWizardModal from '../components/GuidedSalesWizardModal';
 
 export default function LeadProfile() {
   const { leads, selectedLeadId, setSelectedLeadId, updateLeadStage, addCallNote } = useApp();
@@ -10,6 +11,7 @@ export default function LeadProfile() {
   const lead: Lead = leads.find((l) => l.id === selectedLeadId) || leads[0];
 
   // Component local states
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [rawNoteInput, setRawNoteInput] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [questions, setQuestions] = useState<string[]>(lead.discoveryQuestions);
@@ -102,6 +104,13 @@ export default function LeadProfile() {
 
         {/* Lead Switcher & Stage Selector */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <button
+            onClick={() => setIsWizardOpen(true)}
+            className="px-4 py-2 bg-gradient-to-r from-primary-600 to-emerald-600 hover:from-primary-700 hover:to-emerald-700 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer animate-pulse"
+          >
+            <span>⚡</span> Launch Guided Sales Call Wizard
+          </button>
+
           <div className="flex flex-col text-xs text-gray-500">
             <span>Select Lead for Preview:</span>
             <select
@@ -799,6 +808,13 @@ export default function LeadProfile() {
           </div>
         </div>
       </div>
+
+      {/* GUIDED SALES DECISION SYSTEM WIZARD MODAL */}
+      <GuidedSalesWizardModal
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        leadId={lead.id}
+      />
     </div>
   );
 }

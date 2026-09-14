@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 const navigation = [
   { name: "Dashboard", to: "/dashboard" },
   { name: "Leads", to: "/leads" },
+  { name: "⚡ Guided Sales Call", to: "/sales-wizard", badge: "24-Phase" },
   { name: "Pipeline", to: "/pipeline" },
   { name: "Tasks", to: "/tasks" },
   { name: "AI Intelligence", to: "/ai" },
@@ -49,13 +50,20 @@ export default function Sidebar() {
             <Link
               key={item.name}
               to={item.to}
-              className={`flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+              className={`flex items-center justify-between px-3 py-2.5 text-sm font-semibold rounded-xl transition-all ${
                 isActive
                   ? "bg-primary-600 text-white shadow-md"
                   : "text-gray-700 dark:text-gray-300 hover:bg-primary-50 hover:text-primary-700 dark:hover:bg-gray-800"
               }`}
             >
               <span>{item.name}</span>
+              {item.badge && (
+                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                  isActive ? "bg-white/20 text-white" : "bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300"
+                }`}>
+                  {item.badge}
+                </span>
+              )}
             </Link>
           );
         })}

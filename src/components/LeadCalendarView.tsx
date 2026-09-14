@@ -1,11 +1,13 @@
 // src/components/LeadCalendarView.tsx
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import type { Lead, Stage } from '../types';
 import CsvImportModal from './CsvImportModal';
 import MetaLeadSimulatorModal from './MetaLeadSimulatorModal';
 
 export default function LeadCalendarView() {
+  const navigate = useNavigate();
   const { leads, setSelectedLeadId, updateLeadStage, deleteLead, deleteBulkLeads, bulkUpdateStage } = useApp();
 
   // Current calendar view date state (Default to September 2026, Today = 14 Sep 2026)
@@ -655,10 +657,20 @@ export default function LeadCalendarView() {
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => setSelectedLeadId(lead.id)}
-                            className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg shadow-xs text-xs transition-all cursor-pointer"
+                            onClick={() => {
+                              setSelectedLeadId(lead.id);
+                              navigate('/sales-wizard');
+                            }}
+                            className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-lg shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                            title="Launch 24-Phase Guided Sales Teleprompter"
                           >
-                            View AI Profile ➔
+                            ⚡ Sales Call
+                          </button>
+                          <button
+                            onClick={() => setSelectedLeadId(lead.id)}
+                            className="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold text-xs rounded-lg transition-all cursor-pointer"
+                          >
+                            AI Profile
                           </button>
                           <button
                             onClick={() => handleSingleDelete(lead.id, lead.fullName)}
