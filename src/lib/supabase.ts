@@ -127,6 +127,7 @@ export async function insertLeadToSupabase(lead: Lead): Promise<boolean> {
       meta_ad_set: lead.metaAdSet,
       meta_ad: lead.metaAd,
       campaign_id: lead.campaignId,
+      date_captured: lead.dateCaptured,
       program_id: lead.programId,
       program_name: lead.programName,
       professional_status: lead.professionalStatus,

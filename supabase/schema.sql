@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
     meta_ad_set TEXT,
     meta_ad TEXT,
     campaign_id TEXT,
-    date_captured TIMESTAMPTZ DEFAULT NOW(),
+    date_captured TEXT DEFAULT '2026-09-14 10:00',
     
     -- Program
     program_id TEXT DEFAULT 'ai-pm',
@@ -149,7 +149,7 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- 6. Seed Initial Demo Lead Dataset
 INSERT INTO public.leads (
-    id, full_name, phone, email, city, source, program_id, program_name,
+    id, full_name, phone, email, city, source, date_captured, program_id, program_name,
     professional_status, current_role, current_company, years_of_experience,
     current_ai_usage_level, primary_goal, crm_stage, fit_score, intent_score
 )
@@ -161,6 +161,7 @@ VALUES
     'rahul.sharma@techcorp.io',
     'Bengaluru',
     'Meta Lead Ads',
+    '2026-09-14 09:30',
     'ai-pm',
     'AI-Native Project Management',
     'Working Professional',
@@ -180,6 +181,7 @@ VALUES
     'priya.s@gtmscale.com',
     'Mumbai',
     'Meta Lead Ads',
+    '2026-09-14 11:15',
     'ai-gtm',
     'AI-Native GTM',
     'Working Professional',
@@ -199,6 +201,7 @@ VALUES
     'vikram@mehtaconsulting.com',
     'Delhi NCR',
     'Meta Lead Ads',
+    '2026-09-11 09:15',
     'ai-fellowship',
     'AI Fellowship',
     'Founder',
