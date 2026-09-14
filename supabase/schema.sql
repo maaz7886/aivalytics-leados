@@ -16,8 +16,9 @@ CREATE TABLE IF NOT EXISTS public.leads (
     state TEXT DEFAULT 'Karnataka',
     country TEXT DEFAULT 'India',
     
-    -- Acquisition & Meta Ads
+    -- Acquisition & Meta Ads (7 Core Lead Form Questions)
     source TEXT DEFAULT 'Meta Lead Ads',
+    meta_form_submission JSONB DEFAULT '{}'::jsonb,
     meta_campaign TEXT,
     meta_ad_set TEXT,
     meta_ad TEXT,

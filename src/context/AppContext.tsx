@@ -22,6 +22,15 @@ const initialLeads: Lead[] = [
     state: 'Karnataka',
     country: 'India',
     source: 'Meta Ads',
+    metaFormSubmission: {
+      fullName: 'Rahul Sharma',
+      email: 'rahul.sharma@techcorp.io',
+      phone: '+91 98765 43210',
+      yearsOfExperience: 10,
+      currentAiUsage: 'Using ChatGPT for basic PRD drafts & email summaries, but lacks automated agent workflow integration.',
+      desired6To12MonthOutcome: 'Transition into a Senior AI Project Manager / Director of AI Operations role with ₹35+ LPA compensation.',
+      biggestObstacle: 'Traditional PM workflows are becoming obsolete; needs hands-on multi-agent orchestration & n8n pipeline execution experience.'
+    },
     metaCampaign: 'IN_PM_AI_Upskill_Q3',
     metaAdSet: 'Exp_7-12_Tech_PMs',
     metaAd: 'Ad_04_PM_Agentic_Workflows',

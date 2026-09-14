@@ -14,11 +14,12 @@ interface ParsedLeadRow {
   fullName: string;
   email: string;
   phone: string;
+  yearsOfExperience: number;
+  currentAiUsage: string;
+  desired6To12MonthOutcome: string;
+  biggestObstacle: string;
   currentRole: string;
   currentCompany: string;
-  city: string;
-  yearsOfExperience: number;
-  primaryGoal: string;
   programName: string;
 }
 
@@ -43,26 +44,60 @@ export default function CsvImportModal({ isOpen, onClose, targetDate }: CsvImpor
         return '';
       };
 
-      const fullName = getVal(['fullname', 'name', 'leadname', 'candidate']) || `Excel Candidate ${idx + 1}`;
-      const email = getVal(['email', 'emailaddress', 'mail']) || `lead${Date.now()}_${idx}@excelimport.com`;
+      const fullName = getVal(['fullname', 'full_name', 'name', 'leadname', 'candidate']) || `Meta Lead Candidate ${idx + 1}`;
+      const email = getVal(['email', 'emailaddress', 'mail']) || `lead${Date.now()}_${idx}@metaads.com`;
       const phone = getVal(['phone', 'phonenumber', 'mobile', 'contact']) || '+91 90000 00000';
-      const currentRole = getVal(['currentrole', 'role', 'title', 'designation']) || 'Project Manager';
-      const currentCompany = getVal(['currentcompany', 'company', 'organization']) || 'Tech Organization';
-      const city = getVal(['city', 'location', 'place']) || 'Bengaluru';
-      const expStr = getVal(['yearsofexperience', 'experience', 'exp', 'years']);
+      
+      const expStr = getVal([
+        'howmanyyearsofprofessionalexperiencedoyouhave',
+        'yearsofexperience',
+        'years_of_experience',
+        'experience',
+        'exp',
+        'years'
+      ]);
       const yearsOfExperience = parseInt(expStr || '5', 10) || 5;
-      const primaryGoal = getVal(['primarygoal', 'goal', 'objective']) || 'Upskill in Current Role';
+
+      const currentAiUsage = getVal([
+        'howareyoucurrentlyusingaiinyourprofessionalwork',
+        'currentaiusage',
+        'ai_usage',
+        'currentaiusagelevel',
+        'aiusage',
+        'ai'
+      ]) || 'Uses ChatGPT for drafting documents & basic research';
+
+      const desired6To12MonthOutcome = getVal([
+        'ifthenext612monthsgowellprofessionallywhatoutcomewouldyoumostwant',
+        'expectedoutcome',
+        'desiredoutcome',
+        'primarygoal',
+        'goal',
+        'objective'
+      ]) || 'Transition into an AI-native leadership role with salary growth';
+
+      const biggestObstacle = getVal([
+        'whatisthebiggestthingstoppingyoufromreachingthatoutcometoday',
+        'mainchallenge',
+        'challenge',
+        'obstacle',
+        'barrier'
+      ]) || 'Lack of structured hands-on multi-agent execution framework';
+
+      const currentRole = getVal(['currentrole', 'role', 'title', 'designation']) || 'Working Professional';
+      const currentCompany = getVal(['currentcompany', 'company', 'organization']) || 'Tech Organization';
       const programName = getVal(['targetprogram', 'program', 'programname']) || 'AI-Native Project Management';
 
       return {
         fullName,
         email,
         phone,
+        yearsOfExperience,
+        currentAiUsage,
+        desired6To12MonthOutcome,
+        biggestObstacle,
         currentRole,
         currentCompany,
-        city,
-        yearsOfExperience,
-        primaryGoal,
         programName
       };
     });
@@ -142,13 +177,22 @@ export default function CsvImportModal({ isOpen, onClose, targetDate }: CsvImpor
         fullName: row.fullName,
         phone: row.phone,
         email: row.email,
-        city: row.city,
-        state: 'State',
+        city: 'Bengaluru',
+        state: 'Karnataka',
         country: 'India',
-        source: 'Microsoft Excel Ingestion',
-        metaCampaign: 'Excel_Worksheet_Q3',
-        metaAdSet: 'Direct_Import',
-        metaAd: 'XLSX_File_Upload',
+        metaFormSubmission: {
+          fullName: row.fullName,
+          email: row.email,
+          phone: row.phone,
+          yearsOfExperience: row.yearsOfExperience,
+          currentAiUsage: row.currentAiUsage,
+          desired6To12MonthOutcome: row.desired6To12MonthOutcome,
+          biggestObstacle: row.biggestObstacle
+        },
+        source: 'Meta Lead Ads / Excel Ingestion',
+        metaCampaign: 'Meta_Ad_Lead_Campaign_Q3',
+        metaAdSet: 'Target_Persona_Batch',
+        metaAd: 'Ad_Form_Ingestion',
         campaignId: `cmp_xlsx_${Date.now()}`,
         dateCaptured: targetDate
           ? `${targetDate} ${new Date().toTimeString().substring(0, 5)}`
@@ -156,20 +200,20 @@ export default function CsvImportModal({ isOpen, onClose, targetDate }: CsvImpor
         programId: progLower.includes('gtm') ? 'ai-gtm' : progLower.includes('fellowship') ? 'ai-fellowship' : 'ai-pm',
         programName: row.programName,
         professionalStatus: 'Working Professional',
-        currentRole: row.currentRole,
-        currentCompany: row.currentCompany,
+        currentRole: row.currentRole || 'Working Professional',
+        currentCompany: row.currentCompany || 'Tech Company',
         industry: 'Technology',
         yearsOfExperience: row.yearsOfExperience,
-        currentResponsibilities: `Uploaded via Excel worksheet (${fileName || 'Leads.xlsx'}). ${row.currentRole} at ${row.currentCompany}.`,
+        currentResponsibilities: `Meta Lead Ad response: ${row.currentAiUsage}`,
         currentSkillSet: ['Domain Expertise', 'Execution Management', 'Team Leadership'],
-        currentAiUsageLevel: 'Intermediate',
-        primaryGoal: (row.primaryGoal as any) || 'Upskill in Current Role',
-        desiredRole: `Senior ${row.currentRole} (AI-Native)`,
+        currentAiUsageLevel: row.currentAiUsage.toLowerCase().includes('advanced') ? 'Advanced' : row.currentAiUsage.toLowerCase().includes('beginner') ? 'Beginner' : 'Intermediate',
+        primaryGoal: 'Upskill in Current Role',
+        desiredRole: `Senior ${row.currentRole || 'Professional'} (AI-Native)`,
         expectedTimeline: '3–6 months',
-        mainChallenge: 'Needs multi-agent workflow & SOP automation capability.',
-        whyNow: 'Committed via Excel bulk lead import.',
-        expectedOutcome: 'Achieve AI productivity and career progression.',
-        comments: `Bulk imported from Excel file ${fileName || 'Worksheet.xlsx'}.`,
+        mainChallenge: row.biggestObstacle,
+        whyNow: 'Submitted via Meta Ad Lead form.',
+        expectedOutcome: row.desired6To12MonthOutcome,
+        comments: `Imported Meta Ad payload. 6-12m Goal: "${row.desired6To12MonthOutcome}". Barrier: "${row.biggestObstacle}".`,
         assignedSalesperson: 'Alex Rivera',
         crmStage: 'New Lead' as Stage,
         leadTemperature: fitScore > 85 ? 'Hot' : 'Warm',
@@ -183,25 +227,34 @@ export default function CsvImportModal({ isOpen, onClose, targetDate }: CsvImpor
         fitScore,
         intentScore,
         fitScoreBreakdown: [
-          { factor: 'Domain Experience', score: fitScore, reason: `${row.yearsOfExperience} years experience as ${row.currentRole}.` }
+          { factor: 'Years of Experience', score: fitScore, reason: `${row.yearsOfExperience} years experience reported.` },
+          { factor: 'AI Readiness', score: 85, reason: row.currentAiUsage }
         ],
         intentScoreBreakdown: [
-          { factor: 'Excel Batch Priority', score: intentScore, reason: 'Imported via active Excel lead ingestion batch.' }
+          { factor: 'Clear Professional Goal', score: intentScore, reason: row.desired6To12MonthOutcome }
         ],
-        likelyDesiredOutcome: `${row.fullName} is seeking to integrate AI execution frameworks into their role at ${row.currentCompany}.`,
-        evidenceLeadProvided: [`Role: ${row.currentRole}`, `Company: ${row.currentCompany}`, `Experience: ${row.yearsOfExperience} yrs`],
-        evidenceAiInterpretation: ['Needs fast-track AI preparation and custom sales outreach.'],
-        recommendedPositioning: `Position ${row.programName} as a high-impact execution multiplier.`,
-        recommendedOpening: `Hi ${row.fullName.split(' ')[0]}, following up on your ${row.programName} registration.`,
+        likelyDesiredOutcome: row.desired6To12MonthOutcome,
+        evidenceLeadProvided: [
+          `Years of Experience: ${row.yearsOfExperience}`,
+          `Current AI Usage: ${row.currentAiUsage}`,
+          `6-12 Month Goal: ${row.desired6To12MonthOutcome}`,
+          `Main Barrier: ${row.biggestObstacle}`
+        ],
+        evidenceAiInterpretation: [
+          'High propensity for structured AI execution program.',
+          'Main blocker identified; address directly during opening pitch.'
+        ],
+        recommendedPositioning: `Position ${row.programName} as the exact bridge to overcome: "${row.biggestObstacle}".`,
+        recommendedOpening: `Hi ${row.fullName.split(' ')[0]}, following up on your response regarding ${row.desired6To12MonthOutcome}.`,
         discoveryQuestions: [
-          `How are AI workflows currently utilized at ${row.currentCompany}?`,
-          `What milestone over the next 3–6 months defines success for you?`
+          `You mentioned "${row.biggestObstacle}" is your main barrier—how is that impacting your daily work today?`,
+          `If we solve this over the next 12 weeks in ${row.programName}, what would success look like for you?`
         ],
-        existingSkills: ['Domain Expertise', 'Operations'],
-        aiSkillsToDevelop: ['AI Agent Orchestration', 'SOP Engineering', 'Automated Reporting'],
-        whyProgramFits: `Matches target profile for ${row.programName}.`,
+        existingSkills: ['Domain Expertise', 'Execution'],
+        aiSkillsToDevelop: ['AI Agent Orchestration', 'SOP Engineering', 'Automated Workflows'],
+        whyProgramFits: `Designed specifically to solve "${row.biggestObstacle}" for professionals with ${row.yearsOfExperience}+ years experience.`,
         objections: [],
-        recommendedNextAction: 'Review AI profile and initiate first contact call within 24 hours.',
+        recommendedNextAction: 'Review Meta Ad submission and initiate first contact call within 24 hours.',
         callNotesHistory: []
       };
 
@@ -220,44 +273,38 @@ export default function CsvImportModal({ isOpen, onClose, targetDate }: CsvImpor
   const downloadSampleExcel = () => {
     const data = [
       {
-        'Full Name': 'Anish Kapoor',
-        'Email': 'anish.k@techcorp.in',
-        'Phone': '+91 98123 45678',
-        'Current Role': 'Senior Engineering Manager',
-        'Current Company': 'TechCorp',
-        'City': 'Bengaluru',
-        'Years of Experience': 8,
-        'Primary Goal': 'Switch Company',
-        'Target Program': 'AI-Native Project Management'
+        'full_name': 'Anish Kapoor',
+        'email': 'anish.k@techcorp.in',
+        'phone': '+91 98123 45678',
+        'how_many_years_of_professional_experience_do_you_have?': 8,
+        'how_are_you_currently_using_ai_in_your_professional_work?': 'Using ChatGPT daily for user stories and email drafting',
+        'if_the_next_6–12_months_go_well_professionally,_what_outcome_would_you_most_want?': 'Switch to a Senior AI-PM role with ₹30+ LPA salary',
+        'what_is_the_biggest_thing_stopping_you_from_reaching_that_outcome_today?': 'Needs practical multi-agent orchestration and n8n pipeline experience'
       },
       {
-        'Full Name': 'Meera Nair',
-        'Email': 'meera.nair@growthscale.com',
-        'Phone': '+91 97654 32109',
-        'Current Role': 'Marketing Lead',
-        'Current Company': 'Growth Scale Studio',
-        'City': 'Mumbai',
-        'Years of Experience': 6,
-        'Primary Goal': 'Learn Automation',
-        'Target Program': 'AI-Native GTM'
+        'full_name': 'Meera Nair',
+        'email': 'meera.nair@growthscale.com',
+        'phone': '+91 97654 32109',
+        'how_many_years_of_professional_experience_do_you_have?': 6,
+        'how_are_you_currently_using_ai_in_your_professional_work?': 'Experimenting with Midjourney and Claude for campaign copy',
+        'if_the_next_6–12_months_go_well_professionally,_what_outcome_would_you_most_want?': 'Build an automated AI outbound engine to 3x acquisition pipeline',
+        'what_is_the_biggest_thing_stopping_you_from_reaching_that_outcome_today?': 'Manual research and lack of Clay/n8n integration knowledge'
       },
       {
-        'Full Name': 'Rajesh Verma',
-        'Email': 'rajesh@vermaconsulting.in',
-        'Phone': '+91 99112 23344',
-        'Current Role': 'Founding Director',
-        'Current Company': 'Verma Advisory',
-        'City': 'Delhi NCR',
-        'Years of Experience': 12,
-        'Primary Goal': 'Start a Business',
-        'Target Program': 'AI Leadership Fellowship'
+        'full_name': 'Rajesh Verma',
+        'email': 'rajesh@vermaconsulting.in',
+        'phone': '+91 99112 23344',
+        'how_many_years_of_professional_experience_do_you_have?': 12,
+        'how_are_you_currently_using_ai_in_your_professional_work?': 'Advising enterprise clients on executive AI transformation strategy',
+        'if_the_next_6–12_months_go_well_professionally,_what_outcome_would_you_most_want?': 'Launch dedicated $50k AI advisory practice for consulting firm',
+        'what_is_the_biggest_thing_stopping_you_from_reaching_that_outcome_today?': 'Needs validated enterprise AI architecture templates and peer mastermind'
       }
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
-    XLSX.writeFile(workbook, 'Aivalytics_Sample_Leads_Template.xlsx');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Meta_Ads_Leads');
+    XLSX.writeFile(workbook, 'Aivalytics_Meta_Ads_Leads_Template.xlsx');
   };
 
   return (

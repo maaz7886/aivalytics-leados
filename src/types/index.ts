@@ -43,6 +43,16 @@ export type ProfessionalStatus =
 
 export type ProgramId = 'ai-pm' | 'ai-gtm' | 'ai-fellowship' | 'other';
 
+export interface MetaAdFormSubmission {
+  yearsOfExperience: number;
+  currentAiUsage: string;
+  desired6To12MonthOutcome: string;
+  biggestObstacle: string;
+  email: string;
+  fullName: string;
+  phone: string;
+}
+
 export interface Lead {
   id: string;
   fullName: string;
@@ -52,6 +62,9 @@ export interface Lead {
   state: string;
   country: string;
   
+  // Meta Lead Form Payload (7 Standard Questions)
+  metaFormSubmission?: MetaAdFormSubmission;
+
   // Acquisition
   source: string;
   metaCampaign: string;

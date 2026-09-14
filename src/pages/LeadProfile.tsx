@@ -167,6 +167,99 @@ export default function LeadProfile() {
         </div>
       </div>
 
+      {/* META LEAD ADS FORM SUBMISSION CARD */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border-2 border-primary-300 dark:border-primary-800 shadow-md space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl">⚡</span>
+            <div>
+              <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-100">
+                Meta Ads Lead Form Raw Submission Payload
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Exact candidate responses submitted on Meta Lead Ad instant form & Excel ingestion batch.
+              </p>
+            </div>
+          </div>
+          <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs rounded-lg border border-emerald-300 dark:border-emerald-700">
+            Verified 7-Question Payload
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          {/* Contact 3 Questions */}
+          <div className="space-y-3 bg-gray-50 dark:bg-gray-700/40 p-4 rounded-xl border border-gray-200 dark:border-gray-600">
+            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              Contact & Identity Info
+            </div>
+            <div>
+              <span className="font-bold text-gray-500 block">Full Name (`full_name`):</span>
+              <span className="font-extrabold text-gray-900 dark:text-gray-100 text-sm">{lead.fullName}</span>
+            </div>
+            <div>
+              <span className="font-bold text-gray-500 block">Phone (`phone`):</span>
+              <span className="font-mono text-gray-900 dark:text-gray-100 font-bold">{lead.phone}</span>
+            </div>
+            <div>
+              <span className="font-bold text-gray-500 block">Email (`email`):</span>
+              <span className="font-medium text-primary-600 dark:text-primary-400">{lead.email}</span>
+            </div>
+          </div>
+
+          {/* Q1: Experience */}
+          <div className="bg-gray-50 dark:bg-gray-700/40 p-4 rounded-xl border border-gray-200 dark:border-gray-600">
+            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              Question 1 — Professional Experience
+            </div>
+            <span className="font-semibold text-gray-600 dark:text-gray-300 block mt-1">
+              "How many years of professional experience do you have?"
+            </span>
+            <div className="mt-2 text-xl font-black text-emerald-600 dark:text-emerald-400">
+              {lead.metaFormSubmission?.yearsOfExperience ?? lead.yearsOfExperience} Years Experience
+            </div>
+          </div>
+
+          {/* Q2: Current AI Usage */}
+          <div className="bg-gray-50 dark:bg-gray-700/40 p-4 rounded-xl border border-gray-200 dark:border-gray-600">
+            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              Question 2 — Current AI Workflow Usage
+            </div>
+            <span className="font-semibold text-gray-600 dark:text-gray-300 block mt-1">
+              "How are you currently using AI in your professional work?"
+            </span>
+            <p className="mt-2 p-2.5 bg-white dark:bg-gray-800 rounded-lg text-gray-800 dark:text-gray-200 font-medium border border-gray-200 dark:border-gray-700">
+              "{lead.metaFormSubmission?.currentAiUsage || lead.currentResponsibilities || 'Uses ChatGPT for writing & basic tasks'}"
+            </p>
+          </div>
+
+          {/* Q3: 6-12 Month Desired Outcome */}
+          <div className="bg-gray-50 dark:bg-gray-700/40 p-4 rounded-xl border border-gray-200 dark:border-gray-600">
+            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+              Question 3 — Professional Goal & Outcome
+            </div>
+            <span className="font-semibold text-gray-600 dark:text-gray-300 block mt-1">
+              "If the next 6–12 months go well professionally, what outcome would you most want?"
+            </span>
+            <p className="mt-2 p-2.5 bg-primary-50 dark:bg-primary-950/50 rounded-lg text-primary-900 dark:text-primary-200 font-bold border border-primary-200 dark:border-primary-800">
+              "{lead.metaFormSubmission?.desired6To12MonthOutcome || lead.expectedOutcome || lead.primaryGoal}"
+            </p>
+          </div>
+
+          {/* Q4: Biggest Obstacle */}
+          <div className="md:col-span-2 bg-red-50/50 dark:bg-red-950/20 p-4 rounded-xl border border-red-200 dark:border-red-800/40">
+            <div className="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
+              Question 4 — Primary Barrier / Obstacle
+            </div>
+            <span className="font-semibold text-gray-700 dark:text-gray-300 block mt-1">
+              "What is the biggest thing stopping you from reaching that outcome today?"
+            </span>
+            <p className="mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg text-red-800 dark:text-red-300 font-bold border border-red-200 dark:border-red-900">
+              "{lead.metaFormSubmission?.biggestObstacle || lead.mainChallenge}"
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* SECTION 1 — LEAD SNAPSHOT */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
