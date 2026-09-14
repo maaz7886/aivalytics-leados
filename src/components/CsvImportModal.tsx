@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 interface CsvImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  targetDate?: string;
 }
 
 interface ParsedLeadRow {
@@ -21,7 +22,7 @@ interface ParsedLeadRow {
   programName: string;
 }
 
-export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps) {
+export default function CsvImportModal({ isOpen, onClose, targetDate }: CsvImportModalProps) {
   const { addLead } = useApp();
   const [fileName, setFileName] = useState<string>('');
   const [parsedRows, setParsedRows] = useState<ParsedLeadRow[]>([]);
@@ -149,7 +150,9 @@ export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps)
         metaAdSet: 'Direct_Import',
         metaAd: 'XLSX_File_Upload',
         campaignId: `cmp_xlsx_${Date.now()}`,
-        dateCaptured: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        dateCaptured: targetDate
+          ? `${targetDate} ${new Date().toTimeString().substring(0, 5)}`
+          : new Date().toISOString().replace('T', ' ').substring(0, 16),
         programId: progLower.includes('gtm') ? 'ai-gtm' : progLower.includes('fellowship') ? 'ai-fellowship' : 'ai-pm',
         programName: row.programName,
         professionalStatus: 'Working Professional',

@@ -6,9 +6,10 @@ import type { Lead, ProfessionalStatus, PrimaryGoal, ProgramId } from '../types'
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  targetDate?: string;
 }
 
-export default function MetaLeadSimulatorModal({ isOpen, onClose }: Props) {
+export default function MetaLeadSimulatorModal({ isOpen, onClose, targetDate }: Props) {
   const { addLead, setSelectedLeadId } = useApp();
 
   const [fullName, setFullName] = useState('');
@@ -59,7 +60,9 @@ export default function MetaLeadSimulatorModal({ isOpen, onClose }: Props) {
         metaAdSet: 'Target_Segment_Live',
         metaAd: 'Ad_Creative_AI_Native',
         campaignId: `cmp_${Math.floor(Math.random() * 900000 + 100000)}`,
-        dateCaptured: new Date().toLocaleString(),
+        dateCaptured: targetDate
+          ? `${targetDate} ${new Date().toTimeString().substring(0, 5)}`
+          : new Date().toISOString().replace('T', ' ').substring(0, 16),
         programId,
         programName: progName,
         professionalStatus,
