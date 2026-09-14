@@ -16,139 +16,185 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
   const targetId = leadId || propLead?.id || selectedLeadId;
   const lead = propLead || leads.find((l) => l.id === targetId) || leads[0];
 
-  // Guided Sales Decision Engine Wizard State (Phases 1 - 24)
-  const [currentPhase, setCurrentPhase] = useState<number>(1);
-  const [role, setRole] = useState<string>(lead.currentRole || 'Project Manager');
-  const [experience, setExperience] = useState<number>(lead.yearsOfExperience || 5);
+  // Guided Sales Decision Engine State (20-Stage Guided Architecture)
+  const [currentStageNum, setCurrentStageNum] = useState<number>(1);
+
+  // Prospect Attributes & State Updates
+  const [openingOutcome, setOpeningOutcome] = useState<string>('Yes - Good Time');
+  const [initialMotivation, setInitialMotivation] = useState<string>('Career Growth');
+  const [role, setRole] = useState<string>(lead?.currentRole || 'Project Manager');
+  const [experience, setExperience] = useState<number>(lead?.yearsOfExperience || 5);
   const [seniority, setSeniority] = useState<string>('Manager');
-  const [interestReason, setInterestReason] = useState<string>('Career Growth');
-  const [aiMaturity, setAiMaturity] = useState<string>('Basic ChatGPT / Claude prompts');
-  const [aiGap, setAiGap] = useState<string>('Multi-Agent Orchestration');
+  const [roleBranchDetail, setRoleBranchDetail] = useState<string>('Repetitive PRDs & Manual Sprint Updates');
+  const [aiMaturity, setAiMaturity] = useState<string>('Basic ChatGPT / Claude prompts (Level 1)');
   const [primaryPain, setPrimaryPain] = useState<string>('Too much repetitive manual work');
-  const [costOfInaction, setCostOfInaction] = useState<string>('Career stagnation & flat salary');
-  const [desiredOutcome, setDesiredOutcome] = useState<string>('Senior AI Project Manager (₹35+ LPA)');
-  const [careerDirection, setCareerDirection] = useState<string>('Move into AI & Automation');
-  const [dominantBarrier, setDominantBarrier] = useState<string>('Lack of practical agent portfolio projects');
+  const [costOfInaction, setCostOfInaction] = useState<string>('Career stagnation & flat salary over 12 months');
+  const [desiredOutcome, setDesiredOutcome] = useState<string>('Switch to AI Project Manager Role');
+  const [targetRole, setTargetRole] = useState<string>('AI Project Manager / Director of AI PMO');
+  const [primaryGap, setPrimaryGap] = useState<string>('Lack of practical agent portfolio projects');
   const [urgency, setUrgency] = useState<string>('Immediately (Next 30 days)');
+  const [whyNow, setWhyNow] = useState<string>('Appraisal / Career milestone coming up');
   const [timeCommitment, setTimeCommitment] = useState<string>('6–8 hours/week');
-  const [learningFormat, setLearningFormat] = useState<string>('Weekend Batch (Sat & Sun 10 AM - 1 PM)');
+  const [batchChoice, setBatchChoice] = useState<string>('Weekend Batch (Sat & Sun 10 AM - 1 PM)');
   const [decisionAuthority, setDecisionAuthority] = useState<string>('Independent Decision Maker');
   const [budgetReadiness, setBudgetReadiness] = useState<string>('Ready for ₹5,000 Seat Reservation');
-  const [selectedObjection, setSelectedObjection] = useState<string>('');
+  const [selectedObjection, setSelectedObjection] = useState<string>('PRICE');
   const [fitCheck, setFitCheck] = useState<string>('Yes - Complete Alignment');
+  const [activeDiscussionTopic, setActiveDiscussionTopic] = useState<string | null>(null);
 
-  // Payment Link & Copy Status
+  // Transaction & Copy State
   const [isLinkSent, setIsLinkSent] = useState(false);
   const [copiedScript, setCopiedScript] = useState(false);
 
   if (!isOpen || !lead) return null;
 
-  // Calculate Algorithmic Lead Score (Phase 21)
+  // 100-Point Algorithmic Lead Scoring Rubric (Stage 20)
   const calculateLeadScore = () => {
-    let score = 50; // base
-    if (experience >= 3) score += 10;
+    let score = 30; // base engagement
+    if (experience >= 3) score += 15;
     if (experience >= 8) score += 5;
     if (urgency.includes('Immediately')) score += 15;
     else if (urgency.includes('1–3 months')) score += 10;
-    if (dominantBarrier.includes('practical') || dominantBarrier.includes('agent')) score += 10;
+    if (primaryGap.includes('portfolio') || primaryGap.includes('practical')) score += 10;
+    if (desiredOutcome.includes('Switch') || desiredOutcome.includes('Hike')) score += 10;
     if (decisionAuthority.includes('Independent')) score += 5;
     if (budgetReadiness.includes('Ready')) score += 5;
+    if (initialMotivation.includes('Career') || initialMotivation.includes('Switch')) score += 5;
     return Math.min(98, score);
   };
 
-  const calculatedScore = calculateLeadScore();
+  const score = calculateLeadScore();
+  const leadTier = score >= 80 ? '🔥 HOT LEAD' : score >= 65 ? '⚡ STRONG LEAD' : score >= 50 ? '🌾 NURTURE' : '❄️ LOW INTENT';
 
-  // Dynamic Position Teleprompter (Phase 13)
-  const getTeleprompterScript = () => {
-    if (role.toLowerCase().includes('sales')) {
-      return `"${lead.fullName.split(' ')[0]}, your sales background gives you elite communication. By adding n8n automation and custom AI agents, you become an AI Growth Architect who builds high-volume pipelines."`;
+  // Dynamic Spoken Teleprompter Prompts (Concise 20–50 words / 1–3 sentences max)
+  const getSpokenScriptForStage = () => {
+    const firstName = lead.fullName.split(' ')[0];
+
+    switch (currentStageNum) {
+      case 1:
+        return `"Hi ${firstName}, this is Maaz from Aivalytics. We received your inquiry regarding our AI-Native Project Management program. Before I give a generic explanation, I'd like to understand your background so I can tell you honestly if it's relevant. Is that fair?"`;
+      case 2:
+        return `"What specifically caught your attention when you saw our program—was it AI agent automation, career growth, or moving into a stronger execution role?"`;
+      case 3:
+        if (role.toLowerCase().includes('project') || role.toLowerCase().includes('pm')) {
+          return `"You already understand project execution. So the real value for you isn't relearning project management—it's adding AI agents and automation on top of your existing experience."`;
+        }
+        if (role.toLowerCase().includes('sales')) {
+          return `"Your advantage is that you already understand customers and commercial outcomes. Adding project execution and AI agents makes you relevant for roles between client delivery and operations."`;
+        }
+        if (role.toLowerCase().includes('dev') || role.toLowerCase().includes('tech')) {
+          return `"You already understand technical logic. We bridge the gap between coding scripts and leading enterprise AI transformation projects as a Technical Program Manager."`;
+        }
+        return `"With your ${experience} years in ${role}, adding an AI execution layer turns you into an AI Transformation Lead without throwing away your background."`;
+      case 4:
+        return `"With ${experience} years of professional experience, we focus on positioning you for senior AI-native leadership rather than foundational topics."`;
+      case 5:
+        return `"How are you currently using AI tools like ChatGPT or Claude in your day-to-day work routine?"`;
+      case 6:
+        return `"What part of your weekly work takes 5 to 10 hours but doesn't actually require your strategic judgment?"`;
+      case 7:
+        return `"If we look 6 to 12 months ahead, what primary career outcome or salary level would make this investment 100% worth it for you?"`;
+      case 8:
+        return `"What specific role title do you want to see on your LinkedIn profile 6 months from now?"`;
+      case 9:
+        return `"What do you feel is currently stopping you from reaching that outcome today?"`;
+      case 10:
+        return `"Why are you looking at this transition right now—is there an upcoming appraisal or active job search?"`;
+      case 11:
+        return `"You've told me that as a ${role} with ${experience} years of experience, your goal is ${desiredOutcome}, and your main barrier is ${primaryGap}. So for you, the value is adding an AI Agent Execution layer on top of what you already know."`;
+      case 12:
+        return `"The 3-month program is simple: Month 1 Learn AI → Month 2 Build AI Agents & Workflows → Month 3 Manage AI-Powered Execution."`;
+      case 13:
+        if (initialMotivation.includes('Switch') || desiredOutcome.includes('Switch') || primaryGap.includes('Job')) {
+          return `"Since career transition is important for you, after completing the program we provide 6 months of 100% placement support. Our AI agents identify relevant job openings and send 3–4 tailored profiles weekly on WhatsApp."`;
+        }
+        return `"You get 7 practical capstone projects, 3 professional certifications, a personal custom AI agent, and recorded session access designed for working pros."`;
+      case 14:
+        return `"Based on everything we've discussed, do you feel this 3-month roadmap is directly aligned with what you're trying to achieve?"`;
+      case 15:
+        return `"If you feel the program helps you achieve your goal, is there anything else that would stop you from joining this batch?"`;
+      case 16:
+        return `"Which format suits your schedule better—the Weekend 3-hour sessions or Weekday 1-hour sessions? Around 90% of our weekend attendees are working professionals."`;
+      case 17:
+        return `"The complete investment for the 3-month program is ₹39,499. You can reserve your seat today with ₹5,000."`;
+      case 18:
+        return `"You don't have to pay the entire amount today. I'm sending the official ₹5,000 Razorpay seat reservation link to your WhatsApp right now. Shall I stay on the line while you review it?"`;
+      default:
+        return `"Summary of candidate telemetry and post-call next steps."`;
     }
-    if (role.toLowerCase().includes('dev') || role.toLowerCase().includes('tech')) {
-      return `"${lead.fullName.split(' ')[0]}, you already understand logic. This 3-month program bridges the gap between raw code and leading enterprise AI transformation projects as a Technical Product Manager."`;
-    }
-    if (role.toLowerCase().includes('ops')) {
-      return `"${lead.fullName.split(' ')[0]}, instead of spending 15 hours a week manually coordinating workflows, we build custom AI agents that automate 50% of your operational bottlenecks."`;
-    }
-    return `"${lead.fullName.split(' ')[0]}, at ${experience} years of experience, your value isn't writing sprint cards manually. It’s architecting multi-agent workflows that audit sprint health automatically. We position you for a Senior AI-PM role."`;
   };
 
-  // Dynamic Value Stack (Phase 15)
-  const getValueStackItems = () => {
-    if (dominantBarrier.includes('practical') || dominantBarrier.includes('agent')) {
-      return ['7 Production Capstone Projects', '1 Custom AI Agent per Participant', '1-on-1 Code & Architecture Reviews'];
-    }
-    if (dominantBarrier.includes('job') || dominantBarrier.includes('career')) {
-      return ['3 Professional Certifications', '100% Job Assistance & Resume Positioning', 'Executive Career Direction Mapping'];
-    }
-    return ['Weekend Batch Working Professional Format', 'AI Learning-Tracking Assistant', '100% 2-Week Money-Back Guarantee'];
+  // Job Support Explanation (Explicit Distinction between 100% Placement Support vs Job Guarantee)
+  const getPlacementSupportScript = () => {
+    return `"Since career transition is important for you, after completing the program we provide 6 months of placement support. Our AI agents track relevant opportunities, and you receive approximately 3 to 4 relevant job profiles each week directly on WhatsApp. You simply review the role, and apply if interested. Note that this is 100% placement support, not a false job guarantee—it ensures you have consistent pipeline visibility after graduation."`;
   };
 
-  // Objection Resolution Engine (Phase 17)
-  const getObjectionResponse = (obj: string) => {
-    switch (obj) {
+  // 11-Objection Playbook Responses
+  const getObjectionHandler = (type: string) => {
+    switch (type) {
       case 'PRICE':
         return {
-          question: 'Compared to remaining in your current salary bracket for another year, or compared to basic online courses?',
-          response: '₹39,499 breaks down to just ₹438/day over 3 months. Plus, you can lock in your seat today with just ₹5,000.',
-          proof: '100% 2-Week Money-Back Guarantee + Flexible No-Cost EMI options available.'
+          clarify: "When you say price, is the concern affordability right now, or whether the program is worth ₹39,499?",
+          response: "₹39,499 breaks down to ₹438/day over 3 months. You can reserve your seat today for ₹5,000 with flexible No-Cost EMI options.",
+          proof: "100% 2-Week Money-Back Guarantee (Subject to T&C)."
         };
       case 'TIME':
         return {
-          question: 'How many hours on weekends do you currently spend on unstructured tasks or social media?',
-          response: '90% of our weekend attendees are full-time working managers. All sessions are recorded with lifetime access and supported by your AI Learning Assistant.',
-          proof: 'Recorded sessions + 3-hour Sat/Sun timing designed specifically for busy professionals.'
+          clarify: "Is the issue attending live sessions, or finding time for practical projects?",
+          response: "90% of our weekend learners are full-time working professionals. All live sessions are recorded with lifetime access and supported by your personal AI Learning Agent.",
+          proof: "3-hour Sat/Sun timing designed for busy schedules."
         };
       case 'JOB_GUARANTEE':
         return {
-          question: 'Are you looking for an honest institute that provides 100% job assistance and portfolio building, or fake placement promises?',
-          response: 'No genuine institute can guarantee employment. We provide 100% job placement support, resume optimization, portfolio reviews, and top referral networks.',
-          proof: '7 production capstone projects on GitHub that demonstrate real execution to hiring managers.'
+          clarify: "Are you looking for an honest institute that provides 100% placement support and portfolio building, or fake placement promises?",
+          response: "No genuine institute can guarantee employment. We provide 6 months of 100% placement support with AI job agent alerts on WhatsApp, resume positioning, and 7 live capstone projects.",
+          proof: "7 production GitHub projects demonstrate real proof to hiring managers."
         };
       default:
         return {
-          question: 'What specific aspect remains uncertain—is it the time commitment, curriculum depth, or investment structure?',
-          response: 'Let us address that directly so you can evaluate whether the 3-month program fits your career goals.',
-          proof: '100% 2-Week Money-Back Guarantee (Subject to T&C).'
+          clarify: "What specific aspect remains uncertain—is it the time commitment, curriculum depth, or investment structure?",
+          response: "Let's address that directly so you can evaluate whether this 3-month program fits your career path.",
+          proof: "100% 2-Week Money-Back Guarantee (Subject to T&C)."
         };
     }
   };
 
-  const handleSendPaymentLink = () => {
+  const handleSendRazorpayLink = () => {
     setIsLinkSent(true);
     updateLeadStage(lead.id, 'Payment Link Sent' as Stage);
     addCallNote(
       lead.id,
-      `Guided Sales System Call Completed. Score: ${calculatedScore}/100. Goal: "${desiredOutcome}". Sent ₹5,000 Razorpay Seat Reservation Link (https://rzp.io/rzp/dXXePYb).`
+      `[Guided Sales Call Completed] Score: ${score}/100 (${leadTier}). Goal: "${desiredOutcome}". Sent ₹5,000 Razorpay Seat Reservation Link (https://rzp.io/rzp/dXXePYb).`
     );
     setTimeout(() => setIsLinkSent(false), 4000);
   };
 
-  const copyScript = (text: string) => {
+  const copyPromptText = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedScript(true);
     setTimeout(() => setCopiedScript(false), 2000);
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 overflow-y-auto">
       <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-gray-200 dark:border-gray-800 relative max-h-[92vh] flex flex-col">
-        {/* Modal Header */}
+        {/* Header Bar */}
         <div className="flex justify-between items-center pb-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-600 text-white flex items-center justify-center text-xl font-black">
+            <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center text-xl font-black">
               ⚡
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">
-                  Guided Sales Decision System — {lead.fullName}
+                  Aivalytics Guided Sales Decision Engine — {lead.fullName}
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold text-xs">
-                  Score: {calculatedScore}/100
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-extrabold text-xs">
+                  Score: {score}/100 ({leadTier})
                 </span>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Phase {currentPhase} of 6 • Real-time consultative teleprompter & dynamic value equation.
+                Stage {currentStageNum} of 20 • Live Consultative Teleprompter & Decision Tree Map
               </p>
             </div>
           </div>
@@ -161,58 +207,114 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
           </button>
         </div>
 
-        {/* Phase Stepper Header */}
-        <div className="py-3 px-1 border-b border-gray-100 dark:border-gray-800 shrink-0 flex items-center justify-between text-xs overflow-x-auto gap-2">
-          {[
-            { phase: 1, title: '1. Frame & Profile' },
-            { phase: 2, title: '2. Pain & Maturity' },
-            { phase: 3, title: '3. Outcome & Gap' },
-            { phase: 4, title: '4. Positioning Engine' },
-            { phase: 5, title: '5. Objection Matrix' },
-            { phase: 6, title: '6. Close & Reservation' }
-          ].map((step) => (
+        {/* 20-Stage Quick Navigation Stepper */}
+        <div className="py-2.5 px-1 border-b border-gray-100 dark:border-gray-800 shrink-0 flex items-center gap-1.5 overflow-x-auto text-xs">
+          {Array.from({ length: 20 }, (_, i) => i + 1).map((sNum) => (
             <button
-              key={step.phase}
-              onClick={() => setCurrentPhase(step.phase)}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap cursor-pointer ${
-                currentPhase === step.phase
-                  ? 'bg-primary-600 text-white shadow-xs'
-                  : currentPhase > step.phase
-                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+              key={sNum}
+              onClick={() => setCurrentStageNum(sNum)}
+              className={`px-2.5 py-1 rounded-lg font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+                currentStageNum === sNum
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : currentStageNum > sNum
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
               }`}
             >
-              {step.title}
+              Stage {sNum}
             </button>
           ))}
         </div>
 
-        {/* Modal Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto py-5 space-y-6 text-xs min-h-0">
-          {/* PHASE 1 — RAPPORT & CURRENT PROFILE */}
-          {currentPhase === 1 && (
-            <div className="space-y-5 animate-in fade-in">
-              <div className="p-4 bg-primary-50 dark:bg-primary-950/50 rounded-2xl border border-primary-200 dark:border-primary-800 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="font-extrabold text-primary-900 dark:text-primary-200 uppercase tracking-wider text-[11px]">
-                    🗣️ Spoken Opening Frame (Phase 1)
-                  </span>
-                  <button
-                    onClick={() => copyScript(getTeleprompterScript())}
-                    className="text-primary-600 dark:text-primary-400 font-bold underline cursor-pointer"
-                  >
-                    {copiedScript ? '✅ Copied' : '📋 Copy Teleprompter'}
-                  </button>
-                </div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-200 italic leading-relaxed">
-                  "Hi {lead.fullName.split(' ')[0]}, this is Alex from Aivalytics. Before I give you a generic explanation of the curriculum, I want to understand your background and what caught your attention, so I can tell you honestly whether the program is relevant for you. Fair enough?"
-                </p>
-              </div>
+        {/* Scrollable Stage Content Body */}
+        <div className="flex-1 overflow-y-auto py-5 space-y-5 text-xs min-h-0">
+          {/* LIVE SALESPERSON UI TELEPROMPTER CARD */}
+          <div className="p-4 bg-gray-900 text-white rounded-2xl shadow-lg space-y-3 border border-purple-800/60">
+            <div className="flex justify-between items-center">
+              <span className="font-extrabold text-purple-300 uppercase tracking-widest text-[11px]">
+                🗣️ Live Spoken Script (Stage {currentStageNum})
+              </span>
+              <button
+                onClick={() => copyPromptText(getSpokenScriptForStage())}
+                className="text-purple-300 hover:text-white font-bold underline cursor-pointer"
+              >
+                {copiedScript ? '✅ Copied' : '📋 Copy Prompt'}
+              </button>
+            </div>
+            <p className="text-sm font-medium leading-relaxed italic text-gray-100">
+              {getSpokenScriptForStage()}
+            </p>
+          </div>
 
+          {/* STAGE 1 — OPENING & PERMISSION FRAME */}
+          {currentStageNum === 1 && (
+            <div className="space-y-4 animate-in fade-in">
+              <span className="font-bold text-gray-700 dark:text-gray-300 block uppercase">
+                Prospect Live Answer Buttons (Select candidate response):
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: 'Yes - Good Time', outcome: 'Yes - Good Time' },
+                  { label: 'Only Have 2 Minutes', outcome: '2 Minutes Limit' },
+                  { label: 'What is this regarding?', outcome: 'Regarding Inquiry' },
+                  { label: 'Don\'t Remember Form', outcome: 'Forgot Form' },
+                  { label: 'Call Me Later', outcome: 'Call Later' },
+                  { label: 'Just Exploring', outcome: 'Exploring' },
+                  { label: 'Not Interested', outcome: 'Not Interested' }
+                ].map((opt) => (
+                  <button
+                    key={opt.label}
+                    onClick={() => {
+                      setOpeningOutcome(opt.outcome);
+                      setCurrentStageNum(2);
+                    }}
+                    className={`p-3 rounded-xl font-bold border text-left transition-all cursor-pointer ${
+                      openingOutcome === opt.outcome
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-purple-300'
+                    }`}
+                  >
+                    🔹 {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* STAGE 2 — INITIAL MOTIVATION */}
+          {currentStageNum === 2 && (
+            <div className="space-y-4 animate-in fade-in">
+              <span className="font-bold text-gray-700 dark:text-gray-300 block uppercase">
+                Primary Interest Trigger:
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {['AI Agents', 'Automation', 'Project Management', 'Career Growth', 'Better Salary', 'Job Switch', 'Promotion', 'Future Relevance'].map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      setInitialMotivation(m);
+                      setCurrentStageNum(3);
+                    }}
+                    className={`p-3 rounded-xl font-bold border text-left transition-all cursor-pointer ${
+                      initialMotivation === m
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-purple-300'
+                    }`}
+                  >
+                    🎯 {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* STAGE 3 — CURRENT ROLE & BRANCHING */}
+          {currentStageNum === 3 && (
+            <div className="space-y-4 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Current Candidate Role:
+                    Candidate Role:
                   </label>
                   <select
                     value={role}
@@ -221,12 +323,15 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
                   >
                     <option value="Project Manager">Project Manager</option>
                     <option value="Product Manager">Product Manager</option>
+                    <option value="Program Manager">Program Manager</option>
+                    <option value="PMO Lead">PMO Lead</option>
                     <option value="Operations Lead">Operations Lead</option>
                     <option value="Sales / Business Development">Sales / Business Development</option>
                     <option value="Marketing Manager">Marketing Manager</option>
                     <option value="Software Developer / Engineer">Software Developer / Engineer</option>
-                    <option value="IT / Technology Manager">IT / Technology Manager</option>
-                    <option value="Healthcare / Pharma Manager">Healthcare / Pharma Manager</option>
+                    <option value="IT Professional">IT Professional</option>
+                    <option value="Pharma Professional">Pharma Professional</option>
+                    <option value="Healthcare / Medical">Healthcare / Medical</option>
                     <option value="Consultant">Consultant</option>
                     <option value="Founders' Office">Founders' Office</option>
                   </select>
@@ -234,13 +339,13 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
 
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Years of Experience:
+                    Role-Specific Detail / Bottleneck:
                   </label>
                   <input
-                    type="number"
-                    value={experience}
-                    onChange={(e) => setExperience(Number(e.target.value))}
-                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
+                    type="text"
+                    value={roleBranchDetail}
+                    onChange={(e) => setRoleBranchDetail(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-medium"
                   />
                 </div>
 
@@ -257,96 +362,81 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
                     <option value="Team Lead">Team Lead</option>
                     <option value="Manager">Manager</option>
                     <option value="Senior Manager">Senior Manager</option>
-                    <option value="Leadership / Director">Leadership / Director</option>
-                    <option value="Founder / Owner">Founder / Owner</option>
+                    <option value="Director / Executive">Director / Executive</option>
                   </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Primary Reason for Form Submission (Phase 3):
-                </label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {['Career Growth', 'Better Salary', 'AI Relevance', 'Automation Skills', 'Career Switch', 'Better Role', 'Upskilling', 'Job Opportunities'].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setInterestReason(r)}
-                      className={`p-2 rounded-xl font-bold border transition-all text-center cursor-pointer ${
-                        interestReason === r
-                          ? 'bg-primary-600 text-white border-primary-600 shadow-xs'
-                          : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {r}
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* PHASE 2 — PAIN & AI MATURITY */}
-          {currentPhase === 2 && (
-            <div className="space-y-5 animate-in fade-in">
+          {/* STAGE 4 & 5 — EXPERIENCE & AI MATURITY */}
+          {(currentStageNum === 4 || currentStageNum === 5) && (
+            <div className="space-y-4 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Current AI Usage Maturity (Phase 4):
+                    Years of Professional Experience (Stage 4):
+                  </label>
+                  <input
+                    type="number"
+                    value={experience}
+                    onChange={(e) => setExperience(Number(e.target.value))}
+                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Current AI Usage Maturity (Stage 5):
                   </label>
                   <select
                     value={aiMaturity}
                     onChange={(e) => setAiMaturity(e.target.value)}
                     className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-medium"
                   >
-                    <option value="I don't use AI regularly">I don't use AI regularly (Level 0)</option>
-                    <option value="Basic ChatGPT / Claude prompts">Basic ChatGPT / Claude prompts (Level 1)</option>
-                    <option value="Use AI tools occasionally at work">Use AI tools occasionally at work (Level 1)</option>
-                    <option value="Use multiple AI tools daily">Use multiple AI tools daily (Level 2)</option>
-                    <option value="Use automation tools (Zapier, n8n)">Use automation tools (Zapier, n8n) (Level 3)</option>
-                    <option value="Built AI agents & custom workflows">Built AI agents & custom workflows (Level 4)</option>
+                    <option value="I don't use AI regularly (Level 0)">I don't use AI regularly (Level 0)</option>
+                    <option value="Basic ChatGPT / Claude prompts (Level 1)">Basic ChatGPT / Claude prompts (Level 1)</option>
+                    <option value="Multiple AI tools daily (Level 2)">Multiple AI tools daily (Level 2)</option>
+                    <option value="Automation tools n8n/Zapier (Level 3)">Automation tools n8n/Zapier (Level 3)</option>
+                    <option value="Built AI agents & custom workflows (Level 4)">Built AI agents & custom workflows (Level 4)</option>
                   </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STAGE 6 & 7 — PAIN & DESIRED OUTCOME */}
+          {(currentStageNum === 6 || currentStageNum === 7) && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Primary Operational Bottleneck / Pain (Stage 6):
+                  </label>
+                  <input
+                    type="text"
+                    value={primaryPain}
+                    onChange={(e) => setPrimaryPain(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
+                  />
                 </div>
 
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Single Biggest AI Capability Gap:
+                    6–12 Month Desired Outcome (Stage 7):
                   </label>
-                  <select
-                    value={aiGap}
-                    onChange={(e) => setAiGap(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-medium"
-                  >
-                    <option value="Understanding AI & LLM Architecture">Understanding AI & LLM Architecture</option>
-                    <option value="Workflow Automation (n8n & Zapier)">Workflow Automation (n8n & Zapier)</option>
-                    <option value="Multi-Agent Orchestration">Multi-Agent Orchestration</option>
-                    <option value="SOP Engineering & Prompting">SOP Engineering & Prompting</option>
-                    <option value="Applying AI to My Specific Role">Applying AI to My Specific Role</option>
-                  </select>
+                  <input
+                    type="text"
+                    value={desiredOutcome}
+                    onChange={(e) => setDesiredOutcome(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Primary Operational Bottleneck / Pain (Phase 5):
-                </label>
-                <select
-                  value={primaryPain}
-                  onChange={(e) => setPrimaryPain(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
-                >
-                  <option value="Too much repetitive manual work">Too much repetitive manual work (Status tracking, PRDs)</option>
-                  <option value="Endless status follow-ups & coordination">Endless status follow-ups & coordination</option>
-                  <option value="Lack of AI skills & technical confidence">Lack of AI skills & technical confidence</option>
-                  <option value="Fear of obsolescence & falling behind tech-native peers">Fear of obsolescence & falling behind tech-native peers</option>
-                  <option value="Career stagnation & flat salary growth">Career stagnation & flat salary growth</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Cost of Inaction (If Nothing Changes in 12 Months):
+                  Cost of Inaction over Next 12 Months:
                 </label>
                 <input
                   type="text"
@@ -358,60 +448,48 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
             </div>
           )}
 
-          {/* PHASE 3 — OUTCOME & DOMINANT GAP */}
-          {currentPhase === 3 && (
-            <div className="space-y-5 animate-in fade-in">
+          {/* STAGE 8 & 9 — TARGET ROLE & DOMINANT GAP */}
+          {(currentStageNum === 8 || currentStageNum === 9) && (
+            <div className="space-y-4 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    6–12 Month Desired Outcome (Phase 6):
+                    Target Role / Designation (Stage 8):
                   </label>
                   <input
                     type="text"
-                    value={desiredOutcome}
-                    onChange={(e) => setDesiredOutcome(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
+                    value={targetRole}
+                    onChange={(e) => setTargetRole(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold text-purple-600 dark:text-purple-400"
                   />
                 </div>
 
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Target Career Direction (Phase 7):
+                    Dominant Capability Gap (Stage 9):
                   </label>
                   <select
-                    value={careerDirection}
-                    onChange={(e) => setCareerDirection(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
+                    value={primaryGap}
+                    onChange={(e) => setPrimaryGap(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold text-red-600 dark:text-red-400"
                   >
-                    <option value="Stay in current domain (Add AI layer)">Stay in current domain (Add AI layer)</option>
-                    <option value="Move into AI Project Management">Move into AI Project Management</option>
-                    <option value="Move into AI & Automation">Move into AI & Automation</option>
-                    <option value="Move into AI Operations">Move into AI Operations</option>
-                    <option value="Move into Consulting / Founders' Office">Move into Consulting / Founders' Office</option>
+                    <option value="Lack of practical agent portfolio projects">Lack of practical agent portfolio projects</option>
+                    <option value="No n8n workflow & automation experience">No n8n workflow & automation experience</option>
+                    <option value="Lack of formal PM framework & certifications">Lack of formal PM framework & certifications</option>
+                    <option value="Job placement support & interview preparation">Job placement support & interview preparation</option>
                   </select>
                 </div>
               </div>
+            </div>
+          )}
 
-              <div>
-                <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Dominant Barrier Stopping Goal (Phase 8):
-                </label>
-                <select
-                  value={dominantBarrier}
-                  onChange={(e) => setDominantBarrier(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold text-red-600 dark:text-red-400"
-                >
-                  <option value="Lack of practical agent portfolio projects">Lack of practical agent portfolio projects</option>
-                  <option value="Lack of formal PM & n8n automation framework">Lack of formal PM & n8n automation framework</option>
-                  <option value="Lack of recognized certifications & career placement support">Lack of recognized certifications & career placement support</option>
-                  <option value="Lack of time & structured guidance">Lack of time & structured guidance</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* STAGE 10 — WHY NOW & URGENCY */}
+          {currentStageNum === 10 && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Urgency Level (Phase 9):
+                    Urgency Timeline (Stage 10):
                   </label>
                   <select
                     value={urgency}
@@ -427,187 +505,188 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
 
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Weekly Time Investment (Phase 10):
+                    Why Now Trigger:
+                  </label>
+                  <input
+                    type="text"
+                    value={whyNow}
+                    onChange={(e) => setWhyNow(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Weekly Time Investment:
                   </label>
                   <select
                     value={timeCommitment}
                     onChange={(e) => setTimeCommitment(e.target.value)}
                     className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
                   >
-                    <option value="4–6 hours/week">4–6 hours/week</option>
                     <option value="6–8 hours/week">6–8 hours/week</option>
+                    <option value="4–6 hours/week">4–6 hours/week</option>
                     <option value="8+ hours/week">8+ hours/week</option>
-                    <option value="2–3 hours/week (Low)">2–3 hours/week (Low)</option>
                   </select>
                 </div>
               </div>
             </div>
           )}
 
-          {/* PHASE 4 — PERSONALIZED POSITIONING ENGINE & VALUE STACK */}
-          {currentPhase === 4 && (
-            <div className="space-y-5 animate-in fade-in">
-              <div className="p-4 bg-primary-900 text-white rounded-2xl shadow-lg space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="font-extrabold text-primary-300 uppercase tracking-widest text-[11px]">
-                    🧠 Algorithmic Spoken Positioning Script (Phase 13)
-                  </span>
-                  <button
-                    onClick={() => copyScript(getTeleprompterScript())}
-                    className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
-                  >
-                    {copiedScript ? '✅ Copied' : '📋 Copy Script'}
-                  </button>
-                </div>
+          {/* STAGE 11 & 12 — PERSONALIZED CONSULTATION & PROGRAM EXPLANATION */}
+          {(currentStageNum === 11 || currentStageNum === 12) && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="p-4 bg-purple-900 text-white rounded-2xl shadow-lg space-y-2">
+                <span className="text-[10px] font-extrabold text-purple-300 uppercase tracking-widest block">
+                  STAGE 11 — PERSONALIZED CONSULTATION SUMMARY
+                </span>
                 <p className="text-sm font-medium leading-relaxed italic">
-                  {getTeleprompterScript()}
+                  "As a {role} bringing {experience} years of experience, your shortest path to {desiredOutcome} is adding an AI Agent Execution Layer on top of your existing domain knowledge."
                 </p>
               </div>
 
-              {/* Hormozi Value Stack Engine (Phase 15) */}
-              <div className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-3">
-                <h3 className="font-extrabold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <span>⚡</span> Contextual Value Stack (Matched to Candidate Barrier)
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {getValueStackItems().map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 rounded-xl border border-emerald-200 dark:border-emerald-800 font-bold"
-                    >
-                      ✓ {item}
-                    </div>
-                  ))}
+              <div className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-2">
+                <span className="text-xs font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider block">
+                  STAGE 12 — 3-MONTH PROGRAM STRUCTURE
+                </span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-bold text-gray-800 dark:text-gray-200">
+                  <div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800">
+                    Month 1: Learn AI & LLM Fundamentals
+                  </div>
+                  <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800">
+                    Month 2: Build AI Agents & Workflows
+                  </div>
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                    Month 3: Manage AI-Powered Execution
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* PHASE 5 — OBJECTION RESOLUTION MATRIX */}
-          {currentPhase === 5 && (
-            <div className="space-y-5 animate-in fade-in">
-              <div className="p-4 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800 space-y-3">
-                <h3 className="font-extrabold text-amber-900 dark:text-amber-200 text-sm">
-                  🛡️ Phase 17 — 11-Objection Resolution Matrix
-                </h3>
-                <p className="text-xs text-amber-800 dark:text-amber-300">
-                  Select the prospect's primary objection to view the exact clarifying question and non-manipulative response:
-                </p>
-
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { id: 'PRICE', label: 'Price (₹39,499)' },
-                    { id: 'TIME', label: 'Time / Busy Schedule' },
-                    { id: 'JOB_GUARANTEE', label: 'Job Guarantee vs Assistance' }
-                  ].map((o) => (
-                    <button
-                      key={o.id}
-                      onClick={() => setSelectedObjection(o.id)}
-                      className={`px-3 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer ${
-                        selectedObjection === o.id
-                          ? 'bg-amber-600 text-white shadow-xs'
-                          : 'bg-white dark:bg-gray-800 border border-amber-300 text-amber-900 dark:text-amber-200'
-                      }`}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
+          {/* STAGE 13 — VALUE MATCHING & JOB SUPPORT EXPLANATION */}
+          {currentStageNum === 13 && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="flex flex-wrap gap-2 pb-2">
+                {[
+                  '100% Placement Support',
+                  '7 Capstone Projects',
+                  '3 Certifications',
+                  'Weekend Batch',
+                  'Personal AI Agent'
+                ].map((topic) => (
+                  <button
+                    key={topic}
+                    onClick={() => setActiveDiscussionTopic(activeDiscussionTopic === topic ? null : topic)}
+                    className={`px-3.5 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer ${
+                      activeDiscussionTopic === topic
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-purple-300'
+                    }`}
+                  >
+                    💬 {topic}
+                  </button>
+                ))}
               </div>
 
-              {selectedObjection && (
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-3">
-                  <div>
-                    <span className="font-bold text-gray-400 block text-[10px] uppercase">
-                      Clarifying Question to Ask Prospect:
+              {/* Clicked Discussion Topic Content */}
+              {activeDiscussionTopic === '100% Placement Support' && (
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider text-xs">
+                      💼 6 Months Placement Support Explanation
                     </span>
-                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                      "{getObjectionResponse(selectedObjection).question}"
-                    </p>
+                    <button
+                      onClick={() => copyPromptText(getPlacementSupportScript())}
+                      className="text-xs text-emerald-700 dark:text-emerald-300 font-bold underline cursor-pointer"
+                    >
+                      Copy Script
+                    </button>
                   </div>
-                  <div>
-                    <span className="font-bold text-primary-600 block text-[10px] uppercase">
-                      Recommended Consultative Response:
-                    </span>
-                    <p className="text-xs text-gray-700 dark:text-gray-300 font-medium leading-relaxed">
-                      "{getObjectionResponse(selectedObjection).response}"
-                    </p>
-                  </div>
-                  <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl text-emerald-800 dark:text-emerald-200 font-extrabold text-xs">
-                    Proof Point: {getObjectionResponse(selectedObjection).proof}
+                  <p className="text-xs font-medium text-gray-800 dark:text-gray-200 leading-relaxed italic">
+                    "{getPlacementSupportScript()}"
+                  </p>
+                  <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 pt-1">
+                    ✓ Clearly frames 100% Placement Support (3–4 WhatsApp profiles/wk) vs contract job guarantee.
                   </div>
                 </div>
               )}
+            </div>
+          )}
 
+          {/* STAGE 14 — FIT CONFIRMATION ALIGNMENT */}
+          {currentStageNum === 14 && (
+            <div className="space-y-4 animate-in fade-in">
               <div>
                 <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Fit Confirmation Alignment (Phase 16):
+                  Candidate Fit Confirmation (Stage 14):
                 </label>
                 <select
                   value={fitCheck}
                   onChange={(e) => setFitCheck(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
+                  className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold text-emerald-600 dark:text-emerald-400"
                 >
-                  <option value="Yes - Complete Alignment">Yes - Prospect confirms complete solution fit</option>
-                  <option value="Mostly - Needs Batch Timing Confirmation">Mostly - Needs Batch Timing Confirmation</option>
-                  <option value="Uncertain - Pending Partner/Spouse Approval">Uncertain - Pending Partner/Spouse Approval</option>
+                  <option value="Yes - Complete Alignment">Yes - Complete Alignment</option>
+                  <option value="Mostly - Needs Schedule Confirmation">Mostly - Needs Schedule Confirmation</option>
+                  <option value="Uncertain - Needs Decision Partner Review">Uncertain - Needs Decision Partner Review</option>
                   <option value="No - Poor Fit">No - Poor Fit</option>
                 </select>
               </div>
             </div>
           )}
 
-          {/* PHASE 6 — TRANSACTIONAL CLOSE & SEAT RESERVATION */}
-          {currentPhase === 6 && (
-            <div className="space-y-5 animate-in fade-in">
-              <div className="p-5 bg-emerald-900 text-white rounded-2xl shadow-xl space-y-4">
-                <div className="flex justify-between items-center border-b border-emerald-700 pb-3">
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-300">
-                      PHASE 20 — TRANSACTIONAL CLOSING PROTOCOL
-                    </span>
-                    <h3 className="text-xl font-black mt-0.5">
-                      Reserve Seat with ₹5,000 Payment
-                    </h3>
-                  </div>
-                  <span className="px-3 py-1 bg-emerald-500 text-white font-black text-xs rounded-xl shadow">
-                    Fee: ₹39,499
-                  </span>
-                </div>
-
-                <p className="text-xs text-emerald-100 font-medium leading-relaxed">
-                  "{lead.fullName.split(' ')[0]}, I am sending the official Aivalytics Razorpay seat reservation link directly to your WhatsApp and Email right now. You can reserve your seat with ₹5,000 today to lock in your 3 professional certifications and 7 capstone projects."
-                </p>
-
-                <div className="flex flex-wrap items-center gap-3 pt-2">
+          {/* STAGE 15 — BUYING BARRIERS & OBJECTION ENGINE */}
+          {currentStageNum === 15 && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'PRICE', label: 'Price / Investment (₹39,499)' },
+                  { id: 'TIME', label: 'Time / Busy Schedule' },
+                  { id: 'JOB_GUARANTEE', label: 'Job Guarantee vs Assistance' }
+                ].map((obj) => (
                   <button
-                    type="button"
-                    onClick={handleSendPaymentLink}
-                    className="px-5 py-2.5 bg-white text-emerald-950 font-black text-xs rounded-xl shadow-md hover:bg-emerald-50 transition-all cursor-pointer flex items-center gap-2"
+                    key={obj.id}
+                    onClick={() => setSelectedObjection(obj.id)}
+                    className={`px-3 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer ${
+                      selectedObjection === obj.id
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-gray-800 border border-amber-300 text-amber-900 dark:text-amber-200'
+                    }`}
                   >
-                    <span>💳</span>
-                    {isLinkSent ? '✅ Razorpay Link Pushed to WhatsApp!' : 'Send ₹5,000 Payment Link Now'}
+                    {obj.label}
                   </button>
-
-                  <a
-                    href="https://rzp.io/rzp/dXXePYb"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-750 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
-                  >
-                    Open Payment Gateway Page ↗
-                  </a>
-                </div>
+                ))}
               </div>
 
+              {selectedObjection && (
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-3">
+                  <div>
+                    <span className="font-bold text-gray-400 block text-[10px] uppercase">Clarifying Question to Ask:</span>
+                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">"{getObjectionHandler(selectedObjection).clarify}"</p>
+                  </div>
+                  <div>
+                    <span className="font-bold text-purple-600 block text-[10px] uppercase">Recommended Spoken Response:</span>
+                    <p className="text-xs text-gray-700 dark:text-gray-300 font-medium leading-relaxed">"{getObjectionHandler(selectedObjection).response}"</p>
+                  </div>
+                  <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl text-emerald-800 dark:text-emerald-200 font-extrabold text-xs">
+                    Proof Point: {getObjectionHandler(selectedObjection).proof}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STAGE 16 & 17 — BATCH CHOICE & PRICE PRESENTATION */}
+          {(currentStageNum === 16 || currentStageNum === 17) && (
+            <div className="space-y-4 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Preferred Cohort Batch (Phase 19):
+                    Preferred Cohort Schedule (Stage 16):
                   </label>
                   <select
-                    value={learningFormat}
-                    onChange={(e) => setLearningFormat(e.target.value)}
+                    value={batchChoice}
+                    onChange={(e) => setBatchChoice(e.target.value)}
                     className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
                   >
                     <option value="Weekend Batch (Sat & Sun 10 AM - 1 PM)">Weekend Batch (Sat & Sun 10 AM - 1 PM) — ~90% Working Pros</option>
@@ -617,7 +696,7 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
 
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Decision Authority (Phase 12):
+                    Decision Authority:
                   </label>
                   <select
                     value={decisionAuthority}
@@ -632,7 +711,7 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
 
                 <div>
                   <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Budget Readiness (Phase 12):
+                    Budget Readiness (Stage 17):
                   </label>
                   <select
                     value={budgetReadiness}
@@ -640,24 +719,69 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
                     className="w-full p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold"
                   >
                     <option value="Ready for ₹5,000 Seat Reservation">Ready for ₹5,000 Seat Reservation</option>
-                    <option value="Full Fee Payment Ready (₹39,499)">Full Fee Payment Ready (₹39,499)</option>
+                    <option value="Full Payment Ready (₹39,499)">Full Payment Ready (₹39,499)</option>
                     <option value="Requires EMI / Installments">Requires EMI / Installments</option>
                   </select>
                 </div>
               </div>
             </div>
           )}
+
+          {/* STAGE 18 — TRANSACTIONAL CLOSE & ₹5,000 SEAT RESERVATION */}
+          {currentStageNum >= 18 && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="p-5 bg-emerald-900 text-white rounded-2xl shadow-xl space-y-4">
+                <div className="flex justify-between items-center border-b border-emerald-700 pb-3">
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-300">
+                      STAGE 18 — TRANSACTIONAL CLOSING PROTOCOL
+                    </span>
+                    <h3 className="text-xl font-black mt-0.5">
+                      Reserve Seat with ₹5,000 Payment
+                    </h3>
+                  </div>
+                  <span className="px-3 py-1 bg-emerald-500 text-white font-black text-xs rounded-xl shadow">
+                    Program Fee: ₹39,499
+                  </span>
+                </div>
+
+                <p className="text-xs text-emerald-100 font-medium leading-relaxed">
+                  "I am sending the official Aivalytics Razorpay seat reservation link directly to your WhatsApp right now. You can reserve your seat with ₹5,000 today to lock in your spot."
+                </p>
+
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSendRazorpayLink}
+                    className="px-5 py-2.5 bg-white text-emerald-950 font-black text-xs rounded-xl shadow-md hover:bg-emerald-50 transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <span>💳</span>
+                    {isLinkSent ? '✅ Razorpay Link Pushed to WhatsApp!' : 'Send ₹5,000 Payment Link Now'}
+                  </button>
+
+                  <a
+                    href="https://rzp.io/rzp/dXXePYb"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-750 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    Open Payment Link Page ↗
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Modal Footer Controls */}
+        {/* Footer Navigation */}
         <div className="pt-4 border-t border-gray-200 dark:border-gray-800 shrink-0 flex justify-between items-center text-xs">
           <button
             type="button"
-            disabled={currentPhase === 1}
-            onClick={() => setCurrentPhase((prev) => Math.max(1, prev - 1))}
+            disabled={currentStageNum === 1}
+            onClick={() => setCurrentStageNum((prev) => Math.max(1, prev - 1))}
             className="px-4 py-2 bg-gray-100 dark:bg-gray-800 disabled:opacity-40 text-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 cursor-pointer"
           >
-            ◀ Back Phase
+            ◀ Back Stage
           </button>
 
           <div className="flex gap-2">
@@ -669,13 +793,13 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
               Close Wizard
             </button>
 
-            {currentPhase < 6 ? (
+            {currentStageNum < 20 ? (
               <button
                 type="button"
-                onClick={() => setCurrentPhase((prev) => Math.min(6, prev + 1))}
-                className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white font-extrabold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                onClick={() => setCurrentStageNum((prev) => Math.min(20, prev + 1))}
+                className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-extrabold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <span>Next Phase ➔</span>
+                <span>Next Stage ➔</span>
               </button>
             ) : (
               <button
@@ -686,7 +810,7 @@ export default function GuidedSalesWizardModal({ isOpen, onClose, leadId, lead: 
                 }}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md transition-all cursor-pointer"
               >
-                Complete & Open Profile ➔
+                Complete Call & Open CRM ➔
               </button>
             )}
           </div>
