@@ -6,7 +6,7 @@ import CsvImportModal from './CsvImportModal';
 import MetaLeadSimulatorModal from './MetaLeadSimulatorModal';
 
 export default function LeadCalendarView() {
-  const { leads, setSelectedLeadId, updateLeadStage } = useApp();
+  const { leads, setSelectedLeadId, updateLeadStage, deleteLead, deleteBulkLeads, bulkUpdateStage } = useApp();
 
   // Current calendar view date state (Default to September 2026, Today = 14 Sep 2026)
   const [currentYear, setCurrentYear] = useState<number>(2026);
@@ -22,6 +22,11 @@ export default function LeadCalendarView() {
   // Lead search & filter for the selected date view
   const [searchQuery, setSearchQuery] = useState('');
   const [programFilter, setProgramFilter] = useState<string>('all');
+
+  // Checkbox multi-select state
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [bulkStageChoice, setBulkStageChoice] = useState<Stage | ''>('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -117,13 +122,11 @@ export default function LeadCalendarView() {
   const leadsByDate = useMemo(() => {
     const map: Record<string, Lead[]> = {};
     leads.forEach((lead) => {
-      // Normalize dateCaptured string: "2026-09-14 10:30" or ISO
       let dateKey = '';
       if (lead.dateCaptured) {
         if (lead.dateCaptured.includes('-')) {
           dateKey = lead.dateCaptured.substring(0, 10);
         } else {
-          // If stored as locale date e.g. "9/14/2026"
           try {
             const parsed = new Date(lead.dateCaptured);
             if (!isNaN(parsed.getTime())) {
@@ -157,6 +160,46 @@ export default function LeadCalendarView() {
       return matchesSearch && matchesProgram;
     });
   }, [leadsByDate, selectedDateStr, searchQuery, programFilter]);
+
+  // Checkbox Selection Logic
+  const allFilteredDateIds = selectedDateLeads.map((l) => l.id);
+  const isAllSelected = allFilteredDateIds.length > 0 && allFilteredDateIds.every((id) => selectedLeadIds.includes(id));
+
+  const handleSelectAllToggle = () => {
+    if (isAllSelected) {
+      setSelectedLeadIds((prev) => prev.filter((id) => !allFilteredDateIds.includes(id)));
+    } else {
+      setSelectedLeadIds(Array.from(new Set([...selectedLeadIds, ...allFilteredDateIds])));
+    }
+  };
+
+  const handleCheckboxToggle = (id: string) => {
+    if (selectedLeadIds.includes(id)) {
+      setSelectedLeadIds((prev) => prev.filter((item) => item !== id));
+    } else {
+      setSelectedLeadIds((prev) => [...prev, id]);
+    }
+  };
+
+  const handleSingleDelete = (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete lead "${name}"?`)) {
+      deleteLead(id);
+      setSelectedLeadIds((prev) => prev.filter((item) => item !== id));
+    }
+  };
+
+  const handleExecuteBulkStageChange = (stage: Stage) => {
+    if (selectedLeadIds.length === 0 || !stage) return;
+    bulkUpdateStage(selectedLeadIds, stage);
+    setBulkStageChoice('');
+  };
+
+  const handleConfirmBulkDelete = () => {
+    if (selectedLeadIds.length === 0) return;
+    deleteBulkLeads(selectedLeadIds);
+    setSelectedLeadIds([]);
+    setShowDeleteConfirm(false);
+  };
 
   // Open add modals for a specific date
   const openUploadForDate = (dateStr: string) => {
@@ -199,7 +242,7 @@ export default function LeadCalendarView() {
           <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl border border-gray-200 dark:border-gray-600">
             <button
               onClick={handlePrevMonth}
-              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 font-bold transition-all"
+              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 font-bold transition-all cursor-pointer"
               title="Previous Month"
             >
               ◀
@@ -209,7 +252,7 @@ export default function LeadCalendarView() {
             </span>
             <button
               onClick={handleNextMonth}
-              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 font-bold transition-all"
+              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-200 font-bold transition-all cursor-pointer"
               title="Next Month"
             >
               ▶
@@ -425,6 +468,59 @@ export default function LeadCalendarView() {
           </div>
         </div>
 
+        {/* BULK ACTIONS BAR FOR CALENDAR DATE TABLE */}
+        {selectedLeadIds.length > 0 && (
+          <div className="p-3 bg-gray-900 text-white rounded-xl border border-gray-700 shadow-md flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <span className="px-2.5 py-1 bg-primary-600 text-white font-extrabold text-xs rounded-lg shadow-xs">
+                ✓ {selectedLeadIds.length} Selected
+              </span>
+              <button
+                onClick={() => setSelectedLeadIds([])}
+                className="text-xs font-semibold text-gray-400 hover:text-white underline cursor-pointer"
+              >
+                Clear Selection
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Bulk Stage Mover */}
+              <div className="flex items-center gap-1.5 bg-gray-800 p-1 rounded-lg border border-gray-700">
+                <span className="text-xs font-bold text-gray-300 pl-1">Move to Stage:</span>
+                <select
+                  value={bulkStageChoice}
+                  onChange={(e) => {
+                    const val = e.target.value as Stage;
+                    setBulkStageChoice(val);
+                    if (val) handleExecuteBulkStageChange(val);
+                  }}
+                  className="px-2.5 py-1 bg-gray-900 text-white text-xs font-bold rounded border border-gray-600 focus:ring-1 focus:ring-primary-500 cursor-pointer"
+                >
+                  <option value="">-- Choose Stage --</option>
+                  <option value="New Lead">New Lead</option>
+                  <option value="AI Prepared">AI Prepared</option>
+                  <option value="Contact Pending">Contact Pending</option>
+                  <option value="Connected">Connected</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Details sent">Details sent</option>
+                  <option value="Follow-Up">Follow-Up</option>
+                  <option value="Payment Link Sent">Payment Link Sent</option>
+                  <option value="Seat Reserved">Seat Reserved</option>
+                  <option value="Enrolled">Enrolled</option>
+                </select>
+              </div>
+
+              {/* Bulk Delete Button */}
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-lg shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <span>🗑️</span> Delete Selected ({selectedLeadIds.length})
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Filter & Search Bar for Selected Date */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
@@ -456,6 +552,15 @@ export default function LeadCalendarView() {
             <table className="w-full text-left text-xs">
               <thead className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold">
                 <tr>
+                  <th className="p-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={handleSelectAllToggle}
+                      title="Select All Leads for Date"
+                      className="w-4 h-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 focus:ring-primary-500 cursor-pointer"
+                    />
+                  </th>
                   <th className="p-3">Candidate</th>
                   <th className="p-3">Role & Company</th>
                   <th className="p-3">Target Program</th>
@@ -466,82 +571,107 @@ export default function LeadCalendarView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {selectedDateLeads.map((lead) => (
-                  <tr
-                    key={lead.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
-                  >
-                    <td className="p-3">
-                      <div className="font-extrabold text-gray-900 dark:text-gray-100 text-sm">
-                        {lead.fullName}
-                      </div>
-                      <div className="text-gray-500 text-[11px] font-mono">
-                        {lead.phone} • {lead.email}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="font-semibold text-gray-800 dark:text-gray-200">
-                        {lead.currentRole}
-                      </div>
-                      <div className="text-gray-500 text-[11px]">
-                        {lead.currentCompany} ({lead.yearsOfExperience} yrs exp)
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <span className="font-bold px-2.5 py-1 rounded-lg text-[11px] bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800">
-                        {lead.programName}
-                      </span>
-                    </td>
-                    <td className="p-3 font-mono text-[11px] text-gray-600 dark:text-gray-400">
-                      ⏱️ {lead.dateCaptured || selectedDateStr}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`px-2 py-0.5 rounded-md font-extrabold text-[10px] ${
-                            lead.leadTemperature === 'Hot'
-                              ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
-                              : lead.leadTemperature === 'Warm'
-                              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                              : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                          }`}
+                {selectedDateLeads.map((lead) => {
+                  const isChecked = selectedLeadIds.includes(lead.id);
+
+                  return (
+                    <tr
+                      key={lead.id}
+                      className={`transition-colors ${
+                        isChecked
+                          ? 'bg-primary-50/60 dark:bg-primary-950/40'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-750'
+                      }`}
+                    >
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleCheckboxToggle(lead.id)}
+                          className="w-4 h-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 focus:ring-primary-500 cursor-pointer"
+                        />
+                      </td>
+                      <td className="p-3">
+                        <div className="font-extrabold text-gray-900 dark:text-gray-100 text-sm">
+                          {lead.fullName}
+                        </div>
+                        <div className="text-gray-500 text-[11px] font-mono">
+                          {lead.phone} • {lead.email}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="font-semibold text-gray-800 dark:text-gray-200">
+                          {lead.currentRole}
+                        </div>
+                        <div className="text-gray-500 text-[11px]">
+                          {lead.currentCompany} ({lead.yearsOfExperience} yrs exp)
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <span className="font-bold px-2.5 py-1 rounded-lg text-[11px] bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800">
+                          {lead.programName}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-[11px] text-gray-600 dark:text-gray-400">
+                        ⏱️ {lead.dateCaptured || selectedDateStr}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`px-2 py-0.5 rounded-md font-extrabold text-[10px] ${
+                              lead.leadTemperature === 'Hot'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                                : lead.leadTemperature === 'Warm'
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                            }`}
+                          >
+                            {lead.leadTemperature === 'Hot' ? '🔥 Hot' : '⚡ Warm'}
+                          </span>
+                          <span className="font-bold text-gray-700 dark:text-gray-300">
+                            {lead.fitScore}% Fit
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <select
+                          value={lead.crmStage}
+                          onChange={(e) => updateLeadStage(lead.id, e.target.value as Stage)}
+                          className="p-1.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-xs font-semibold cursor-pointer"
                         >
-                          {lead.leadTemperature === 'Hot' ? '🔥 Hot' : '⚡ Warm'}
-                        </span>
-                        <span className="font-bold text-gray-700 dark:text-gray-300">
-                          {lead.fitScore}% Fit
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <select
-                        value={lead.crmStage}
-                        onChange={(e) => updateLeadStage(lead.id, e.target.value as Stage)}
-                        className="p-1.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-xs font-semibold cursor-pointer"
-                      >
-                        <option value="New Lead">New Lead</option>
-                        <option value="AI Prepared">AI Prepared</option>
-                        <option value="Contact Pending">Contact Pending</option>
-                        <option value="Contacted">Contacted</option>
-                        <option value="Qualified">Qualified</option>
-                        <option value="Call Scheduled">Call Scheduled</option>
-                        <option value="Follow Up Needed">Follow Up Needed</option>
-                        <option value="Proposal Sent">Proposal Sent</option>
-                        <option value="Payment Link Sent">Payment Link Sent</option>
-                        <option value="Enrolled">Enrolled</option>
-                        <option value="Unqualified">Unqualified</option>
-                      </select>
-                    </td>
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => setSelectedLeadId(lead.id)}
-                        className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg shadow-xs text-xs transition-all cursor-pointer"
-                      >
-                        View AI Profile ➔
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                          <option value="New Lead">New Lead</option>
+                          <option value="AI Prepared">AI Prepared</option>
+                          <option value="Contact Pending">Contact Pending</option>
+                          <option value="Contacted">Contacted</option>
+                          <option value="Qualified">Qualified</option>
+                          <option value="Call Scheduled">Call Scheduled</option>
+                          <option value="Follow Up Needed">Follow Up Needed</option>
+                          <option value="Proposal Sent">Proposal Sent</option>
+                          <option value="Payment Link Sent">Payment Link Sent</option>
+                          <option value="Enrolled">Enrolled</option>
+                          <option value="Unqualified">Unqualified</option>
+                        </select>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setSelectedLeadId(lead.id)}
+                            className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg shadow-xs text-xs transition-all cursor-pointer"
+                          >
+                            View AI Profile ➔
+                          </button>
+                          <button
+                            onClick={() => handleSingleDelete(lead.id, lead.fullName)}
+                            title="Delete Lead"
+                            className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded-lg transition-all cursor-pointer"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -573,6 +703,39 @@ export default function LeadCalendarView() {
           </div>
         )}
       </div>
+
+      {/* CONFIRM BULK DELETE MODAL */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 space-y-4 border border-gray-200 dark:border-gray-700 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-300 flex items-center justify-center text-xl font-black mx-auto">
+              ⚠️
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-extrabold text-gray-900 dark:text-gray-100">
+                Confirm Lead Deletion
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Are you sure you want to permanently delete <strong className="text-red-600">{selectedLeadIds.length} lead(s)</strong>? This will remove them from your active workspace and database.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-800 dark:text-gray-200 text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmBulkDelete}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-all cursor-pointer"
+              >
+                Confirm Delete ({selectedLeadIds.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upload Modals passing targetDate */}
       <CsvImportModal

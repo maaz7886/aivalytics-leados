@@ -512,12 +512,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('AIVALYTICS_TASKS', JSON.stringify(tasks));
   }, [tasks]);
 
-  // Initial Supabase DB Sync on mount if connected
+  // Initial Supabase DB Sync on mount if connected (merges DB leads with localStorage without wiping local state)
   useEffect(() => {
     async function syncSupabaseOnBoot() {
       const dbLeads = await fetchLeadsFromSupabase();
       if (dbLeads && dbLeads.length > 0) {
-        setLeads(dbLeads);
+        setLeads((currentLocal) => {
+          const existingIds = new Set(currentLocal.map((l) => l.id));
+          const newFromDb = dbLeads.filter((l) => !existingIds.has(l.id));
+          const merged = [...currentLocal, ...newFromDb];
+          localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(merged));
+          return merged;
+        });
       }
 
       const dbPrograms = await fetchProgramsFromSupabase();
@@ -529,31 +535,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const addLead = (newLead: Lead) => {
-    setLeads((prev) => [newLead, ...prev]);
+    setLeads((prev) => {
+      const updated = [newLead, ...prev];
+      localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(updated));
+      return updated;
+    });
     insertLeadToSupabase(newLead);
   };
 
   const updateLeadStage = (id: string, stage: Stage) => {
-    setLeads((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, crmStage: stage } : l))
-    );
+    setLeads((prev) => {
+      const updated = prev.map((l) => (l.id === id ? { ...l, crmStage: stage } : l));
+      localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(updated));
+      return updated;
+    });
     updateLeadStageInSupabase(id, stage);
   };
 
   const deleteLead = (id: string) => {
-    setLeads((prev) => prev.filter((l) => l.id !== id));
+    setLeads((prev) => {
+      const updated = prev.filter((l) => l.id !== id);
+      localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(updated));
+      return updated;
+    });
     deleteLeadFromSupabase(id);
   };
 
   const deleteBulkLeads = (ids: string[]) => {
-    setLeads((prev) => prev.filter((l) => !ids.includes(l.id)));
+    setLeads((prev) => {
+      const updated = prev.filter((l) => !ids.includes(l.id));
+      localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(updated));
+      return updated;
+    });
     deleteBulkLeadsFromSupabase(ids);
   };
 
   const bulkUpdateStage = (ids: string[], stage: Stage) => {
-    setLeads((prev) =>
-      prev.map((l) => (ids.includes(l.id) ? { ...l, crmStage: stage } : l))
-    );
+    setLeads((prev) => {
+      const updated = prev.map((l) => (ids.includes(l.id) ? { ...l, crmStage: stage } : l));
+      localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(updated));
+      return updated;
+    });
     ids.forEach((id) => updateLeadStageInSupabase(id, stage));
   };
 
