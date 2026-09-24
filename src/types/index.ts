@@ -5,6 +5,8 @@ export type Role = 'Admin' | 'Salesperson';
 export type Stage =
   | 'New Lead'
   | 'Call Pending'
+  | 'Call Later'
+  | 'Did Not Pick The Call'
   | 'Did Not Receive Call'
   | 'Connected'
   | 'Interested'
@@ -13,7 +15,7 @@ export type Stage =
   | 'Follow-Up 2'
   | 'Follow-Up 3'
   | 'Qualified'
-    | 'Payment Discussion'
+  | 'Payment Discussion'
   | 'Payment Pending'
   | 'Joined Session'
   | 'Not Interested'

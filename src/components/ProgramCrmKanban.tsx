@@ -7,8 +7,8 @@ import { evaluateLeadWithGrok } from '../lib/aiEngine';
 
 const REQUIRED_STAGES: { stage: Stage; label: string; badgeColor: string }[] = [
   { stage: 'New Lead', label: '1. New Lead', badgeColor: 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200' },
-  { stage: 'Call Pending', label: '2. Call Pending', badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' },
-  { stage: 'Did Not Receive Call', label: '3. Did Not Receive Call', badgeColor: 'bg-rose-200 text-rose-800 dark:bg-rose-950 dark:text-rose-300' },
+  { stage: 'Call Later', label: '2. Call Later', badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' },
+  { stage: 'Did Not Pick The Call', label: '3. Did Not Pick The Call', badgeColor: 'bg-rose-200 text-rose-800 dark:bg-rose-950 dark:text-rose-300' },
   { stage: 'Connected', label: '4. Connected', badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' },
   { stage: 'Interested', label: '5. Interested', badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' },
   { stage: 'Details Sent on WhatsApp', label: '6. Details Sent', badgeColor: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300' },
@@ -361,7 +361,11 @@ END:VCALENDAR`;
       {/* 8-Stage Kanban Board Grid */}
       <div className="flex gap-3 overflow-x-auto pb-4">
         {REQUIRED_STAGES.map(({ stage, label, badgeColor }) => {
-          const stageLeads = filteredLeads.filter((l) => l.crmStage === stage);
+          const stageLeads = filteredLeads.filter((l) => {
+            if (stage === 'Call Later') return l.crmStage === 'Call Later' || l.crmStage === 'Call Pending';
+            if (stage === 'Did Not Pick The Call') return l.crmStage === 'Did Not Pick The Call' || l.crmStage === 'Did Not Receive Call';
+            return l.crmStage === stage;
+          });
 
           return (
             <div

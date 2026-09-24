@@ -1,12 +1,11 @@
 // src/components/LeadTable.tsx
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { useNavigate } from 'react-router-dom';
-import type { Stage } from '../types';
+import type { Stage, Lead } from '../types';
+import LeadDetailModal from './LeadDetailModal';
 
 export default function LeadTable() {
   const { leads, setSelectedLeadId, updateLeadStage, deleteLead, deleteBulkLeads, bulkUpdateStage } = useApp();
-  const navigate = useNavigate();
 
   const [search, setSearch] = useState('');
   const [programFilter, setProgramFilter] = useState('All');
@@ -17,6 +16,7 @@ export default function LeadTable() {
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [bulkStageChoice, setBulkStageChoice] = useState<Stage | ''>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
 
   // Filter leads based on search, program, stage, and saved view
   const filteredLeads = leads.filter((lead) => {
@@ -66,9 +66,9 @@ export default function LeadTable() {
     }
   };
 
-  const handleOpenLead = (id: string) => {
-    setSelectedLeadId(id);
-    navigate('/profile');
+  const handleOpenLead = (lead: Lead) => {
+    setSelectedLeadId(lead.id);
+    setSelectedLeadForModal(lead);
   };
 
   // Bulk Actions
@@ -286,10 +286,11 @@ export default function LeadTable() {
                 return (
                   <tr
                     key={lead.id}
-                    className={`transition-colors ${
+                    onClick={() => handleOpenLead(lead)}
+                    className={`transition-colors cursor-pointer ${
                       isChecked
                         ? 'bg-primary-50/60 dark:bg-primary-950/40'
-                        : 'hover:bg-gray-50/80 dark:hover:bg-gray-700/50'
+                        : 'hover:bg-primary-50/30 dark:hover:bg-primary-950/20'
                     }`}
                   >
                     {/* ROW CHECKBOX */}
@@ -297,15 +298,27 @@ export default function LeadTable() {
                       <input
                         type="checkbox"
                         checked={isChecked}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={() => handleLeadCheckboxToggle(lead.id)}
                         className="w-4 h-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 focus:ring-primary-500 cursor-pointer"
                       />
                     </td>
                     <td className="p-3.5 font-bold text-gray-900 dark:text-gray-100">
                       <div className="flex items-center gap-1.5">
-                        <span>{lead.fullName}</span>
+                        <span className="hover:text-primary-600">{lead.fullName}</span>
                       </div>
-                      <div className="text-xs font-normal text-gray-400">{lead.phone} • {lead.city}</div>
+                      <div className="text-xs font-normal text-gray-400">
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`tel:${lead.phone.replace(/[^0-9+]/g, '')}`, '_self');
+                          }}
+                          className="hover:underline hover:text-emerald-600"
+                        >
+                          📞 {lead.phone}
+                        </span>{' '}
+                        • {lead.city}
+                      </div>
                     </td>
                     <td className="p-3.5 font-medium text-gray-800 dark:text-gray-200">{lead.programName}</td>
                     <td className="p-3.5 text-gray-700 dark:text-gray-300">
@@ -327,32 +340,41 @@ export default function LeadTable() {
                     <td className="p-3.5">
                       <select
                         value={lead.crmStage}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={(e) => updateLeadStage(lead.id, e.target.value as any)}
                         className="px-2 py-1 border rounded-lg text-xs font-semibold bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-1 focus:ring-primary-500 cursor-pointer"
                       >
-                        <option value="Lead">Lead</option>
-                        <option value="Interested">Interested</option>
-                        <option value="Not Interested">Not interested</option>
-                        <option value="Unqualified">Not qualified</option>
+                        <option value="New Lead">New Lead</option>
                         <option value="Qualified">Qualified</option>
-                        <option value="Details Sent on WhatsApp">Details sent</option>
-                        <option value="Didn't attempt the call">Didn't attempt call</option>
-                        <option value="Invalid number">Invalid number</option>
+                        <option value="Interested">Interested</option>
+                        <option value="Call Later">Call Later</option>
+                        <option value="Did Not Pick The Call">Did Not Pick The Call</option>
+                        <option value="Not Interested">Not Interested</option>
+                        <option value="Unqualified">Unqualified</option>
+                        <option value="Details Sent on WhatsApp">Details Sent</option>
+                        <option value="Payment Pending">Payment Pending</option>
                         <option value="Joined Session">Seat Reserved</option>
                         <option value="Converted">Enrolled</option>
+                        <option value="Lost">Lost</option>
                       </select>
                     </td>
                     <td className="p-3.5 text-xs text-gray-500">{lead.assignedSalesperson || 'Alex Rivera'}</td>
                     <td className="p-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => handleOpenLead(lead.id)}
-                          className="px-2.5 py-1.5 bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenLead(lead);
+                          }}
+                          className="px-2.5 py-1.5 bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1"
                         >
-                          View Brief
+                          👁️ Details
                         </button>
                         <button
-                          onClick={() => handleDeleteSingle(lead.id, lead.fullName)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSingle(lead.id, lead.fullName);
+                          }}
                           title="Delete Lead"
                           className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-600 text-gray-500 rounded-lg transition-all cursor-pointer"
                         >
@@ -400,6 +422,14 @@ export default function LeadTable() {
           </div>
         </div>
       )}
+
+      {/* LEAD DETAILS & STAGE MOVER MODAL */}
+      <LeadDetailModal
+        lead={selectedLeadForModal ? leads.find(l => l.id === selectedLeadForModal.id) || selectedLeadForModal : null}
+        isOpen={!!selectedLeadForModal}
+        onClose={() => setSelectedLeadForModal(null)}
+        onStageChange={(newStage) => updateLeadStage(selectedLeadForModal!.id, newStage)}
+      />
     </div>
   );
 }

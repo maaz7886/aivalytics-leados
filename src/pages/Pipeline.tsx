@@ -1,32 +1,32 @@
 // src/pages/Pipeline.tsx
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import type { Stage } from '../types';
-import { useNavigate } from 'react-router-dom';
+import type { Lead, Stage } from '../types';
+import LeadDetailModal from '../components/LeadDetailModal';
 
 const stages: Stage[] = [
   'New Lead',
-  'Call Pending',
-  'Did Not Receive Call',
-  'Connected',
   'Interested',
-  'Details Sent on WhatsApp',
-  'Follow-Up 1',
-  'Follow-Up 2',
-  'Follow-Up 3',
   'Qualified',
+  'Call Later',
+  'Did Not Pick The Call',
+  'Details Sent on WhatsApp',
   'Payment Pending',
   'Joined Session',
   'Not Interested',
   'Unqualified',
-  'Lost',
-  'Converted'
+  'Converted',
+  'Lost'
 ];
 
 export default function Pipeline() {
-  const { leads, updateLeadStage, setSelectedLeadId } = useApp();
-  const navigate = useNavigate();
+  const { leads, updateLeadStage } = useApp();
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
+  const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
+
+  const activeModalLead = selectedLeadForModal
+    ? leads.find((l) => l.id === selectedLeadForModal.id) || selectedLeadForModal
+    : null;
 
   const handleDragStart = (_e: React.DragEvent, id: string) => {
     _e.dataTransfer.setData('text/plain', id);
@@ -46,11 +46,6 @@ export default function Pipeline() {
     }
   };
 
-  const handleCardClick = (id: string) => {
-    setSelectedLeadId(id);
-    navigate('/ai');
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -62,14 +57,22 @@ export default function Pipeline() {
 
       <div className="flex gap-4 overflow-x-auto pb-6">
         {stages.map((stage) => {
-          const stageLeads = leads.filter((l) => l.crmStage === stage);
+          const stageLeads = leads.filter((l) => {
+            if (stage === 'Call Later') {
+              return l.crmStage === 'Call Later' || l.crmStage === 'Call Pending';
+            }
+            if (stage === 'Did Not Pick The Call') {
+              return l.crmStage === 'Did Not Pick The Call' || l.crmStage === 'Did Not Receive Call';
+            }
+            return l.crmStage === stage;
+          });
 
           return (
             <div
               key={stage}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, stage)}
-              className="w-72 shrink-0 bg-gray-100 dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 flex flex-col max-h-[calc(100vh-140px)]"
+              className="w-76 shrink-0 bg-gray-100 dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 flex flex-col max-h-[calc(100vh-140px)]"
             >
               {/* Column Header */}
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200 dark:border-gray-700">
@@ -91,8 +94,8 @@ export default function Pipeline() {
                       key={lead.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, lead.id)}
-                      onClick={() => handleCardClick(lead.id)}
-                      className="bg-white dark:bg-gray-700 p-4 rounded-xl border border-gray-200 dark:border-gray-600 shadow-xs hover:shadow-md cursor-grab active:cursor-grabbing transition-all space-y-2.5 group"
+                      onClick={() => setSelectedLeadForModal(lead)}
+                      className="bg-white dark:bg-gray-700 p-3.5 rounded-xl border border-gray-200 dark:border-gray-600 shadow-xs hover:shadow-md hover:border-primary-500 cursor-pointer transition-all space-y-2.5 group"
                     >
                       <div className="flex justify-between items-start">
                         <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover:text-primary-600">
@@ -120,8 +123,31 @@ export default function Pipeline() {
                         <span className="font-bold text-emerald-600">Intent: {lead.intentScore}%</span>
                       </div>
 
-                      <div className="text-[10px] text-gray-400 flex items-center gap-1 pt-0.5">
-                        <span>📅 Next: {lead.nextFollowUp}</span>
+                      {/* Quick Contact & Details Bar */}
+                      <div className="flex items-center justify-between pt-1 text-[11px]">
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={`tel:${lead.phone.replace(/[^0-9+]/g, '')}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1 rounded bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 hover:bg-emerald-100"
+                            title="Call Lead"
+                          >
+                            📞
+                          </a>
+                          <a
+                            href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1 rounded bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 hover:bg-emerald-100"
+                            title="WhatsApp Lead"
+                          >
+                            💬
+                          </a>
+                        </div>
+                        <span className="text-[10px] font-bold text-primary-600 hover:underline">
+                          View Details & Move →
+                        </span>
                       </div>
                     </div>
                   ))
@@ -131,6 +157,14 @@ export default function Pipeline() {
           );
         })}
       </div>
+
+      {/* LEAD DETAILS & STAGE MOVER MODAL */}
+      <LeadDetailModal
+        lead={activeModalLead}
+        isOpen={!!selectedLeadForModal}
+        onClose={() => setSelectedLeadForModal(null)}
+        onStageChange={(newStage) => updateLeadStage(selectedLeadForModal!.id, newStage)}
+      />
     </div>
   );
 }
