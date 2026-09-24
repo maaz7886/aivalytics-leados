@@ -29,6 +29,153 @@ export async function getUser() {
 // SUPABASE REAL-TIME DATABASE SYNC FUNCTIONS
 // -------------------------------------------------------------
 
+// Helper to map Lead object to database row
+export function mapLeadToDb(lead: Partial<Lead>): any {
+  return {
+    id: lead.id,
+    full_name: lead.fullName || 'Unknown',
+    phone: String(lead.phone || ''),
+    email: lead.email || '',
+    city: lead.city || '',
+    state: lead.state || '',
+    country: lead.country || 'India',
+    source: lead.source || 'Meta Lead Ads',
+    meta_campaign: lead.metaCampaign || '',
+    meta_ad_set: lead.metaAdSet || '',
+    meta_ad: lead.metaAd || '',
+    campaign_id: lead.campaignId || '',
+    date_captured: lead.dateCaptured || new Date().toISOString(),
+    program_id: lead.programId || 'ai-pm',
+    program_name: lead.programName || 'AI-Native Project Management',
+    professional_status: lead.professionalStatus || 'Working Professional',
+    current_role: lead.currentRole || '',
+    current_company: lead.currentCompany || '',
+    industry: lead.industry || '',
+    years_of_experience: Number(lead.yearsOfExperience || 0),
+    current_responsibilities: lead.currentResponsibilities || '',
+    current_skill_set: Array.isArray(lead.currentSkillSet) ? lead.currentSkillSet : [],
+    current_ai_usage_level: lead.currentAiUsageLevel || 'Beginner',
+    primary_goal: lead.primaryGoal || '',
+    desired_role: lead.desiredRole || '',
+    expected_timeline: lead.expectedTimeline || '',
+    main_challenge: lead.mainChallenge || '',
+    why_now: lead.whyNow || '',
+    expected_outcome: lead.expectedOutcome || '',
+    comments: lead.comments || '',
+    investment: lead.investment || '',
+    education: lead.education || '',
+    priority: lead.priority || 'P2',
+    qualification_status: lead.qualificationStatus || 'Unqualified',
+    objection: lead.objection || '',
+    preferred_batch: lead.preferredBatch || '',
+    preferred_contact_time: lead.preferredContactTime || '',
+    payment_link: lead.paymentLink || '',
+    ai_recommendation: lead.aiRecommendation || '',
+    assigned_salesperson: lead.assignedSalesperson || 'Alex Rivera',
+    crm_stage: lead.crmStage || 'New Lead',
+    lead_temperature: lead.leadTemperature || 'Cold',
+    last_contacted: lead.lastContacted || 'Not Contacted',
+    next_follow_up: lead.nextFollowUp || '',
+    number_of_calls: Number(lead.numberOfCalls || 0),
+    number_of_follow_ups: Number(lead.numberOfFollowUps || 0),
+    payment_status: lead.paymentStatus || 'Unpaid',
+    amount_paid: Number(lead.amountPaid || 0),
+    enrollment_status: lead.enrollmentStatus || 'Not Enrolled',
+    fit_score: Number(lead.fitScore || 75),
+    intent_score: Number(lead.intentScore || 75),
+    lead_score: Number(lead.leadScore || 50),
+    lead_health_score: Number(lead.leadHealthScore || 50),
+    ai_summary: lead.aiSummary || '',
+    next_best_action: lead.nextBestAction || '',
+    conversion_probability: Number(lead.conversionProbability || 50),
+    temperature: lead.temperature || 'Cold',
+    fit_score_breakdown: Array.isArray(lead.fitScoreBreakdown) ? lead.fitScoreBreakdown : [],
+    intent_score_breakdown: Array.isArray(lead.intentScoreBreakdown) ? lead.intentScoreBreakdown : [],
+    likely_desired_outcome: lead.likelyDesiredOutcome || '',
+    recommended_positioning: lead.recommendedPositioning || '',
+    recommended_opening: lead.recommendedOpening || '',
+    discovery_questions: Array.isArray(lead.discoveryQuestions) ? lead.discoveryQuestions : [],
+    call_notes_history: Array.isArray(lead.callNotesHistory) ? lead.callNotesHistory : []
+  };
+}
+
+// Helper to map database row to Lead object
+export function mapDbToLead(d: any): Lead {
+  return {
+    id: d.id,
+    fullName: d.full_name,
+    phone: d.phone,
+    email: d.email,
+    city: d.city || '',
+    state: d.state || '',
+    country: d.country || 'India',
+    source: d.source || 'Meta Lead Ads',
+    metaCampaign: d.meta_campaign || '',
+    metaAdSet: d.meta_ad_set || '',
+    metaAd: d.meta_ad || '',
+    campaignId: d.campaign_id || '',
+    dateCaptured: d.date_captured || d.created_at,
+    programId: d.program_id || 'ai-pm',
+    programName: d.program_name || 'AI-Native Project Management',
+    professionalStatus: d.professional_status || 'Working Professional',
+    currentRole: d.current_role || '',
+    currentCompany: d.current_company || '',
+    industry: d.industry || '',
+    yearsOfExperience: Number(d.years_of_experience || 0),
+    currentResponsibilities: d.current_responsibilities || '',
+    currentSkillSet: Array.isArray(d.current_skill_set) ? d.current_skill_set : [],
+    currentAiUsageLevel: d.current_ai_usage_level || 'Beginner',
+    primaryGoal: d.primary_goal || '',
+    desiredRole: d.desired_role || '',
+    expectedTimeline: d.expected_timeline || '',
+    mainChallenge: d.main_challenge || '',
+    whyNow: d.why_now || '',
+    expectedOutcome: d.expected_outcome || '',
+    comments: d.comments || '',
+    investment: d.investment || '',
+    education: d.education || '',
+    priority: d.priority || 'P2',
+    qualificationStatus: d.qualification_status || 'Unqualified',
+    objection: d.objection || '',
+    preferredBatch: d.preferred_batch || '',
+    preferredContactTime: d.preferred_contact_time || '',
+    paymentLink: d.payment_link || '',
+    aiRecommendation: d.ai_recommendation || '',
+    assignedSalesperson: d.assigned_salesperson || 'Alex Rivera',
+    crmStage: (d.crm_stage || 'New Lead') as Stage,
+    leadTemperature: d.lead_temperature || 'Cold',
+    lastContacted: d.last_contacted || 'Not Contacted',
+    nextFollowUp: d.next_follow_up || '',
+    numberOfCalls: Number(d.number_of_calls || 0),
+    numberOfFollowUps: Number(d.number_of_follow_ups || 0),
+    paymentStatus: d.payment_status || 'Unpaid',
+    amountPaid: Number(d.amount_paid || 0),
+    enrollmentStatus: d.enrollment_status || 'Not Enrolled',
+    fitScore: Number(d.fit_score || 75),
+    intentScore: Number(d.intent_score || 75),
+    leadScore: Number(d.lead_score || 50),
+    leadHealthScore: Number(d.lead_health_score || 50),
+    aiSummary: d.ai_summary || '',
+    nextBestAction: d.next_best_action || '',
+    conversionProbability: Number(d.conversion_probability || 50),
+    temperature: d.temperature || 'Cold',
+    fitScoreBreakdown: Array.isArray(d.fit_score_breakdown) ? d.fit_score_breakdown : [],
+    intentScoreBreakdown: Array.isArray(d.intent_score_breakdown) ? d.intent_score_breakdown : [],
+    likelyDesiredOutcome: d.likely_desired_outcome || '',
+    evidenceLeadProvided: [],
+    evidenceAiInterpretation: [],
+    recommendedPositioning: d.recommended_positioning || '',
+    recommendedOpening: d.recommended_opening || '',
+    discoveryQuestions: Array.isArray(d.discovery_questions) ? d.discovery_questions : [],
+    existingSkills: [],
+    aiSkillsToDevelop: [],
+    whyProgramFits: '',
+    objections: [],
+    recommendedNextAction: d.next_best_action || '',
+    callNotesHistory: Array.isArray(d.call_notes_history) ? d.call_notes_history : []
+  };
+}
+
 // 1. Fetch All Leads from Supabase PostgreSQL
 export async function fetchLeadsFromSupabase(): Promise<Lead[] | null> {
   if (!isSupabaseConfigured) return null;
@@ -45,107 +192,18 @@ export async function fetchLeadsFromSupabase(): Promise<Lead[] | null> {
 
     if (!data) return null;
 
-    return data.map((d: any) => ({
-      id: d.id,
-      fullName: d.full_name,
-      phone: d.phone,
-      email: d.email,
-      city: d.city || 'Bengaluru',
-      state: d.state || 'Karnataka',
-      country: d.country || 'India',
-      source: d.source || 'Meta Lead Ads',
-      metaCampaign: d.meta_campaign || '',
-      metaAdSet: d.meta_ad_set || '',
-      metaAd: d.meta_ad || '',
-      campaignId: d.campaign_id || '',
-      dateCaptured: d.date_captured || d.created_at,
-      programId: d.program_id || 'ai-pm',
-      programName: d.program_name || 'AI-Native Project Management',
-      professionalStatus: d.professional_status || 'Working Professional',
-      currentRole: d.current_role || 'Project Manager',
-      currentCompany: d.current_company || 'Organization',
-      industry: d.industry || 'Technology',
-      yearsOfExperience: d.years_of_experience || 5,
-      currentResponsibilities: d.current_responsibilities || '',
-      currentSkillSet: Array.isArray(d.current_skill_set) ? d.current_skill_set : [],
-      currentAiUsageLevel: d.current_ai_usage_level || 'Intermediate',
-      primaryGoal: d.primary_goal || 'Upskill in Current Role',
-      desiredRole: d.desired_role || '',
-      expectedTimeline: d.expected_timeline || '3-6 months',
-      mainChallenge: d.main_challenge || '',
-      whyNow: d.why_now || '',
-      expectedOutcome: d.expected_outcome || '',
-      comments: d.comments || '',
-      assignedSalesperson: d.assigned_salesperson || 'Alex Rivera',
-      crmStage: (d.crm_stage || 'Lead') as Stage,
-      leadTemperature: d.lead_temperature || 'Hot',
-      lastContacted: d.last_contacted || 'Not Contacted',
-      nextFollowUp: d.next_follow_up || '',
-      numberOfCalls: d.number_of_calls || 0,
-      numberOfFollowUps: d.number_of_follow_ups || 0,
-      paymentStatus: d.payment_status || 'Unpaid',
-      amountPaid: Number(d.amount_paid || 0),
-      enrollmentStatus: d.enrollment_status || 'Not Enrolled',
-      fitScore: d.fit_score || 85,
-      intentScore: d.intent_score || 75,
-      fitScoreBreakdown: Array.isArray(d.fit_score_breakdown) ? d.fit_score_breakdown : [],
-      intentScoreBreakdown: Array.isArray(d.intent_score_breakdown) ? d.intent_score_breakdown : [],
-      likelyDesiredOutcome: d.likely_desired_outcome || '',
-      evidenceLeadProvided: [],
-      evidenceAiInterpretation: [],
-      recommendedPositioning: d.recommended_positioning || '',
-      recommendedOpening: d.recommended_opening || '',
-      discoveryQuestions: Array.isArray(d.discovery_questions) ? d.discovery_questions : [],
-      existingSkills: [],
-      aiSkillsToDevelop: [],
-      whyProgramFits: '',
-      objections: [],
-      recommendedNextAction: '',
-      callNotesHistory: Array.isArray(d.call_notes_history) ? d.call_notes_history : []
-    }));
+    return data.map(mapDbToLead);
   } catch (err) {
     console.error('Supabase Exception:', err);
     return null;
   }
 }
 
-// 2. Insert New Lead into Supabase PostgreSQL
+// 2. Insert or Upsert Single Lead into Supabase PostgreSQL
 export async function insertLeadToSupabase(lead: Lead): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const dbPayload = {
-      id: lead.id,
-      full_name: lead.fullName,
-      phone: lead.phone,
-      email: lead.email,
-      city: lead.city,
-      state: lead.state,
-      country: lead.country,
-      source: lead.source,
-      meta_campaign: lead.metaCampaign,
-      meta_ad_set: lead.metaAdSet,
-      meta_ad: lead.metaAd,
-      campaign_id: lead.campaignId,
-      program_id: lead.programId,
-      program_name: lead.programName,
-      professional_status: lead.professionalStatus,
-      current_role: lead.currentRole,
-      current_company: lead.currentCompany,
-      industry: lead.industry,
-      years_of_experience: lead.yearsOfExperience,
-      current_ai_usage_level: lead.currentAiUsageLevel,
-      primary_goal: lead.primaryGoal,
-      desired_role: lead.desiredRole,
-      expected_timeline: lead.expectedTimeline,
-      main_challenge: lead.mainChallenge,
-      assigned_salesperson: lead.assignedSalesperson,
-      crm_stage: lead.crmStage,
-      lead_temperature: lead.leadTemperature,
-      fit_score: lead.fitScore,
-      intent_score: lead.intentScore,
-      call_notes_history: lead.callNotesHistory
-    };
-
+    const dbPayload = mapLeadToDb(lead);
     const { error } = await supabase.from('leads').upsert([dbPayload]);
     if (error) {
       console.warn('Supabase Lead Insert Error:', error);
@@ -154,6 +212,27 @@ export async function insertLeadToSupabase(lead: Lead): Promise<boolean> {
     return true;
   } catch (err) {
     console.error('Supabase Exception on Insert:', err);
+    return false;
+  }
+}
+
+// 2b. Bulk Insert or Upsert Leads into Supabase in Batches
+export async function insertBulkLeadsToSupabase(leads: Lead[]): Promise<boolean> {
+  if (!isSupabaseConfigured || !leads || leads.length === 0) return true;
+  try {
+    const BATCH_SIZE = 50;
+    const mapped = leads.map(mapLeadToDb);
+    for (let i = 0; i < mapped.length; i += BATCH_SIZE) {
+      const chunk = mapped.slice(i, i + BATCH_SIZE);
+      const { error } = await supabase.from('leads').upsert(chunk);
+      if (error) {
+        console.warn('Supabase Bulk Insert Chunk Error:', error);
+        return false;
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase Exception on Bulk Insert:', err);
     return false;
   }
 }

@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function ImportCenter() {
-  const { leads, addLead } = useApp();
+  const { leads, addLead, bulkAddLeads } = useApp();
   const navigate = useNavigate();
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -192,6 +192,7 @@ export default function ImportCenter() {
     let imported = 0;
     let updated = 0;
     let skipped = 0;
+    const leadsToInsert = [];
 
     analyzedRows.forEach(row => {
       if (row.status === 'Existing') {
@@ -286,10 +287,15 @@ export default function ImportCenter() {
         callNotesHistory: []
       };
       
-      addLead(newLead as any); 
+      leadsToInsert.push(newLead as any);
       imported++;
     });
 
+    if (bulkAddLeads && leadsToInsert.length > 0) {
+      bulkAddLeads(leadsToInsert);
+    } else {
+      leadsToInsert.forEach(l => addLead(l));
+    }
     alert(`Import Complete! Imported: ${imported}, Updated: ${updated}, Skipped: ${skipped}`);
     navigate('/pipeline');
   };

@@ -3,7 +3,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Lead, Task, Program, IntegrationItem, Stage } from '../types';
 import {
+  supabase,
   fetchLeadsFromSupabase,
+  insertBulkLeadsToSupabase,
   insertLeadToSupabase,
   updateLeadStageInSupabase,
   deleteLeadFromSupabase,
@@ -483,6 +485,7 @@ interface AppContextType {
   programs: Program[];
   integrations: IntegrationItem[];
   addLead: (lead: Lead) => void;
+  bulkAddLeads: (leads: Lead[]) => void;
   updateLeadStage: (id: string, stage: Stage) => void;
   deleteLead: (id: string) => void;
   deleteBulkLeads: (ids: string[]) => void;
@@ -559,15 +562,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const dbLeads = await fetchLeadsFromSupabase();
       if (dbLeads && dbLeads.length > 0) {
         setLeads(dbLeads);
+        localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(dbLeads));
       }
 
       const dbPrograms = await fetchProgramsFromSupabase();
       if (dbPrograms && dbPrograms.length > 0) {
         setPrograms(dbPrograms);
+        localStorage.setItem('AIVALYTICS_PROGRAMS', JSON.stringify(dbPrograms));
       }
     }
     syncSupabaseOnBoot();
   }, []);
+
+  // Real-time cross-platform database subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'leads' },
+        async () => {
+          const freshLeads = await fetchLeadsFromSupabase();
+          if (freshLeads && freshLeads.length > 0) {
+            setLeads(freshLeads);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const bulkAddLeads = (newLeads: Lead[]) => {
+    setLeads((prev) => [...newLeads, ...prev]);
+    insertBulkLeadsToSupabase(newLeads);
+  };
 
   const addLead = (newLead: Lead) => {
     setLeads((prev) => [newLead, ...prev]);
@@ -686,6 +717,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         programs,
         integrations,
         addLead,
+        bulkAddLeads,
         updateLeadStage,
         deleteLead,
         deleteBulkLeads,

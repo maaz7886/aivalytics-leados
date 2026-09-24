@@ -23,7 +23,7 @@ interface ParsedLeadRow {
 }
 
 export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps) {
-  const { addLead } = useApp();
+  const { addLead, bulkAddLeads } = useApp();
   const [fileName, setFileName] = useState<string>('');
   const [parsedRows, setParsedRows] = useState<ParsedLeadRow[]>([]);
   const [isImporting, setIsImporting] = useState<boolean>(false);
@@ -131,6 +131,7 @@ export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps)
 
     setIsImporting(true);
     let count = 0;
+    const leadsToInsert = [];
 
     parsedRows.forEach((row, index) => {
       const fitScore = Math.floor(Math.random() * 18) + 80;
@@ -229,6 +230,11 @@ export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps)
       count++;
     });
 
+    if (bulkAddLeads && leadsToInsert.length > 0) {
+      bulkAddLeads(leadsToInsert);
+    } else {
+      leadsToInsert.forEach(l => addLead(l));
+    }
     setIsImporting(false);
     setSuccessMessage(`Successfully imported and committed ${count} leads from Excel!`);
     setTimeout(() => {
