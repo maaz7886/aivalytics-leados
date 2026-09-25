@@ -2,7 +2,6 @@
 import { Link, useLocation } from "react-router-dom";
 
 const navigation = [
-  { name: "My Day", to: "/my-day" },
   { name: "Dashboard", to: "/dashboard" },
   { name: "Pipeline", to: "/pipeline" },
   { name: "AI Intelligence", to: "/ai" },

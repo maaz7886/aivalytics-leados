@@ -14,7 +14,6 @@ import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import ImportCenter from "./pages/ImportCenter";
 import ImportHistory from "./pages/ImportHistory";
-import MyDay from "./pages/MyDay";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -47,7 +46,7 @@ function App() {
             <Route path="/import" element={<ImportCenter />} />
             <Route path="/import-history" element={<ImportHistory />} />
             <Route path="/nurture" element={<Navigate to="/pipeline" replace />} />
-            <Route path="/my-day" element={<MyDay />} />
+            <Route path="/my-day" element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Route>
       </Routes>
