@@ -434,34 +434,37 @@ END:VCALENDAR`;
                           {lead.leadHealthScore > 80 && <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[9px] font-bold rounded">Recently Engaged</span>}
                         </div>
 
-                        {/* Top row: Name, Owner & Temperature */}
+                        {/* Top row: Avatar, Name, Role & Temperature */}
                         <div className="flex justify-between items-start gap-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
                             <input
                               type="checkbox"
                               checked={selectedLeadIds.includes(lead.id)}
                               onChange={() => toggleSelectLead(lead.id)}
                               onClick={(e) => e.stopPropagation()}
-                              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-3.5 w-3.5 cursor-pointer"
+                              className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5 cursor-pointer shrink-0"
                             />
-                            <h4
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedLeadForModal(lead);
-                              }}
-                              className="font-bold text-xs text-gray-900 dark:text-gray-100 hover:text-primary-600 cursor-pointer truncate max-w-[120px]"
-                            >
-                              {lead.fullName}
-                            </h4>
+                            <div className="w-7 h-7 rounded-lg bg-[#264e36] text-white font-black text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                              {lead.fullName.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <h4
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedLeadForModal(lead);
+                                }}
+                                className="font-extrabold text-xs text-gray-900 dark:text-gray-100 hover:text-emerald-700 cursor-pointer truncate max-w-[110px]"
+                              >
+                                {lead.fullName}
+                              </h4>
+                              <div className="text-[10px] font-medium text-gray-400 truncate max-w-[110px]">
+                                {lead.currentRole || 'Professional'} • {lead.yearsOfExperience || 0}y exp
+                              </div>
+                            </div>
                           </div>
                           <span className="text-[10px] font-extrabold shrink-0" title="Temperature">
                             {lead.temperature === 'Hot' ? '🔥 Hot' : lead.temperature === 'Warm' ? '🟠 Warm' : '🔵 Cold'}
                           </span>
-                        </div>
-
-                        {/* Role & Experience */}
-                        <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 truncate">
-                          {lead.currentRole} • {lead.yearsOfExperience}y exp
                         </div>
 
                         {/* Core Metrics: Score & Probability */}
