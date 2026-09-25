@@ -11,7 +11,10 @@ import {
   deleteLeadFromSupabase,
   deleteBulkLeadsFromSupabase,
   fetchProgramsFromSupabase,
-  upsertProgramInSupabase
+  upsertProgramInSupabase,
+  fetchTasksFromSupabase,
+  upsertTaskInSupabase,
+  deleteTaskFromSupabase
 } from '../lib/supabase';
 
 // Pre-populated realistic demo lead: Rahul Sharma & others
@@ -690,12 +693,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (dbLeads && dbLeads.length > 0) {
         setLeads(dbLeads);
         localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(dbLeads));
+
+        // Reconstruct call activities from dbLeads callNotesHistory
+        const dbActivities: CallActivity[] = [];
+        dbLeads.forEach((lead) => {
+          if (lead.callNotesHistory && Array.isArray(lead.callNotesHistory)) {
+            lead.callNotesHistory.forEach((note: any) => {
+              let ts = new Date().toISOString();
+              try {
+                if (note.date) {
+                  const d = new Date(note.date);
+                  if (!isNaN(d.getTime())) ts = d.toISOString();
+                }
+              } catch {}
+
+              dbActivities.push({
+                id: note.id || `call-${lead.id}-${Math.random().toString(36).substr(2, 4)}`,
+                leadId: lead.id,
+                leadName: lead.fullName,
+                leadPhone: lead.phone,
+                programName: lead.programName,
+                timestamp: ts,
+                outcome: note.rawNotes?.includes('[Outcome:')
+                  ? note.rawNotes.split('[Outcome:')[1].split(']')[0].trim()
+                  : (lead.crmStage || 'Connected'),
+                notes: note.rawNotes || 'Call logged',
+                salesperson: note.salesperson || 'Alex Rivera'
+              });
+            });
+          }
+        });
+
+        if (dbActivities.length > 0) {
+          setCallActivities((prev) => {
+            const existingIds = new Set(prev.map((c) => c.id));
+            const newFromDb = dbActivities.filter((c) => !existingIds.has(c.id));
+            return [...newFromDb, ...prev];
+          });
+        }
       }
 
       const dbPrograms = await fetchProgramsFromSupabase();
       if (dbPrograms && dbPrograms.length > 0) {
         setPrograms(dbPrograms);
         localStorage.setItem('AIVALYTICS_PROGRAMS', JSON.stringify(dbPrograms));
+      }
+
+      const dbTasks = await fetchTasksFromSupabase();
+      if (dbTasks && dbTasks.length > 0) {
+        setTasks(dbTasks);
+        localStorage.setItem('AIVALYTICS_TASKS', JSON.stringify(dbTasks));
       }
     }
     syncSupabaseOnBoot();
@@ -712,6 +759,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const freshLeads = await fetchLeadsFromSupabase();
           if (freshLeads && freshLeads.length > 0) {
             setLeads(freshLeads);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        async () => {
+          const freshTasks = await fetchTasksFromSupabase();
+          if (freshTasks && freshTasks.length > 0) {
+            setTasks(freshTasks);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'programs' },
+        async () => {
+          const freshPrograms = await fetchProgramsFromSupabase();
+          if (freshPrograms && freshPrograms.length > 0) {
+            setPrograms(freshPrograms);
           }
         }
       )
@@ -841,16 +908,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const toggleTaskStatus = (taskId: string) => {
     setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId
-          ? { ...t, status: t.status === 'Completed' ? 'Pending' : 'Completed' }
-          : t
-      )
+      prev.map((t) => {
+        if (t.id === taskId) {
+          const updated = { ...t, status: (t.status === 'Completed' ? 'Pending' : 'Completed') as 'Pending' | 'Completed' };
+          upsertTaskInSupabase(updated);
+          return updated;
+        }
+        return t;
+      })
     );
   };
 
   const addTask = (newTask: Task) => {
     setTasks((prev) => [newTask, ...prev]);
+    upsertTaskInSupabase(newTask);
   };
 
   const updateProgram = (updatedProg: Program) => {
@@ -897,14 +968,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setCallActivities((prev) => [newActivity, ...prev]);
 
-    // Also update lead's call counter and last contacted timestamp
+    // Also persist call note, outcome, and timestamps to Supabase on the lead
+    const newCallNote = {
+      id: `note-${Date.now()}`,
+      date: new Date().toISOString(),
+      salesperson: 'Alex Rivera',
+      rawNotes: `[Outcome: ${outcome}] ${notes || 'Direct outreach call placed'}`,
+      aiAnalysis: {
+        trueDesiredOutcome: outcome,
+        primaryMotivation: 'Outreach engagement',
+        purchaseIntent: outcome === 'Interested' || outcome === 'Qualified' ? 85 : 60
+      }
+    };
+
     setLeads((prev) =>
       prev.map((l) => {
         if (l.id === leadId) {
+          const updatedHistory = [newCallNote, ...(l.callNotesHistory || [])];
+          const shouldUpdateStage = [
+            'Qualified', 'Interested', 'Did Not Pick The Call', 'Call Later',
+            'Follow-Up 1', 'Follow-Up 2', 'Follow-Up 3', 'Details Sent on WhatsApp',
+            'Not Interested', 'Unqualified'
+          ].includes(outcome);
+
           const updated: Lead = {
             ...l,
             numberOfCalls: (l.numberOfCalls || 0) + 1,
-            lastContacted: new Date().toISOString()
+            lastContacted: new Date().toISOString(),
+            callNotesHistory: updatedHistory,
+            ...(shouldUpdateStage ? { crmStage: outcome as Stage } : {})
           };
           insertLeadToSupabase(updated);
           return updated;

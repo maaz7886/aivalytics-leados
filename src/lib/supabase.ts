@@ -1,7 +1,7 @@
 // @ts-nocheck
 // src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
-import type { Lead, Program, Stage } from '../types';
+import type { Lead, Program, Stage, Task } from '../types';
 
 // Read Supabase Credentials from Environment or Local Storage with explicit live production fallbacks
 const SUPABASE_URL =
@@ -343,3 +343,72 @@ export async function upsertProgramInSupabase(program: Program): Promise<boolean
     return false;
   }
 }
+
+// 6. Fetch Tasks from Supabase
+export async function fetchTasksFromSupabase(): Promise<Task[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+    if (error || !data) return null;
+
+    return data.map((t: any) => ({
+      id: t.id,
+      leadId: t.lead_id || '',
+      leadName: t.lead_name || 'Lead Task',
+      title: t.description || `${t.type || 'Call'} task for ${t.lead_name || 'lead'}`,
+      type: t.type || 'call',
+      dueDate: t.due_date || 'Today',
+      priority: t.priority || 'Medium',
+      status: t.status || 'Pending',
+      description: t.description || '',
+      assignedTo: t.assigned_to || 'Alex Rivera'
+    }));
+  } catch (err) {
+    console.error('Supabase Fetch Tasks Error:', err);
+    return null;
+  }
+}
+
+// 7. Upsert Task in Supabase
+export async function upsertTaskInSupabase(task: Task): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const { error } = await supabase.from('tasks').upsert({
+      id: task.id,
+      lead_id: task.leadId || null,
+      lead_name: task.leadName || '',
+      type: task.type || 'call',
+      due_date: task.dueDate || new Date().toISOString().substring(0, 10),
+      priority: task.priority || 'Medium',
+      status: task.status || 'Pending',
+      description: task.description || task.title || '',
+      assigned_to: task.assignedTo || 'Alex Rivera'
+    });
+
+    if (error) {
+      console.warn('Supabase Upsert Task Error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase Exception on Upsert Task:', err);
+    return false;
+  }
+}
+
+// 8. Delete Task from Supabase
+export async function deleteTaskFromSupabase(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const { error } = await supabase.from('tasks').delete().eq('id', id);
+    if (error) {
+      console.warn('Supabase Delete Task Error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase Exception on Delete Task:', err);
+    return false;
+  }
+}
+
