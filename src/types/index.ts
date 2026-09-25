@@ -228,3 +228,17 @@ export interface ImportBatch {
   errors: any[];
   created_at: string;
 }
+
+export interface CallActivity {
+  id: string;
+  leadId: string;
+  leadName: string;
+  leadPhone: string;
+  programName?: string;
+  timestamp: string;
+  outcome: string;
+  notes?: string;
+  durationSeconds?: number;
+  salesperson?: string;
+}
+

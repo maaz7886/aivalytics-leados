@@ -31,7 +31,7 @@ function formatCollectionDateTime(dateStr?: string): string {
 }
 
 export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, onDelete }: LeadDetailModalProps) {
-  const { updateLeadStage, addCallNote, updateLeadFollowUp, setSelectedLeadId, deleteLead } = useApp();
+  const { updateLeadStage, addCallNote, updateLeadFollowUp, setSelectedLeadId, deleteLead, logCall } = useApp();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<'details' | 'ai' | 'notes'>('details');
@@ -78,7 +78,8 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
     updateLeadStage(lead.id, stage);
     if (onStageChange) onStageChange(stage);
     setSelectedFollowUpStage(null);
-    setShowStatusAlert(`Status updated to "${stage}"!`);
+    logCall(lead.id, stage, `Stage updated to "${stage}"`);
+    setShowStatusAlert(`Status updated to "${stage}" & logged to daily calls!`);
     setTimeout(() => setShowStatusAlert(null), 3000);
   };
 
@@ -101,7 +102,8 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
     const combinedDate = followUpTime ? `${followUpDate} ${followUpTime}` : followUpDate;
     updateLeadFollowUp(lead.id, selectedFollowUpStage, combinedDate, followUpNotesInput);
     if (onStageChange) onStageChange(selectedFollowUpStage);
-    setShowStatusAlert(`🎉 Follow-up scheduled for ${combinedDate}`);
+    logCall(lead.id, selectedFollowUpStage, `Follow-up set for ${combinedDate}. Notes: ${followUpNotesInput || 'None'}`);
+    setShowStatusAlert(`🎉 Follow-up scheduled for ${combinedDate} & logged to daily calls`);
     setSelectedFollowUpStage(null);
     setFollowUpNotesInput('');
     setTimeout(() => setShowStatusAlert(null), 3500);
@@ -111,8 +113,9 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
     e.preventDefault();
     if (!callNoteText.trim()) return;
     addCallNote(lead.id, callNoteText.trim());
+    logCall(lead.id, 'Call Note Added', callNoteText.trim());
     setCallNoteText('');
-    setShowStatusAlert('Note saved to database!');
+    setShowStatusAlert('Note saved & logged to daily calls!');
     setTimeout(() => setShowStatusAlert(null), 3000);
   };
 
@@ -181,8 +184,13 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
               <>
                 <a
                   href={`tel:${lead.phone}`}
-                  className="px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 flex items-center gap-2 shadow-2xs transition-all"
-                  title="Direct Phone Call"
+                  onClick={() => {
+                    logCall(lead.id, 'Connected', 'Outgoing phone call placed');
+                    setShowStatusAlert('📞 Call initiated & logged to Daily Calling Tracker!');
+                    setTimeout(() => setShowStatusAlert(null), 3000);
+                  }}
+                  className="px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 flex items-center gap-2 shadow-2xs transition-all cursor-pointer"
+                  title="Direct Phone Call (Logs to Daily Calling Tracker)"
                 >
                   <span>📞</span> Call
                 </a>

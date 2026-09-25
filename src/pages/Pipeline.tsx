@@ -40,7 +40,7 @@ const stages: Stage[] = [
 ];
 
 export default function Pipeline() {
-  const { leads, updateLeadStage, deleteLead } = useApp();
+  const { leads, updateLeadStage, deleteLead, logCall } = useApp();
   const navigate = useNavigate();
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
@@ -189,9 +189,12 @@ export default function Pipeline() {
                         <div className="flex items-center gap-1.5">
                           <a
                             href={`tel:${lead.phone.replace(/[^0-9+]/g, '')}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-1 rounded bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 hover:bg-emerald-100"
-                            title="Call Lead"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              logCall(lead.id, 'Connected', 'Outgoing call placed from Pipeline Kanban');
+                            }}
+                            className="p-1 rounded bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 hover:bg-emerald-100 cursor-pointer"
+                            title="Call Lead (Logs to Daily Calling Tracker)"
                           >
                             📞
                           </a>

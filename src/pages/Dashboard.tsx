@@ -8,11 +8,29 @@ import { useNavigate } from 'react-router-dom';
 import type { Lead } from '../types';
 
 export default function Dashboard() {
-  const { leads, tasks, updateLeadStage } = useApp();
+  const {
+    leads,
+    tasks,
+    updateLeadStage,
+    todayCallsCount,
+    todayCallActivities,
+    dailyCallGoal,
+    setDailyCallGoal,
+    logCall
+  } = useApp();
   const navigate = useNavigate();
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [selectedCohort, setSelectedCohort] = useState<'all' | 'ai-pm' | 'ai-gtm' | 'ai-fellowship'>('all');
   const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
+
+  // Quick Call Log Modal State
+  const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
+  const [quickLogLeadId, setQuickLogLeadId] = useState('');
+  const [quickLogOutcome, setQuickLogOutcome] = useState('Connected');
+  const [quickLogNotes, setQuickLogNotes] = useState('');
+  const [quickLogSearch, setQuickLogSearch] = useState('');
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [tempGoal, setTempGoal] = useState(dailyCallGoal);
 
   // Filter leads based on selected cohort
   const filteredLeads = leads.filter((l) => {
@@ -43,9 +61,7 @@ export default function Dashboard() {
   const pendingTasksCount = tasks.filter((t) => t.status === 'Pending').length;
   const followUpsDueCount = (pendingTasksCount + filteredLeads.filter((l) => l.numberOfFollowUps > 0 || l.nextFollowUp).length) || 4;
 
-  const seatReservationsCount = filteredLeads.filter(
-    (l) => l.enrollmentStatus === 'Reserved' || l.crmStage === 'Joined Session'
-  ).length;
+
 
   const enrollmentsCount = filteredLeads.filter(
     (l) => l.crmStage === 'Converted' || l.paymentStatus === 'Paid' || l.enrollmentStatus === 'Enrolled'
@@ -106,6 +122,73 @@ export default function Dashboard() {
       ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-blue-200'
       : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200'
   }));
+
+  // Today's Calls Calculations
+  const [callFeedFilter, setCallFeedFilter] = useState<'All' | 'Connected' | 'FollowUp' | 'Unreached'>('All');
+
+  const todayConnected = todayCallActivities.filter((c) =>
+    ['Connected', 'Interested', 'Qualified', 'Details Sent on WhatsApp'].some((val) => c.outcome.toLowerCase().includes(val.toLowerCase()))
+  ).length;
+
+  const todayFollowUps = todayCallActivities.filter((c) =>
+    ['Follow-Up', 'Follow-up', 'Call Later'].some((val) => c.outcome.toLowerCase().includes(val.toLowerCase()))
+  ).length;
+
+  const todayDidNotPick = todayCallActivities.filter((c) =>
+    ['Did Not Pick', 'No Response', 'Did Not Receive'].some((val) => c.outcome.toLowerCase().includes(val.toLowerCase()))
+  ).length;
+
+  const goalPercent = Math.min(100, Math.round((todayCallsCount / (dailyCallGoal || 1)) * 100));
+  const connectionRateToday = todayCallsCount > 0 ? Math.round((todayConnected / todayCallsCount) * 100) : 0;
+
+  const filteredTodayCalls = todayCallActivities.filter((c) => {
+    if (callFeedFilter === 'Connected') {
+      return ['Connected', 'Interested', 'Qualified', 'Details Sent on WhatsApp'].some((val) => c.outcome.toLowerCase().includes(val.toLowerCase()));
+    }
+    if (callFeedFilter === 'FollowUp') {
+      return ['Follow-Up', 'Follow-up', 'Call Later'].some((val) => c.outcome.toLowerCase().includes(val.toLowerCase()));
+    }
+    if (callFeedFilter === 'Unreached') {
+      return ['Did Not Pick', 'No Response', 'Did Not Receive'].some((val) => c.outcome.toLowerCase().includes(val.toLowerCase()));
+    }
+    return true;
+  });
+
+  const formatCallTimestamp = (isoStr: string) => {
+    try {
+      const d = new Date(isoStr);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('en-IN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      }
+    } catch {}
+    return 'Just now';
+  };
+
+  const handleSaveGoal = () => {
+    setDailyCallGoal(Number(tempGoal) || 40);
+    setIsEditingGoal(false);
+  };
+
+  const handleQuickLogSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickLogLeadId) return;
+    logCall(quickLogLeadId, quickLogOutcome, quickLogNotes);
+    setIsQuickLogOpen(false);
+    setQuickLogLeadId('');
+    setQuickLogNotes('');
+    setQuickLogSearch('');
+  };
+
+  const todayDateFormatted = new Date().toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -198,13 +281,14 @@ export default function Dashboard() {
           sparklinePoints={[15, 18, 14, 22, 20, 25, 32]}
         />
         <KpiCard
-          title="Seat Reservations"
-          value={seatReservationsCount}
-          change="0%"
-          isPositive={null}
-          icon="🪑"
-          iconBg="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-          sparklinePoints={[0, 0, 0, 0, 0]}
+          title="Calls Made Today"
+          value={`${todayCallsCount} / ${dailyCallGoal}`}
+          change={`${goalPercent}% quota`}
+          isPositive={goalPercent >= 50}
+          icon="📞"
+          iconBg="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 ring-2 ring-emerald-500/20"
+          sparklineColor="#10b981"
+          sparklinePoints={[8, 12, 16, 20, 24, todayCallsCount]}
         />
         <KpiCard
           title="Enrollments"
@@ -235,6 +319,470 @@ export default function Dashboard() {
           sparklinePoints={[0, 0, 0, 0, 0]}
         />
       </div>
+
+      {/* 2.5 DEDICATED DAILY CALLING TRACKER & TODAY'S CALL ACTIVITY FEED */}
+      <div id="daily-calling-tracker" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/90 dark:border-gray-700 shadow-xs overflow-hidden space-y-5 p-5 scroll-mt-20">
+        {/* Section Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                DAILY OUTREACH ENGINE
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                {todayDateFormatted}
+              </span>
+            </div>
+            <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <span>📞</span> Today's Calling Performance & Activity
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Live tracking of outbound calls, connection outcomes, scheduled follow-ups, and sales activity logs for today.
+            </p>
+          </div>
+
+          {/* Goal & Quick Log Actions */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Daily Goal Setter */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-700/60 rounded-xl border border-gray-200 dark:border-gray-600 text-xs">
+              <span className="text-gray-500 dark:text-gray-400 font-semibold">Daily Target:</span>
+              {isEditingGoal ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={tempGoal}
+                    onChange={(e) => setTempGoal(Number(e.target.value))}
+                    className="w-14 px-1.5 py-0.5 text-xs font-bold border rounded dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSaveGoal}
+                    className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[11px] font-bold cursor-pointer"
+                  >
+                    Save
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <strong className="font-black text-gray-900 dark:text-gray-100">{dailyCallGoal} calls</strong>
+                  <button
+                    onClick={() => {
+                      setTempGoal(dailyCallGoal);
+                      setIsEditingGoal(true);
+                    }}
+                    className="text-emerald-600 dark:text-emerald-400 hover:underline font-bold text-[11px] cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Log Call Action Button */}
+            <button
+              onClick={() => setIsQuickLogOpen(true)}
+              className="px-4 py-2 bg-[#133926] hover:bg-[#0d271a] text-white text-xs font-extrabold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <span>+</span> Log a Call
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Calling KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Card 1: Today's Calls Progress */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50/80 to-teal-50/30 dark:from-emerald-950/40 dark:to-gray-800/80 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2">
+            <div className="flex justify-between items-center text-xs font-bold text-gray-500 dark:text-gray-400">
+              <span>Calls Made Today</span>
+              <span className="text-emerald-700 dark:text-emerald-300 font-extrabold">{goalPercent}% of Goal</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-emerald-900 dark:text-emerald-100">
+                {todayCallsCount}
+              </span>
+              <span className="text-sm font-bold text-gray-500 dark:text-gray-400">
+                / {dailyCallGoal} target
+              </span>
+            </div>
+            {/* Progress Bar */}
+            <div className="w-full h-2.5 bg-emerald-100 dark:bg-emerald-950 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-600 rounded-full transition-all duration-500"
+                style={{ width: `${goalPercent}%` }}
+              ></div>
+            </div>
+            <p className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">
+              {goalPercent >= 100
+                ? '🎉 Daily calling quota achieved! Excellent momentum.'
+                : `${dailyCallGoal - todayCallsCount} more calls needed to reach today's target.`}
+            </p>
+          </div>
+
+          {/* Card 2: Connected & Interested */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50/80 to-indigo-50/30 dark:from-blue-950/40 dark:to-gray-800/80 border border-blue-200/80 dark:border-blue-800/60 space-y-2">
+            <div className="flex justify-between items-center text-xs font-bold text-gray-500 dark:text-gray-400">
+              <span>Connected & Engaged</span>
+              <span className="text-blue-700 dark:text-blue-300 font-extrabold">{connectionRateToday}% Connect</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-blue-900 dark:text-blue-100">
+                {todayConnected}
+              </span>
+              <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                conversations
+              </span>
+            </div>
+            <div className="text-[11px] text-gray-600 dark:text-gray-300 font-medium">
+              Candidates who answered, discussed curriculum, or were qualified.
+            </div>
+          </div>
+
+          {/* Card 3: Follow-ups Scheduled */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50/80 to-fuchsia-50/30 dark:from-purple-950/40 dark:to-gray-800/80 border border-purple-200/80 dark:border-purple-800/60 space-y-2">
+            <div className="flex justify-between items-center text-xs font-bold text-gray-500 dark:text-gray-400">
+              <span>Follow-ups & Call Later</span>
+              <span className="text-purple-700 dark:text-purple-300 font-extrabold">Next Steps</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-purple-900 dark:text-purple-100">
+                {todayFollowUps}
+              </span>
+              <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                scheduled
+              </span>
+            </div>
+            <div className="text-[11px] text-gray-600 dark:text-gray-300 font-medium">
+              Marked for Follow-Up 1, 2, 3 or callback later today.
+            </div>
+          </div>
+
+          {/* Card 4: Did Not Pick */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-rose-50/80 to-amber-50/30 dark:from-rose-950/40 dark:to-gray-800/80 border border-rose-200/80 dark:border-rose-800/60 space-y-2">
+            <div className="flex justify-between items-center text-xs font-bold text-gray-500 dark:text-gray-400">
+              <span>Unreached / No Pick</span>
+              <span className="text-rose-700 dark:text-rose-300 font-extrabold">Retry Queued</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-rose-900 dark:text-rose-100">
+                {todayDidNotPick}
+              </span>
+              <span className="text-xs font-bold text-rose-700 dark:text-rose-300">
+                attempts
+              </span>
+            </div>
+            <div className="text-[11px] text-gray-600 dark:text-gray-300 font-medium">
+              Did Not Pick or unreached. Automated WhatsApp reminders triggered.
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Outcome Distribution Bar */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex justify-between text-[11px] font-bold text-gray-500 dark:text-gray-400">
+            <span>Today's Call Outcome Distribution</span>
+            <span>{todayCallsCount} Total Calls Logged</span>
+          </div>
+          <div className="h-3 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden flex">
+            {todayCallsCount > 0 ? (
+              <>
+                <div
+                  title={`Connected: ${todayConnected}`}
+                  style={{ width: `${(todayConnected / todayCallsCount) * 100}%` }}
+                  className="bg-emerald-500 h-full transition-all"
+                ></div>
+                <div
+                  title={`Follow-ups: ${todayFollowUps}`}
+                  style={{ width: `${(todayFollowUps / todayCallsCount) * 100}%` }}
+                  className="bg-purple-500 h-full transition-all"
+                ></div>
+                <div
+                  title={`Did Not Pick: ${todayDidNotPick}`}
+                  style={{ width: `${(todayDidNotPick / todayCallsCount) * 100}%` }}
+                  className="bg-rose-400 h-full transition-all"
+                ></div>
+                <div
+                  title="Other"
+                  style={{
+                    width: `${
+                      Math.max(0, todayCallsCount - todayConnected - todayFollowUps - todayDidNotPick) /
+                      todayCallsCount *
+                      100
+                    }%`
+                  }}
+                  className="bg-gray-400 h-full transition-all"
+                ></div>
+              </>
+            ) : (
+              <div className="w-full bg-gray-200 dark:bg-gray-700 h-full"></div>
+            )}
+          </div>
+          {/* Legend */}
+          <div className="flex flex-wrap items-center gap-4 text-[11px] font-medium text-gray-500 dark:text-gray-400 pt-1">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              Connected & Engaged ({todayConnected})
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+              Follow-ups & Call Later ({todayFollowUps})
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+              Did Not Pick ({todayDidNotPick})
+            </span>
+          </div>
+        </div>
+
+        {/* Real-time Call Activity Feed */}
+        <div className="space-y-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-sm text-gray-900 dark:text-gray-100">
+                Today's Call Activity Feed
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                {filteredTodayCalls.length} logs
+              </span>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 text-xs">
+              {(['All', 'Connected', 'FollowUp', 'Unreached'] as const).map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setCallFeedFilter(filter)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                    callFeedFilter === filter
+                      ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-2xs'
+                      : 'bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
+                  }`}
+                >
+                  {filter === 'All' ? 'All Calls' : filter === 'Connected' ? 'Connected' : filter === 'FollowUp' ? 'Follow-ups' : 'Unreached'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* List of Today's Calls */}
+          {filteredTodayCalls.length === 0 ? (
+            <div className="p-8 text-center border border-dashed border-gray-200 dark:border-gray-700 rounded-xl space-y-2">
+              <div className="text-2xl">📞</div>
+              <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                No calls match the selected filter for today.
+              </p>
+              <p className="text-[11px] text-gray-500">
+                Click "+ Log a Call" above or click the phone icon on any lead in the Pipeline.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+              {filteredTodayCalls.map((activity) => {
+                const targetLead = leads.find((l) => l.id === activity.leadId);
+                const isConnected = ['Connected', 'Interested', 'Qualified', 'Details Sent on WhatsApp'].some((v) =>
+                  activity.outcome.toLowerCase().includes(v.toLowerCase())
+                );
+                const isDidNotPick = activity.outcome.toLowerCase().includes('did not pick') || activity.outcome.toLowerCase().includes('no response');
+                const isFollowUp = activity.outcome.toLowerCase().includes('follow-up') || activity.outcome.toLowerCase().includes('call later');
+
+                const badgeClass = isConnected
+                  ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                  : isFollowUp
+                  ? 'bg-purple-50 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                  : isDidNotPick
+                  ? 'bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600';
+
+                return (
+                  <div
+                    key={activity.id}
+                    className="p-3.5 bg-gray-50/70 hover:bg-gray-100/70 dark:bg-gray-700/30 dark:hover:bg-gray-700/60 rounded-xl border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition-colors"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      {/* Avatar */}
+                      <div className="w-9 h-9 rounded-xl bg-[#264e36] text-white font-black text-sm flex items-center justify-center shrink-0 shadow-2xs">
+                        {activity.leadName.charAt(0).toUpperCase()}
+                      </div>
+
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => {
+                              if (targetLead) setSelectedLeadForModal(targetLead);
+                            }}
+                            className="font-extrabold text-xs text-gray-900 dark:text-gray-100 hover:text-emerald-700 dark:hover:text-emerald-400 text-left cursor-pointer truncate"
+                          >
+                            {activity.leadName}
+                          </button>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}`}>
+                            {activity.outcome}
+                          </span>
+                          <span className="text-[10px] font-semibold text-gray-400">
+                            {activity.programName || 'AI Program'}
+                          </span>
+                        </div>
+
+                        {activity.notes && (
+                          <p className="text-[11px] text-gray-600 dark:text-gray-300 font-medium line-clamp-2">
+                            "{activity.notes}"
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium pt-0.5">
+                          <span>Caller: {activity.salesperson || 'Alex Rivera'}</span>
+                          <span>•</span>
+                          <span>{activity.leadPhone || (targetLead && targetLead.phone) || 'Phone unlisted'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right side: Time & Action Buttons */}
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 px-2 py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-2xs">
+                        ⏰ {formatCallTimestamp(activity.timestamp)}
+                      </span>
+
+                      {targetLead && (
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={`tel:${targetLead.phone}`}
+                            onClick={() => logCall(targetLead.id, 'Connected', 'Outgoing callback')}
+                            className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800 text-xs font-bold cursor-pointer"
+                            title="Call Lead"
+                          >
+                            📞
+                          </a>
+                          <button
+                            onClick={() => setSelectedLeadForModal(targetLead)}
+                            className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 cursor-pointer shadow-2xs"
+                          >
+                            Details →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Log Call Modal */}
+      {isQuickLogOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setIsQuickLogOpen(false)}
+        >
+          <div
+            className="bg-white dark:bg-gray-900 rounded-3xl max-w-lg w-full p-6 border border-gray-200 dark:border-gray-800 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-800">
+              <h3 className="text-base font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <span>📞</span> Quick Log Outreach Call
+              </h3>
+              <button
+                onClick={() => setIsQuickLogOpen(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 font-bold hover:bg-gray-200 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickLogSubmit} className="space-y-4 text-xs">
+              {/* Select Lead */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-gray-700 dark:text-gray-300">
+                  Select Lead to Log Call For
+                </label>
+                <input
+                  type="text"
+                  placeholder="Filter lead by name or phone..."
+                  value={quickLogSearch}
+                  onChange={(e) => setQuickLogSearch(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 mb-1.5 font-medium"
+                />
+                <select
+                  value={quickLogLeadId}
+                  onChange={(e) => setQuickLogLeadId(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-semibold"
+                >
+                  <option value="">-- Choose Lead ({leads.length} available) --</option>
+                  {leads
+                    .filter((l) =>
+                      quickLogSearch
+                        ? l.fullName.toLowerCase().includes(quickLogSearch.toLowerCase()) ||
+                          l.phone.includes(quickLogSearch)
+                        : true
+                    )
+                    .slice(0, 30)
+                    .map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.fullName} ({l.phone}) — {l.programName || 'AI Program'}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Select Outcome */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-gray-700 dark:text-gray-300">
+                  Call Outcome
+                </label>
+                <select
+                  value={quickLogOutcome}
+                  onChange={(e) => setQuickLogOutcome(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-bold"
+                >
+                  <option value="Connected">Connected & Discussed</option>
+                  <option value="Interested">Interested in Cohort</option>
+                  <option value="Qualified">Qualified Candidate</option>
+                  <option value="Details Sent on WhatsApp">Details Sent on WhatsApp</option>
+                  <option value="Follow-Up 1">Follow-Up 1 Scheduled</option>
+                  <option value="Follow-Up 2">Follow-Up 2 Scheduled</option>
+                  <option value="Call Later">Call Later / Callback Requested</option>
+                  <option value="Did Not Pick The Call">Did Not Pick The Call (No Answer)</option>
+                  <option value="Not Interested">Not Interested</option>
+                  <option value="Unqualified">Unqualified</option>
+                </select>
+              </div>
+
+              {/* Call Notes */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-gray-700 dark:text-gray-300">
+                  Call Notes & Discussion Summary
+                </label>
+                <textarea
+                  rows={3}
+                  value={quickLogNotes}
+                  onChange={(e) => setQuickLogNotes(e.target.value)}
+                  placeholder="e.g. Spoke about upcoming batch timing, experience level, fee structure, and next steps..."
+                  className="w-full p-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium"
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickLogOpen(false)}
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!quickLogLeadId}
+                  className="px-5 py-2 bg-[#133926] hover:bg-[#0d271a] disabled:opacity-50 text-white font-extrabold rounded-xl shadow-xs transition-all cursor-pointer"
+                >
+                  Save Call Log
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* 3. MAIN DASHBOARD CONTENT GRID (Left 2/3 + Right 1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

@@ -1,7 +1,7 @@
 // @ts-nocheck
 // src/context/AppContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Lead, Task, Program, IntegrationItem, Stage } from '../types';
+import type { Lead, Task, Program, IntegrationItem, Stage, CallActivity } from '../types';
 import {
   supabase,
   fetchLeadsFromSupabase,
@@ -477,6 +477,101 @@ const initialIntegrations: IntegrationItem[] = [
   { id: 'razorpay', name: 'Razorpay Payment Gateway', category: 'Payments', description: 'Generate instant seat reservation payment links with webhooks.', connected: true, status: 'Active', icon: '💳' }
 ];
 
+const generateInitialCallActivities = (): CallActivity[] => {
+  const now = new Date();
+  const makeTime = (hoursAgo: number, minutesAgo: number = 0) => {
+    const d = new Date(now.getTime() - (hoursAgo * 60 + minutesAgo) * 60 * 1000);
+    return d.toISOString();
+  };
+
+  return [
+    {
+      id: 'call-seed-1',
+      leadId: 'lead-ashutosh-01',
+      leadName: 'Ashutosh',
+      leadPhone: '+91 98765 12340',
+      programName: 'AI-Native Project Management',
+      timestamp: makeTime(0, 35),
+      outcome: 'Connected',
+      notes: 'Spoke regarding Saturday cohort syllabus depth, fee structure, and AI-PM hands-on project deliverables. Very positive conversation.',
+      durationSeconds: 240,
+      salesperson: 'Alex Rivera'
+    },
+    {
+      id: 'call-seed-2',
+      leadId: 'lead-rahul-001',
+      leadName: 'Rahul Sharma',
+      leadPhone: '+91 98765 43210',
+      programName: 'AI-Native Project Management',
+      timestamp: makeTime(1, 15),
+      outcome: 'Interested',
+      notes: 'Reviewed current role as PM at TechCorp. Discussed transition timeline for next 3-6 months. Scheduled Follow-Up 1.',
+      durationSeconds: 180,
+      salesperson: 'Alex Rivera'
+    },
+    {
+      id: 'call-seed-3',
+      leadId: 'lead-priya-002',
+      leadName: 'Priya Patel',
+      leadPhone: '+91 98112 23344',
+      programName: 'AI-Native Go-To-Market',
+      timestamp: makeTime(2, 5),
+      outcome: 'Did Not Pick The Call',
+      notes: 'Rang 4 times with no answer. Sent cohort brochure and introductory video via WhatsApp.',
+      durationSeconds: 45,
+      salesperson: 'Alex Rivera'
+    },
+    {
+      id: 'call-seed-4',
+      leadId: 'lead-vikram-003',
+      leadName: 'Vikram Mehta',
+      leadPhone: '+91 99887 76655',
+      programName: 'AI Leadership Fellowship',
+      timestamp: makeTime(2, 45),
+      outcome: 'Call Later',
+      notes: 'In executive meeting. Requested callback around 4:30 PM. Marked as callback.',
+      durationSeconds: 60,
+      salesperson: 'Alex Rivera'
+    },
+    {
+      id: 'call-seed-5',
+      leadId: 'lead-satyam-04',
+      leadName: 'Satyam',
+      leadPhone: '+91 97711 55667',
+      programName: 'AI-Native Project Management',
+      timestamp: makeTime(3, 30),
+      outcome: 'Connected',
+      notes: 'Reviewed budget and sponsorship. Wants invoice sent to HR department for upskilling reimbursement.',
+      durationSeconds: 310,
+      salesperson: 'Alex Rivera'
+    },
+    {
+      id: 'call-seed-6',
+      leadId: 'lead-sneha-05',
+      leadName: 'Sneha Verma',
+      leadPhone: '+91 96655 44332',
+      programName: 'AI-Native Project Management',
+      timestamp: makeTime(4, 10),
+      outcome: 'Qualified',
+      notes: '11 years exp, lead PM in healthcare tech. Fits the criteria for AI transformation lead perfectly.',
+      durationSeconds: 260,
+      salesperson: 'Alex Rivera'
+    },
+    {
+      id: 'call-seed-7',
+      leadId: 'lead-rohit-06',
+      leadName: 'Rohit Sharma',
+      leadPhone: '+91 95544 33221',
+      programName: 'AI-Native Go-To-Market',
+      timestamp: makeTime(5, 0),
+      outcome: 'Did Not Pick The Call',
+      notes: 'Unanswered call. Follow-up 1 queued for tomorrow morning.',
+      durationSeconds: 30,
+      salesperson: 'Alex Rivera'
+    }
+  ];
+};
+
 interface AppContextType {
   leads: Lead[];
   selectedLeadId: string;
@@ -484,6 +579,12 @@ interface AppContextType {
   tasks: Task[];
   programs: Program[];
   integrations: IntegrationItem[];
+  callActivities: CallActivity[];
+  todayCallsCount: number;
+  todayCallActivities: CallActivity[];
+  dailyCallGoal: number;
+  setDailyCallGoal: (goal: number) => void;
+  logCall: (leadId: string, outcome?: string, notes?: string) => void;
   addLead: (lead: Lead) => void;
   bulkAddLeads: (leads: Lead[]) => void;
   updateLeadStage: (id: string, stage: Stage) => void;
@@ -544,6 +645,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [integrations, setIntegrations] = useState<IntegrationItem[]>(initialIntegrations);
 
+  const [callActivities, setCallActivities] = useState<CallActivity[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_CALL_ACTIVITIES');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error loading saved call activities:', e);
+      }
+    }
+    return generateInitialCallActivities();
+  });
+
+  const [dailyCallGoal, setDailyCallGoal] = useState<number>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_DAILY_CALL_GOAL');
+    return saved ? Number(saved) : 40;
+  });
+
   // Sync state to localStorage on changes
   useEffect(() => {
     localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(leads));
@@ -556,6 +674,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('AIVALYTICS_TASKS', JSON.stringify(tasks));
   }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem('AIVALYTICS_CALL_ACTIVITIES', JSON.stringify(callActivities));
+  }, [callActivities]);
+
+  useEffect(() => {
+    localStorage.setItem('AIVALYTICS_DAILY_CALL_GOAL', String(dailyCallGoal));
+  }, [dailyCallGoal]);
 
   // Initial Supabase DB Sync on mount if connected
   useEffect(() => {
@@ -755,6 +881,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const logCall = (leadId: string, outcome: string = 'Call Initiated', notes: string = '') => {
+    const targetLead = leads.find((l) => l.id === leadId);
+    const newActivity: CallActivity = {
+      id: `call-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      leadId,
+      leadName: targetLead ? targetLead.fullName : 'Lead',
+      leadPhone: targetLead ? targetLead.phone : '',
+      programName: targetLead ? targetLead.programName : 'AI Program',
+      timestamp: new Date().toISOString(),
+      outcome,
+      notes: notes || (outcome === 'Call Initiated' ? 'Direct phone call placed' : `Call outcome marked as ${outcome}`),
+      salesperson: 'Alex Rivera'
+    };
+
+    setCallActivities((prev) => [newActivity, ...prev]);
+
+    // Also update lead's call counter and last contacted timestamp
+    setLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId) {
+          const updated: Lead = {
+            ...l,
+            numberOfCalls: (l.numberOfCalls || 0) + 1,
+            lastContacted: new Date().toISOString()
+          };
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+  };
+
+  const todayStr = new Date().toISOString().substring(0, 10);
+  const todayCallActivities = callActivities.filter((c) => c.timestamp.startsWith(todayStr));
+  const todayCallsCount = todayCallActivities.length;
+
   return (
     <AppContext.Provider
       value={{
@@ -764,6 +927,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tasks,
         programs,
         integrations,
+        callActivities,
+        todayCallsCount,
+        todayCallActivities,
+        dailyCallGoal,
+        setDailyCallGoal,
+        logCall,
         addLead,
         bulkAddLeads,
         updateLeadStage,

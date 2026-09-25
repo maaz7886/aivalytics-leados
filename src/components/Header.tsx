@@ -1,9 +1,10 @@
-// src/components/Header.tsx
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
+import { useApp } from "../context/AppContext";
 
 export default function Header() {
+  const { todayCallsCount, dailyCallGoal } = useApp();
   const [user, setUser] = useState<any>(null);
   const [isDark, setIsDark] = useState<boolean>(() => {
     return document.documentElement.classList.contains("dark");
@@ -96,6 +97,29 @@ export default function Header() {
 
       {/* Right: Actions, Theme, Notifications & User Avatar */}
       <div className="flex items-center gap-3 shrink-0">
+        {/* Today's Calls Live Counter Pill */}
+        <button
+          onClick={() => {
+            navigate("/dashboard");
+            setTimeout(() => {
+              const el = document.getElementById("daily-calling-tracker");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+          }}
+          title={`${todayCallsCount} calls logged today (Daily Target: ${dailyCallGoal}). Click to view Calling Tracker.`}
+          className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/80 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 rounded-full text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all shadow-2xs cursor-pointer group"
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="group-hover:scale-110 transition-transform">📞</span>
+          <span>
+            <strong className="font-black text-gray-900 dark:text-gray-100">{todayCallsCount}</strong>
+            <span className="text-gray-500 dark:text-gray-400 font-semibold">/{dailyCallGoal}</span> Calls Today
+          </span>
+        </button>
+
         {/* Theme Toggle Icon Button */}
         <button
           onClick={toggleDark}

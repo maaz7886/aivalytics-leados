@@ -29,7 +29,7 @@ interface ProgramCrmKanbanProps {
 }
 
 export default function ProgramCrmKanban({ programId }: ProgramCrmKanbanProps) {
-  const { leads, updateLeadStage, addCallNote, programs, deleteLead, deleteBulkLeads } = useApp();
+  const { leads, updateLeadStage, addCallNote, programs, deleteLead, deleteBulkLeads, logCall } = useApp();
 
   // Full Lead Detail Modal State (User Requirement)
   const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
@@ -141,10 +141,14 @@ export default function ProgramCrmKanban({ programId }: ProgramCrmKanbanProps) {
 
   const handleSaveCallOutcome = () => {
     if (!activeCallLead) return;
+    const noteText = callNotesInput.trim()
+      ? `[Call Date: ${lastContactedDate}] [Next Follow-Up: ${nextFollowUpDate}] ${callNotesInput}`
+      : `Call logged with outcome: ${selectedCallOutcome}`;
     if (callNotesInput.trim()) {
-      addCallNote(activeCallLead.id, `[Call Date: ${lastContactedDate}] [Next Follow-Up: ${nextFollowUpDate}] ${callNotesInput}`);
+      addCallNote(activeCallLead.id, noteText);
     }
     updateLeadStage(activeCallLead.id, selectedCallOutcome);
+    logCall(activeCallLead.id, selectedCallOutcome, noteText);
     setActiveCallLead(null);
   };
 
