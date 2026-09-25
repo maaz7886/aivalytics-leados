@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Pipeline from "./pages/Pipeline";
-import TasksPage from "./pages/Tasks";
 import AIIntelligence from "./pages/AIIntelligence";
 import LeadProfile from "./pages/LeadProfile";
 import Conversations from "./pages/Conversations";
@@ -15,7 +14,6 @@ import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import ImportCenter from "./pages/ImportCenter";
 import ImportHistory from "./pages/ImportHistory";
-import NurturePool from "./pages/NurturePool";
 import MyDay from "./pages/MyDay";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
@@ -35,7 +33,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
             <Route path="/pipeline" element={<Pipeline />} />
-            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/tasks" element={<Navigate to="/pipeline" replace />} />
             <Route path="/ai" element={<AIIntelligence />} />
             <Route path="/profile" element={<LeadProfile />} />
             <Route path="/conversations" element={<Conversations />} />
@@ -48,7 +46,7 @@ function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/import" element={<ImportCenter />} />
             <Route path="/import-history" element={<ImportHistory />} />
-            <Route path="/nurture" element={<NurturePool />} />
+            <Route path="/nurture" element={<Navigate to="/pipeline" replace />} />
             <Route path="/my-day" element={<MyDay />} />
           </Route>
         </Route>

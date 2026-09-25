@@ -5,8 +5,6 @@ const navigation = [
   { name: "My Day", to: "/my-day" },
   { name: "Dashboard", to: "/dashboard" },
   { name: "Pipeline", to: "/pipeline" },
-  { name: "Nurture Pool", to: "/nurture" },
-  { name: "Follow-Up Center", to: "/tasks" },
   { name: "AI Intelligence", to: "/ai" },
   { name: "Conversations", to: "/conversations" },
   { name: "All Programs", to: "/programs" },
