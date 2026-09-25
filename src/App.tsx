@@ -13,7 +13,6 @@ import AiPmProgram from "./pages/programs/AiPmProgram";
 import AiGtmProgram from "./pages/programs/AiGtmProgram";
 import AiFellowshipProgram from "./pages/programs/AiFellowshipProgram";
 import Analytics from "./pages/Analytics";
-import Integrations from "./pages/Integrations";
 import Settings from "./pages/Settings";
 import ImportCenter from "./pages/ImportCenter";
 import ImportHistory from "./pages/ImportHistory";
@@ -46,7 +45,7 @@ function App() {
             <Route path="/programs/ai-gtm" element={<AiGtmProgram />} />
             <Route path="/programs/ai-fellowship" element={<AiFellowshipProgram />} />
             <Route path="/analytics" element={<Analytics />} />
-            <Route path="/integrations" element={<Integrations />} />
+            <Route path="/integrations" element={<Navigate to="/dashboard" replace />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/import" element={<ImportCenter />} />
             <Route path="/import-history" element={<ImportHistory />} />

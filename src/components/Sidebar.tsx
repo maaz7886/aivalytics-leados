@@ -17,7 +17,6 @@ const navigation = [
   { name: "Analytics", to: "/analytics" },
   { name: "Import Center", to: "/import" },
   { name: "Import History", to: "/import-history" },
-  { name: "Integrations", to: "/integrations" },
   { name: "Settings", to: "/settings" },
 ];
 
