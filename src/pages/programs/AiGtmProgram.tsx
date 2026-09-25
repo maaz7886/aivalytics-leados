@@ -7,7 +7,7 @@ import ProgramCrmKanban from '../../components/ProgramCrmKanban';
 
 
 export default function AiGtmProgram() {
-  const { leads, programs, updateProgram, setSelectedLeadId } = useApp();
+  const { leads, programs, updateProgram, setSelectedLeadId, deleteLead } = useApp();
   const navigate = useNavigate();
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
 
@@ -199,6 +199,17 @@ export default function AiGtmProgram() {
                       className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg cursor-pointer"
                     >
                       View AI Intelligence
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Are you sure you want to permanently delete lead "${lead.fullName}"?`)) {
+                          deleteLead(lead.id);
+                        }
+                      }}
+                      className="ml-2 px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400 font-bold text-xs rounded-lg border border-red-200 dark:border-red-900/60 cursor-pointer transition-all"
+                      title="Delete Lead"
+                    >
+                      🗑️
                     </button>
                   </td>
                 </tr>

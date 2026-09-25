@@ -40,7 +40,7 @@ const stages: Stage[] = [
 ];
 
 export default function Pipeline() {
-  const { leads, updateLeadStage } = useApp();
+  const { leads, updateLeadStage, deleteLead } = useApp();
   const navigate = useNavigate();
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
@@ -205,6 +205,18 @@ export default function Pipeline() {
                           >
                             💬
                           </a>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Are you sure you want to permanently delete lead "${lead.fullName}"?`)) {
+                                deleteLead(lead.id);
+                              }
+                            }}
+                            className="p-1 rounded bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 cursor-pointer transition-all"
+                            title="Delete Lead"
+                          >
+                            🗑️
+                          </button>
                         </div>
                         <span className="text-[10px] font-bold text-primary-600 hover:underline">
                           View Details & Move →
@@ -225,6 +237,7 @@ export default function Pipeline() {
         isOpen={!!selectedLeadForModal}
         onClose={() => setSelectedLeadForModal(null)}
         onStageChange={(newStage) => updateLeadStage(selectedLeadForModal!.id, newStage)}
+        onDelete={() => setSelectedLeadForModal(null)}
       />
 
       {/* META ADS LEAD SIMULATOR MODAL */}

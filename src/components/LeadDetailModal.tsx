@@ -10,6 +10,7 @@ interface LeadDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStageChange?: (newStage: Stage) => void;
+  onDelete?: (leadId: string) => void;
 }
 
 function formatCollectionDate(dateStr?: string): string {
@@ -44,13 +45,14 @@ function formatCollectionDateTime(dateStr?: string): string {
   return String(dateStr);
 }
 
-export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }: LeadDetailModalProps) {
-  const { updateLeadStage, addCallNote, updateLeadFollowUp, setSelectedLeadId } = useApp();
+export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, onDelete }: LeadDetailModalProps) {
+  const { updateLeadStage, addCallNote, updateLeadFollowUp, setSelectedLeadId, deleteLead } = useApp();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<'details' | 'ai' | 'notes'>('details');
   const [callNoteText, setCallNoteText] = useState('');
   const [showStatusAlert, setShowStatusAlert] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Follow-Up Scheduler State (User Requirement)
   const [selectedFollowUpStage, setSelectedFollowUpStage] = useState<Stage | null>(null);
@@ -266,6 +268,14 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }
                 </a>
               </>
             )}
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/60 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 text-xs font-bold rounded-lg border border-red-200 dark:border-red-800/80 flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Delete this lead permanently"
+            >
+              🗑️ Delete
+            </button>
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 flex items-center justify-center font-bold text-sm cursor-pointer transition-all ml-1"
@@ -733,21 +743,74 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }
         </div>
 
         {/* FOOTER ACTIONS */}
-        <div className="px-6 py-3.5 bg-gray-50 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between gap-3">
+        <div className="px-6 py-3.5 bg-gray-50 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between gap-3 flex-wrap">
           <button
             onClick={handleOpenFullProfile}
             className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold text-xs rounded-xl border border-indigo-200 dark:border-indigo-800 transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <span>⚡</span> Open 360° AI Profile & Guided Call Script
           </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-gray-800 dark:text-gray-200 font-bold text-xs rounded-xl transition-all cursor-pointer"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-3 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-950/60 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 font-bold text-xs rounded-xl border border-red-200 dark:border-red-800/80 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              🗑️ Delete Lead
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-gray-800 dark:text-gray-200 font-bold text-xs rounded-xl transition-all cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-red-200 dark:border-red-900/60 space-y-4 animate-in fade-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center text-xl font-bold shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-gray-100">Permanently Delete Lead?</h3>
+                <p className="text-xs text-gray-500">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+              Are you sure you want to permanently delete <strong className="text-gray-900 dark:text-gray-100 font-bold">{lead.fullName}</strong> from the database and CRM pipeline? All associated notes and follow-up schedules will be removed.
+            </p>
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteLead(lead.id);
+                  if (onDelete) onDelete(lead.id);
+                  setShowDeleteConfirm(false);
+                  onClose();
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                🗑️ Permanently Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

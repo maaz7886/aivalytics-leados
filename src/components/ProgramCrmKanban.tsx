@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Lead, Stage } from '../types';
-import { useNavigate } from 'react-router-dom';
 import { evaluateLeadWithGrok } from '../lib/aiEngine';
+import LeadDetailModal from './LeadDetailModal';
 
 const REQUIRED_STAGES: { stage: Stage; label: string; badgeColor: string }[] = [
   { stage: 'New Lead', label: '1. New Lead', badgeColor: 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200' },
@@ -29,8 +29,13 @@ interface ProgramCrmKanbanProps {
 }
 
 export default function ProgramCrmKanban({ programId }: ProgramCrmKanbanProps) {
-  const { leads, updateLeadStage, addCallNote, setSelectedLeadId, programs } = useApp();
-  const navigate = useNavigate();
+  const { leads, updateLeadStage, addCallNote, programs, deleteLead, deleteBulkLeads } = useApp();
+
+  // Full Lead Detail Modal State (User Requirement)
+  const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
+  const activeModalLead = selectedLeadForModal
+    ? leads.find((l) => l.id === selectedLeadForModal.id) || selectedLeadForModal
+    : null;
 
   // Filters & Selections
   const [activeFilter, setActiveFilter] = useState<'All' | 'Due' | 'HighFit' | 'Qualified'>('All');
@@ -349,6 +354,17 @@ END:VCALENDAR`;
               Apply Stage
             </button>
             <button
+              onClick={() => {
+                if (window.confirm(`Are you sure you want to permanently delete ${selectedLeadIds.length} selected lead(s)? This cannot be undone.`)) {
+                  deleteBulkLeads(selectedLeadIds);
+                  setSelectedLeadIds([]);
+                }
+              }}
+              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded cursor-pointer flex items-center gap-1"
+            >
+              🗑️ Delete ({selectedLeadIds.length})
+            </button>
+            <button
               onClick={() => setSelectedLeadIds([])}
               className="text-gray-300 hover:text-white font-bold px-1.5 cursor-pointer"
             >
@@ -401,10 +417,11 @@ END:VCALENDAR`;
                         key={lead.id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, lead.id)}
-                        className={`bg-white dark:bg-gray-700 p-3.5 rounded-xl border shadow-2xs hover:shadow-sm cursor-grab active:cursor-grabbing transition-all space-y-2.5 ${
+                        onClick={() => setSelectedLeadForModal(lead)}
+                        className={`bg-white dark:bg-gray-700 p-3.5 rounded-xl border shadow-2xs hover:shadow-md cursor-pointer transition-all space-y-2.5 group ${
                           selectedLeadIds.includes(lead.id)
                             ? 'border-primary-500 ring-2 ring-primary-500/20'
-                            : 'border-gray-200 dark:border-gray-600'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-primary-400'
                         }`}
                       >
                         {/* Indicators Bar */}
@@ -424,12 +441,13 @@ END:VCALENDAR`;
                               type="checkbox"
                               checked={selectedLeadIds.includes(lead.id)}
                               onChange={() => toggleSelectLead(lead.id)}
+                              onClick={(e) => e.stopPropagation()}
                               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-3.5 w-3.5 cursor-pointer"
                             />
                             <h4
-                              onClick={() => {
-                                setSelectedLeadId(lead.id);
-                                navigate('/profile');
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedLeadForModal(lead);
                               }}
                               className="font-bold text-xs text-gray-900 dark:text-gray-100 hover:text-primary-600 cursor-pointer truncate max-w-[120px]"
                             >
@@ -484,27 +502,49 @@ END:VCALENDAR`;
                             href={`https://wa.me/${cleanPhone}?text=${waMessage}`}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
                             title="Open direct WhatsApp conversation"
                           >
-                            <span>💬 WhatsApp</span>
+                            <span>💬</span>
                           </a>
 
-                          {/* Direct Call Button */}
-                          <a
-                            href={`tel:${cleanPhone}`}
-                            className="px-2 py-1 bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
-                            title="Call Lead Phone Number"
-                          >
-                            <span>📞 Call</span>
-                          </a>
-
-                          {/* Full Call & Log Modal Button */}
+                          {/* Direct Call & Log Button */}
                           <button
-                            onClick={() => handleStartCall(lead)}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartCall(lead);
+                            }}
+                            className="px-2 py-1 bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-all"
+                            title="Call & Log Outcome"
+                          >
+                            <span>📞</span>
+                          </button>
+
+                          {/* Quick Delete Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Are you sure you want to permanently delete lead "${lead.fullName}"?`)) {
+                                deleteLead(lead.id);
+                              }
+                            }}
+                            className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400 font-bold text-[10px] rounded-lg border border-red-200 dark:border-red-900/60 cursor-pointer transition-all"
+                            title="Delete Lead"
+                          >
+                            🗑️
+                          </button>
+
+                          {/* Full Details & Move Modal Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLeadForModal(lead);
+                            }}
                             className="px-2 py-1 bg-primary-600 hover:bg-primary-700 text-white font-bold text-[10px] rounded-lg shadow-2xs cursor-pointer flex-1 text-center truncate"
                           >
-                            Log Notes
+                            Details & Move →
                           </button>
                         </div>
                       </div>
@@ -770,6 +810,15 @@ END:VCALENDAR`;
           </div>
         </div>
       )}
+
+      {/* LEAD DETAILS & STAGE MOVER MODAL (User Requirement) */}
+      <LeadDetailModal
+        lead={activeModalLead}
+        isOpen={!!selectedLeadForModal}
+        onClose={() => setSelectedLeadForModal(null)}
+        onStageChange={(newStage) => updateLeadStage(selectedLeadForModal!.id, newStage)}
+        onDelete={() => setSelectedLeadForModal(null)}
+      />
     </div>
   );
 }
