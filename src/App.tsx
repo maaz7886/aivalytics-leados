@@ -2,7 +2,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
-import Leads from "./pages/Leads";
 import Pipeline from "./pages/Pipeline";
 import TasksPage from "./pages/Tasks";
 import AIIntelligence from "./pages/AIIntelligence";
@@ -34,7 +33,7 @@ function App() {
           <Route element={<AppLayout />}> {/* layout with sidebar/header */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/leads" element={<Leads />} />
+            <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
             <Route path="/pipeline" element={<Pipeline />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/ai" element={<AIIntelligence />} />

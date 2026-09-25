@@ -4,7 +4,6 @@ import { Link, useLocation } from "react-router-dom";
 const navigation = [
   { name: "My Day", to: "/my-day" },
   { name: "Dashboard", to: "/dashboard" },
-  { name: "Leads", to: "/leads" },
   { name: "Pipeline", to: "/pipeline" },
   { name: "Nurture Pool", to: "/nurture" },
   { name: "Follow-Up Center", to: "/tasks" },

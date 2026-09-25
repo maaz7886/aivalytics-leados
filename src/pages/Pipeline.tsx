@@ -2,7 +2,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Lead, Stage } from '../types';
+import { useNavigate } from 'react-router-dom';
 import LeadDetailModal from '../components/LeadDetailModal';
+import MetaLeadSimulatorModal from '../components/MetaLeadSimulatorModal';
 
 const stages: Stage[] = [
   'New Lead',
@@ -21,6 +23,8 @@ const stages: Stage[] = [
 
 export default function Pipeline() {
   const { leads, updateLeadStage } = useApp();
+  const navigate = useNavigate();
+  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
 
@@ -52,6 +56,20 @@ export default function Pipeline() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Lead Pipeline Kanban</h1>
           <p className="text-sm text-gray-500">Drag & drop leads across sales funnel stages to update stage & fire automated AI actions.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => navigate('/import')}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            📊 Upload Excel / CSV Leads
+          </button>
+          <button
+            onClick={() => setIsSimulatorOpen(true)}
+            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>⚡</span> + Simulate Meta Lead
+          </button>
         </div>
       </div>
 
@@ -165,6 +183,14 @@ export default function Pipeline() {
         onClose={() => setSelectedLeadForModal(null)}
         onStageChange={(newStage) => updateLeadStage(selectedLeadForModal!.id, newStage)}
       />
+
+      {/* META ADS LEAD SIMULATOR MODAL */}
+      {isSimulatorOpen && (
+        <MetaLeadSimulatorModal
+          isOpen={isSimulatorOpen}
+          onClose={() => setIsSimulatorOpen(false)}
+        />
+      )}
     </div>
   );
 }

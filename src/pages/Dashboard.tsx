@@ -210,10 +210,10 @@ export default function Dashboard() {
             <p className="text-xs text-gray-500">Sorted by AI Fit & Purchase Intent scores.</p>
           </div>
           <button
-            onClick={() => navigate('/leads')}
+            onClick={() => navigate('/pipeline')}
             className="text-xs font-extrabold text-primary-600 hover:underline cursor-pointer"
           >
-            View All Database ({leads.length}) ➔
+            View All Pipeline ({leads.length}) ➔
           </button>
         </div>
 
