@@ -491,6 +491,7 @@ interface AppContextType {
   deleteBulkLeads: (ids: string[]) => void;
   bulkUpdateStage: (ids: string[], stage: Stage) => void;
   addCallNote: (leadId: string, rawNotes: string) => void;
+  updateLeadFollowUp: (leadId: string, stage: Stage, nextFollowUpDate: string, note?: string) => void;
   toggleTaskStatus: (taskId: string) => void;
   addTask: (task: Task) => void;
   updateProgram: (program: Program) => void;
@@ -665,6 +666,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const updateLeadFollowUp = (
+    leadId: string,
+    stage: Stage,
+    nextFollowUpDate: string,
+    note?: string
+  ) => {
+    const todayStr = new Date().toISOString().substring(0, 10);
+    const newNote = note?.trim()
+      ? {
+          id: `note-${Date.now()}`,
+          date: new Date().toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }),
+          salesperson: 'Alex Rivera',
+          rawNotes: `[${stage} scheduled for ${nextFollowUpDate}] ${note.trim()}`,
+          aiAnalysis: {
+            trueDesiredOutcome: 'Follow-up discussion scheduled',
+            primaryMotivation: 'Program details and enrollment discussion',
+            primaryObjection: 'Evaluating options',
+            secondaryObjection: 'Scheduling',
+            decisionFactors: ['Cohort curriculum', 'Timings', 'Fees'],
+            decisionMaker: 'Lead',
+            purchaseIntent: 80,
+            recommendedFollowUp: nextFollowUpDate,
+            recommendedStrategy: `Prepare tailored discussion for ${stage}.`
+          }
+        }
+      : null;
+
+    setLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId) {
+          const updatedHistory = newNote ? [newNote, ...(l.callNotesHistory || [])] : (l.callNotesHistory || []);
+          const updatedLead: Lead = {
+            ...l,
+            crmStage: stage,
+            nextFollowUp: nextFollowUpDate,
+            lastContacted: todayStr,
+            numberOfFollowUps: (l.numberOfFollowUps || 0) + 1,
+            callNotesHistory: updatedHistory
+          };
+          insertLeadToSupabase(updatedLead);
+          return updatedLead;
+        }
+        return l;
+      })
+    );
+  };
+
   const toggleTaskStatus = (taskId: string) => {
     setTasks((prev) =>
       prev.map((t) =>
@@ -723,6 +771,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteBulkLeads,
         bulkUpdateStage,
         addCallNote,
+        updateLeadFollowUp,
         toggleTaskStatus,
         addTask,
         updateProgram,

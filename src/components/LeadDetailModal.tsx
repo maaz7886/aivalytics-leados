@@ -12,15 +12,55 @@ interface LeadDetailModalProps {
   onStageChange?: (newStage: Stage) => void;
 }
 
+function formatCollectionDate(dateStr?: string): string {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    }
+  } catch {}
+  return String(dateStr).split('T')[0] || String(dateStr);
+}
+
+function formatCollectionDateTime(dateStr?: string): string {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  } catch {}
+  return String(dateStr);
+}
+
 export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }: LeadDetailModalProps) {
-  const { updateLeadStage, addCallNote, setSelectedLeadId } = useApp();
+  const { updateLeadStage, addCallNote, updateLeadFollowUp, setSelectedLeadId } = useApp();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<'details' | 'ai' | 'notes'>('details');
   const [callNoteText, setCallNoteText] = useState('');
   const [showStatusAlert, setShowStatusAlert] = useState<string | null>(null);
-  const [callbackDateTime, setCallbackDateTime] = useState('');
-  const [showCallbackInput, setShowCallbackInput] = useState(false);
+
+  // Follow-Up Scheduler State (User Requirement)
+  const [selectedFollowUpStage, setSelectedFollowUpStage] = useState<Stage | null>(null);
+  const [followUpDate, setFollowUpDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [followUpTime, setFollowUpTime] = useState<string>('11:00');
+  const [followUpNotesInput, setFollowUpNotesInput] = useState<string>('');
 
   if (!isOpen || !lead) return null;
 
@@ -38,13 +78,6 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }
       icon: '💬',
       activeClass: 'bg-blue-600 text-white ring-2 ring-blue-400 font-black shadow-md',
       hoverClass: 'bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-300 dark:border-blue-700 hover:bg-blue-100'
-    },
-    {
-      stage: 'Call Later',
-      label: 'Call Later',
-      icon: '📞',
-      activeClass: 'bg-amber-600 text-white ring-2 ring-amber-400 font-black shadow-md',
-      hoverClass: 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100'
     },
     {
       stage: 'Did Not Pick The Call',
@@ -69,13 +102,45 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }
     }
   ];
 
+  const followUpStages: { stage: Stage; label: string; icon: string; countLabel: string; bgClass: string; activeClass: string }[] = [
+    {
+      stage: 'Follow-Up 1',
+      label: 'Follow-Up 1',
+      icon: '1️⃣',
+      countLabel: '1st Touch',
+      bgClass: 'bg-purple-50 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300 dark:border-purple-700 hover:bg-purple-100',
+      activeClass: 'bg-purple-600 text-white ring-2 ring-purple-400 font-black shadow-md'
+    },
+    {
+      stage: 'Follow-Up 2',
+      label: 'Follow-Up 2',
+      icon: '2️⃣',
+      countLabel: '2nd Touch',
+      bgClass: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 hover:bg-indigo-100',
+      activeClass: 'bg-indigo-600 text-white ring-2 ring-indigo-400 font-black shadow-md'
+    },
+    {
+      stage: 'Follow-Up 3',
+      label: 'Follow-Up 3',
+      icon: '3️⃣',
+      countLabel: '3rd Touch',
+      bgClass: 'bg-pink-50 text-pink-800 dark:bg-pink-950/60 dark:text-pink-300 border-pink-300 dark:border-pink-700 hover:bg-pink-100',
+      activeClass: 'bg-pink-600 text-white ring-2 ring-pink-400 font-black shadow-md'
+    },
+    {
+      stage: 'Call Later',
+      label: 'Call Later',
+      icon: '📞',
+      countLabel: 'Callback',
+      bgClass: 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100',
+      activeClass: 'bg-amber-600 text-white ring-2 ring-amber-400 font-black shadow-md'
+    }
+  ];
+
   const secondaryStages: Stage[] = [
     'New Lead',
     'Connected',
     'Details Sent on WhatsApp',
-    'Follow-Up 1',
-    'Follow-Up 2',
-    'Follow-Up 3',
     'Payment Pending',
     'Joined Session',
     'Converted',
@@ -85,23 +150,38 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }
   const handleStageClick = (stage: Stage) => {
     updateLeadStage(lead.id, stage);
     if (onStageChange) onStageChange(stage);
-    
-    if (stage === 'Call Later') {
-      setShowCallbackInput(true);
-    } else {
-      setShowCallbackInput(false);
-    }
-
+    setSelectedFollowUpStage(null);
     setShowStatusAlert(`Moved to "${stage}" column successfully!`);
     setTimeout(() => setShowStatusAlert(null), 3500);
   };
 
-  const handleSaveCallbackSchedule = () => {
-    if (!callbackDateTime) return;
-    addCallNote(lead.id, `Scheduled Callback: ${callbackDateTime}`);
-    setShowStatusAlert(`Callback reminder scheduled for ${callbackDateTime}`);
-    setShowCallbackInput(false);
-    setTimeout(() => setShowStatusAlert(null), 3500);
+  const handleOpenFollowUpScheduler = (stage: Stage) => {
+    setSelectedFollowUpStage(stage);
+    if (stage === 'Follow-Up 1') handleSetPresetDate(1);
+    else if (stage === 'Follow-Up 2') handleSetPresetDate(2);
+    else if (stage === 'Follow-Up 3') handleSetPresetDate(3);
+    else if (stage === 'Call Later') handleSetPresetDate(1);
+  };
+
+  const handleSetPresetDate = (daysFromNow: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysFromNow);
+    setFollowUpDate(d.toISOString().split('T')[0]);
+  };
+
+  const handleSaveFollowUpWithNotes = () => {
+    if (!selectedFollowUpStage) return;
+    if (!followUpDate) {
+      setShowStatusAlert('Please pick a date for the follow-up.');
+      return;
+    }
+    const combinedDate = followUpTime ? `${followUpDate} ${followUpTime}` : followUpDate;
+    updateLeadFollowUp(lead.id, selectedFollowUpStage, combinedDate, followUpNotesInput);
+    if (onStageChange) onStageChange(selectedFollowUpStage);
+    setShowStatusAlert(`🎉 Moved to "${selectedFollowUpStage}"! Follow-up scheduled for ${combinedDate}`);
+    setSelectedFollowUpStage(null);
+    setFollowUpNotesInput('');
+    setTimeout(() => setShowStatusAlert(null), 4000);
   };
 
   const handleAddQuickNote = (e: React.FormEvent) => {
@@ -148,10 +228,18 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }
                   {lead.programName || 'AI Program'}
                 </span>
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-3 flex-wrap">
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2.5 flex-wrap">
                 <span>{lead.currentRole || 'Professional'} {lead.currentCompany ? `@ ${lead.currentCompany}` : ''}</span>
                 {lead.city && <span>• 📍 {lead.city}</span>}
-                <span>• ⏳ {lead.yearsOfExperience || 0} yrs experience</span>
+                <span>• ⏳ {lead.yearsOfExperience || 0} yrs exp</span>
+                <span className="text-primary-700 dark:text-primary-300 font-bold bg-primary-50 dark:bg-primary-950/60 px-2 py-0.5 rounded border border-primary-200 dark:border-primary-800">
+                  📥 Collected: {formatCollectionDateTime(lead.dateCaptured)}
+                </span>
+                {lead.nextFollowUp && (
+                  <span className="text-amber-700 dark:text-amber-300 font-extrabold bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+                    ⏰ Follow-Up: {lead.nextFollowUp}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -188,67 +276,211 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }
           </div>
         </div>
 
-        {/* PROMINENT STAGE MOVER BAR (User Requirement) */}
-        <div className="bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-gray-800/50 dark:via-gray-900 dark:to-gray-800/50 p-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center justify-between gap-2 mb-2.5">
-            <div className="text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-              <span>🎯 Move Lead to Pipeline Column:</span>
-              <span className="text-gray-400 font-normal normal-case">(Click any option to move instantly)</span>
+        {/* PROMINENT STAGE MOVER & FOLLOW-UP SCHEDULER BAR (User Requirement) */}
+        <div className="bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-gray-800/50 dark:via-gray-900 dark:to-gray-800/50 p-4 border-b border-gray-200 dark:border-gray-800 space-y-3.5">
+          {/* Section A: Direct Status Column Movers */}
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="text-xs font-extrabold uppercase tracking-wider text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                <span>🎯 Move to Status Column:</span>
+              </div>
+              {lead.crmStage && (
+                <span className="text-xs text-gray-500 font-medium">
+                  Current: <strong className="text-primary-600 dark:text-primary-400">{lead.crmStage}</strong>
+                </span>
+              )}
             </div>
-            {lead.crmStage && (
-              <span className="text-xs text-gray-500 font-medium">
-                Current Column: <strong className="text-primary-600 dark:text-primary-400">{lead.crmStage}</strong>
-              </span>
-            )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+              {primaryStages.map((item) => {
+                const isCurrent = lead.crmStage === item.stage || 
+                  (item.stage === 'Did Not Pick The Call' && lead.crmStage === 'Did Not Receive Call');
+
+                return (
+                  <button
+                    key={item.stage}
+                    onClick={() => handleStageClick(item.stage)}
+                    className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      isCurrent ? item.activeClass : item.hoverClass
+                    }`}
+                  >
+                    <span>{item.icon}</span>
+                    <span className="truncate">{item.label}</span>
+                    {isCurrent && <span className="text-[10px] font-black uppercase opacity-90">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* 6 Primary Requested Options */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-            {primaryStages.map((item) => {
-              const isCurrent = lead.crmStage === item.stage || 
-                (item.stage === 'Did Not Pick The Call' && lead.crmStage === 'Did Not Receive Call') ||
-                (item.stage === 'Call Later' && lead.crmStage === 'Call Pending');
+          {/* Section B: Follow-Up Buttons with Date & Call Notes (User Requirement) */}
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700/60">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="text-xs font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                <span>📅 Schedule Follow-Up & Log Call Notes:</span>
+                <span className="text-gray-400 font-normal normal-case">(Click to choose date & add notes)</span>
+              </div>
+              {lead.nextFollowUp && (
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+                  ⏰ Next: {lead.nextFollowUp}
+                </span>
+              )}
+            </div>
 
-              return (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {followUpStages.map((item) => {
+                const isCurrent = lead.crmStage === item.stage ||
+                  (item.stage === 'Call Later' && lead.crmStage === 'Call Pending');
+                const isSelected = selectedFollowUpStage === item.stage;
+
+                return (
+                  <button
+                    key={item.stage}
+                    onClick={() => handleOpenFollowUpScheduler(item.stage)}
+                    className={`px-3 py-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white ring-2 ring-indigo-400 shadow-md'
+                        : isCurrent
+                        ? item.activeClass
+                        : item.bgClass
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>{item.icon}</span>
+                      <span>{item.label}</span>
+                    </div>
+                    <span className="text-[10px] opacity-80 font-medium">
+                      {isCurrent ? '✓ Current Stage' : item.countLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section C: Interactive Follow-Up Scheduler Drawer */}
+          {selectedFollowUpStage && (
+            <div className="p-4 bg-indigo-50/80 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-extrabold text-indigo-950 dark:text-indigo-200">
+                    🗓️ Schedule {selectedFollowUpStage}
+                  </span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                    Pick date & add call notes to move lead into column
+                  </span>
+                </div>
                 <button
-                  key={item.stage}
-                  onClick={() => handleStageClick(item.stage)}
-                  className={`px-3 py-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
-                    isCurrent ? item.activeClass : item.hoverClass
-                  }`}
+                  onClick={() => setSelectedFollowUpStage(null)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold cursor-pointer"
                 >
-                  <span className="text-base">{item.icon}</span>
-                  <span className="truncate w-full text-center leading-tight">{item.label}</span>
-                  {isCurrent && <span className="text-[10px] font-black uppercase opacity-90">✓ Current</span>}
+                  ✕ Close
                 </button>
-              );
-            })}
-          </div>
+              </div>
 
-          {/* Optional Callback Scheduler for Call Later */}
-          {showCallbackInput && (
-            <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex flex-col sm:flex-row items-center gap-3 animate-in fade-in">
-              <span className="text-xs font-bold text-amber-900 dark:text-amber-200 shrink-0">
-                ⏰ Schedule Callback Reminder:
-              </span>
-              <input
-                type="text"
-                placeholder="e.g. Tomorrow 11:00 AM or Saturday 4 PM"
-                value={callbackDateTime}
-                onChange={(e) => setCallbackDateTime(e.target.value)}
-                className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 rounded-lg text-xs text-gray-900 dark:text-gray-100 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
-              />
-              <button
-                onClick={handleSaveCallbackSchedule}
-                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
-              >
-                Save Callback
-              </button>
+              {/* Date & Time Row with Quick Presets */}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-bold text-gray-700 dark:text-gray-300">Quick Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPresetDate(0)}
+                    className="px-2.5 py-1 bg-white dark:bg-gray-800 hover:bg-indigo-100 dark:hover:bg-gray-700 border border-indigo-200 dark:border-gray-700 rounded-lg text-xs font-semibold text-indigo-800 dark:text-indigo-300 cursor-pointer"
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPresetDate(1)}
+                    className="px-2.5 py-1 bg-white dark:bg-gray-800 hover:bg-indigo-100 dark:hover:bg-gray-700 border border-indigo-200 dark:border-gray-700 rounded-lg text-xs font-semibold text-indigo-800 dark:text-indigo-300 cursor-pointer"
+                  >
+                    Tomorrow
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPresetDate(2)}
+                    className="px-2.5 py-1 bg-white dark:bg-gray-800 hover:bg-indigo-100 dark:hover:bg-gray-700 border border-indigo-200 dark:border-gray-700 rounded-lg text-xs font-semibold text-indigo-800 dark:text-indigo-300 cursor-pointer"
+                  >
+                    In 2 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPresetDate(3)}
+                    className="px-2.5 py-1 bg-white dark:bg-gray-800 hover:bg-indigo-100 dark:hover:bg-gray-700 border border-indigo-200 dark:border-gray-700 rounded-lg text-xs font-semibold text-indigo-800 dark:text-indigo-300 cursor-pointer"
+                  >
+                    In 3 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPresetDate(7)}
+                    className="px-2.5 py-1 bg-white dark:bg-gray-800 hover:bg-indigo-100 dark:hover:bg-gray-700 border border-indigo-200 dark:border-gray-700 rounded-lg text-xs font-semibold text-indigo-800 dark:text-indigo-300 cursor-pointer"
+                  >
+                    In 1 Week
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                      Choose Follow-Up Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={followUpDate}
+                      onChange={(e) => setFollowUpDate(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs text-gray-900 dark:text-gray-100 font-semibold focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                      Preferred Time (Optional)
+                    </label>
+                    <input
+                      type="time"
+                      value={followUpTime}
+                      onChange={(e) => setFollowUpTime(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs text-gray-900 dark:text-gray-100 font-semibold focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Call Notes Input */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                  Call Notes / Follow-Up Reason & Discussion Summary:
+                </label>
+                <textarea
+                  rows={2}
+                  value={followUpNotesInput}
+                  onChange={(e) => setFollowUpNotesInput(e.target.value)}
+                  placeholder={`e.g. Lead requested a callback for ${selectedFollowUpStage}. Discussed syllabus depth, fee options, and need to follow up...`}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs text-gray-900 dark:text-gray-100 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedFollowUpStage(null)}
+                  className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-lg cursor-pointer transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveFollowUpWithNotes}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-lg shadow-sm cursor-pointer transition-all flex items-center gap-1.5"
+                >
+                  <span>💾</span> Save Follow-Up & Move to {selectedFollowUpStage}
+                </button>
+              </div>
             </div>
           )}
 
           {/* Secondary Stages Dropdown */}
-          <div className="mt-2.5 flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-xs pt-1">
             <span className="text-gray-400">Other Pipeline Columns:</span>
             <select
               value={lead.crmStage}
@@ -264,7 +496,7 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }
 
           {/* Animated Success Banner */}
           {showStatusAlert && (
-            <div className="mt-2.5 p-2 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-2 animate-in fade-in">
+            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-2 animate-in fade-in">
               <span>✅</span> {showStatusAlert}
             </div>
           )}
@@ -310,6 +542,22 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange }
             <div className="space-y-6">
               {/* Row 1: Contact & Profile Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="p-3.5 bg-primary-50/60 dark:bg-primary-950/40 rounded-xl border border-primary-200 dark:border-primary-800">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300 flex items-center gap-1">
+                    <span>📥</span> Date of Collecting
+                  </div>
+                  <div className="text-sm font-extrabold text-primary-950 dark:text-primary-100 mt-1">
+                    {formatCollectionDateTime(lead.dateCaptured)}
+                  </div>
+                </div>
+                <div className="p-3.5 bg-amber-50/60 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                    <span>⏰</span> Next Follow-Up Date
+                  </div>
+                  <div className="text-sm font-extrabold text-amber-950 dark:text-amber-100 mt-1">
+                    {lead.nextFollowUp || 'Not scheduled yet'}
+                  </div>
+                </div>
                 <div className="p-3.5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Phone Number</div>
                   <div className="text-sm font-extrabold text-gray-900 dark:text-gray-100 mt-1">{lead.phone || 'Not Provided'}</div>

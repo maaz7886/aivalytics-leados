@@ -6,9 +6,27 @@ import { useNavigate } from 'react-router-dom';
 import LeadDetailModal from '../components/LeadDetailModal';
 import MetaLeadSimulatorModal from '../components/MetaLeadSimulatorModal';
 
+function formatCollectionDate(dateStr?: string): string {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    }
+  } catch {}
+  return String(dateStr).split('T')[0] || String(dateStr);
+}
+
 const stages: Stage[] = [
   'New Lead',
   'Interested',
+  'Follow-Up 1',
+  'Follow-Up 2',
+  'Follow-Up 3',
   'Qualified',
   'Call Later',
   'Did Not Pick The Call',
@@ -94,7 +112,9 @@ export default function Pipeline() {
             >
               {/* Column Header */}
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200 dark:border-gray-700">
-                <span className="font-bold text-xs text-gray-700 dark:text-gray-200 uppercase tracking-wider">{stage}</span>
+                <span className="font-bold text-xs text-gray-700 dark:text-gray-200 uppercase tracking-wider flex items-center gap-1">
+                  {stage.startsWith('Follow-Up') ? '📅 ' + stage : stage}
+                </span>
                 <span className="px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 font-extrabold text-xs">
                   {stageLeads.length}
                 </span>
@@ -139,6 +159,29 @@ export default function Pipeline() {
                       <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-600 text-[11px]">
                         <span className="font-bold text-primary-600">Fit: {lead.fitScore}%</span>
                         <span className="font-bold text-emerald-600">Intent: {lead.intentScore}%</span>
+                      </div>
+
+                      {/* Date of Collecting and Follow-up Info (User Requirement) */}
+                      <div className="pt-2 border-t border-gray-100 dark:border-gray-600/70 space-y-1.5 text-[11px]">
+                        <div className="flex items-center justify-between text-gray-500 dark:text-gray-400">
+                          <span className="flex items-center gap-1 font-medium" title="Date of lead collection">
+                            <span>📥</span> Collected:
+                          </span>
+                          <span className="font-bold text-gray-700 dark:text-gray-300">
+                            {formatCollectionDate(lead.dateCaptured)}
+                          </span>
+                        </div>
+
+                        {lead.nextFollowUp && (
+                          <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-950/50 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-800/60">
+                            <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                              <span>⏰</span> Follow-Up:
+                            </span>
+                            <span className="text-[10px] font-extrabold text-amber-900 dark:text-amber-200 truncate max-w-[120px]">
+                              {lead.nextFollowUp}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Quick Contact & Details Bar */}
