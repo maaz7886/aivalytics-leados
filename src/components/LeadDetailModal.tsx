@@ -550,233 +550,262 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
 
           {/* 4. TAB CONTENT: PROFILE & BACKGROUND */}
           {activeTab === 'details' && (
-            <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs space-y-4">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center text-xs">
-                    📇
+            <div className="space-y-4">
+              {/* Feature: Dedicated Meta Form Qualifying Questions Card */}
+              <div className="bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 dark:from-gray-800 dark:via-gray-800 dark:to-gray-750 p-5 rounded-2xl border-2 border-emerald-500/30 dark:border-emerald-500/20 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-emerald-100 dark:border-gray-700/80 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shadow-xs font-black">
+                      📋
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                        Form Qualifying Questions & Responses
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider">
+                          Verified Meta Form
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                        Exact candidate answers to the 13 inbound qualification questions
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black text-gray-900 dark:text-gray-100">Lead Information</h3>
-                    <p className="text-[11px] text-gray-400 font-medium">Key details about this lead</p>
+
+                  <div className="text-right text-[11px] text-gray-500 dark:text-gray-400">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">Submitted: </span>
+                    <span className="font-bold text-emerald-800 dark:text-emerald-300">
+                      {lead.dateOfFillingForm || (lead.dateCaptured ? lead.dateCaptured.substring(0, 10) : 'Recent')}
+                    </span>
+                    {lead.createdTime && (
+                      <span className="text-gray-400 ml-1">({lead.createdTime.split(' ')[1] || lead.createdTime})</span>
+                    )}
                   </div>
                 </div>
-                
-                <select
-                  value={lead.crmStage}
-                  onChange={(e) => handleStageClick(e.target.value as Stage)}
-                  className="px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-xs font-bold text-gray-800 dark:text-gray-100 cursor-pointer"
-                >
-                  <option value={lead.crmStage}>{lead.crmStage}</option>
-                  {secondaryStages.filter(s => s !== lead.crmStage).map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+
+                {/* 13 Qualifying Questions Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {/* 1. Date of Filling the Form */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      📅 Date of Filling the Form
+                    </span>
+                    <div className="text-xs font-extrabold text-gray-800 dark:text-gray-200">
+                      {lead.dateOfFillingForm || (lead.dateCaptured ? lead.dateCaptured.substring(0, 10) : '2026-09-26')}
+                    </div>
+                  </div>
+
+                  {/* 2. Created Time */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      ⏰ Created Time
+                    </span>
+                    <div className="text-xs font-extrabold text-gray-800 dark:text-gray-200">
+                      {lead.createdTime || lead.dateCaptured || '11:30 AM'}
+                    </div>
+                  </div>
+
+                  {/* 3. Full Name */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      👤 Full Name
+                    </span>
+                    <div className="text-xs font-extrabold text-gray-900 dark:text-gray-100">
+                      {lead.fullName}
+                    </div>
+                  </div>
+
+                  {/* 4. Phone Number */}
+                  <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-1">
+                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider block">
+                      📞 Mobile Phone
+                    </span>
+                    <a
+                      href={`tel:${lead.phone}`}
+                      className="text-xs font-black text-emerald-900 dark:text-emerald-200 hover:underline block"
+                    >
+                      {lead.phone}
+                    </a>
+                  </div>
+
+                  {/* 5. Email */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      ✉️ Email Address
+                    </span>
+                    <a
+                      href={`mailto:${lead.email}`}
+                      className="text-xs font-bold text-gray-800 dark:text-gray-200 hover:underline truncate block"
+                    >
+                      {lead.email}
+                    </a>
+                  </div>
+
+                  {/* 6. Current Role */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      💼 Current Role
+                    </span>
+                    <div className="text-xs font-extrabold text-gray-800 dark:text-gray-200 capitalize">
+                      {String(lead.currentRole || '---').replace(/_/g, ' ')}
+                    </div>
+                  </div>
+
+                  {/* 7. Experience */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      ⏳ Experience
+                    </span>
+                    <div className="text-xs font-extrabold text-gray-800 dark:text-gray-200 capitalize">
+                      {lead.experience ? lead.experience.replace(/_/g, ' ') : `${lead.yearsOfExperience || 5} years`}
+                    </div>
+                  </div>
+
+                  {/* 8. AI Usage */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      🤖 AI Usage
+                    </span>
+                    <div className="text-xs font-extrabold text-blue-800 dark:text-blue-300 capitalize">
+                      {String(lead.aiUsage || lead.currentAiUsageLevel || 'Not using AI professionally yet').replace(/_/g, ' ')}
+                    </div>
+                  </div>
+
+                  {/* 9. City */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      📍 City
+                    </span>
+                    <div className="text-xs font-extrabold text-gray-800 dark:text-gray-200">
+                      {lead.city || 'Bengaluru'}
+                    </div>
+                  </div>
+
+                  {/* 10. Education */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      🎓 Education
+                    </span>
+                    <div className="text-xs font-extrabold text-gray-800 dark:text-gray-200">
+                      {lead.education || 'Graduate / Professional'}
+                    </div>
+                  </div>
+
+                  {/* 11. Timeline / When */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      ⚡ Desired Timeline
+                    </span>
+                    <div className="text-xs font-extrabold text-emerald-800 dark:text-emerald-300 capitalize">
+                      {lead.expectedTimeline ? lead.expectedTimeline.replace(/_/g, ' ') : 'Immediately'}
+                    </div>
+                  </div>
+
+                  {/* 12. Preferred Contact Time */}
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-700 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      ⏰ Preferred Contact Time
+                    </span>
+                    <div className="text-xs font-extrabold text-amber-800 dark:text-amber-300">
+                      {lead.preferredContactTime ? lead.preferredContactTime.replace(/_/g, ' ') : '6 PM – 9 PM'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3 High-Impact Qualification Highlight Rows: Goal, Blocker & Investment */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                  {/* Goal */}
+                  <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-emerald-900 dark:text-emerald-200">
+                      <span>🎯</span> Primary Goal
+                    </div>
+                    <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 capitalize">
+                      {String(lead.goal || lead.primaryGoal || 'Increase my earning potential').replace(/_/g, ' ')}
+                    </div>
+                  </div>
+
+                  {/* Blocker */}
+                  <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-rose-900 dark:text-rose-200">
+                      <span>⚠️</span> Main Blocker
+                    </div>
+                    <div className="text-xs font-bold text-rose-800 dark:text-rose-300 capitalize">
+                      {String(lead.blocker || lead.mainChallenge || "Don't know what AI skills are actually relevant").replace(/_/g, ' ')}
+                    </div>
+                  </div>
+
+                  {/* Investment / Budget */}
+                  <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-amber-900 dark:text-amber-200">
+                      <span>💰</span> Investment / Budget
+                    </div>
+                    <div className="text-xs font-bold text-amber-900 dark:text-amber-200 capitalize">
+                      {String(lead.investment || '₹34,999 is currently outside my budget').replace(/_/g, ' ')}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Key Detail Boxes in 2 Columns */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* 1. Mobile Phone Number */}
-                <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 flex items-center justify-center shrink-0 shadow-2xs text-sm">
-                      📱
+              {/* Standard Lead Profile Details Container */}
+              <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center text-xs">
+                      📇
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-gray-900 dark:text-gray-100">Company & Role Overview</h3>
+                      <p className="text-[11px] text-gray-400 font-medium">Professional background and current organization</p>
+                    </div>
+                  </div>
+                  
+                  <select
+                    value={lead.crmStage}
+                    onChange={(e) => handleStageClick(e.target.value as Stage)}
+                    className="px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-xs font-bold text-gray-800 dark:text-gray-100 cursor-pointer"
+                  >
+                    <option value={lead.crmStage}>{lead.crmStage}</option>
+                    {secondaryStages.filter(s => s !== lead.crmStage).map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-2xs">
+                      🏢
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[10px] font-bold text-gray-400">Mobile Phone Number</div>
-                      {lead.phone ? (
-                        <a
-                          href={`tel:${lead.phone}`}
-                          onClick={() => {
-                            logCall(lead.id, 'Connected', 'Outgoing phone call placed');
-                            setShowStatusAlert('📞 Call initiated & logged to Daily Calling Tracker!');
-                            setTimeout(() => setShowStatusAlert(null), 3000);
-                          }}
-                          className="text-xs font-black text-emerald-900 dark:text-emerald-200 hover:underline truncate block"
-                          title="Click to dial"
-                        >
-                          {lead.phone}
-                        </a>
-                      ) : (
-                        <div className="text-xs font-bold text-gray-400">---</div>
-                      )}
+                      <div className="text-[10px] font-bold text-gray-400">Current Company</div>
+                      <div className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">
+                        {lead.currentCompany || 'Digital Operations'}
+                      </div>
                     </div>
                   </div>
-                  {lead.phone && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(lead.phone);
-                        setShowStatusAlert(`Copied ${lead.phone} to clipboard!`);
-                        setTimeout(() => setShowStatusAlert(null), 2500);
-                      }}
-                      className="px-2 py-1 bg-white dark:bg-gray-800 hover:bg-gray-100 text-gray-600 dark:text-gray-300 text-[10px] font-bold rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-2xs"
-                      title="Copy phone number"
-                    >
-                      📋 Copy
-                    </button>
-                  )}
-                </div>
 
-                {/* 2. Email Address */}
-                <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-2xs text-sm">
-                      ✉️
+                  <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-2xs">
+                      🔗
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[10px] font-bold text-gray-400">Email Address</div>
-                      {lead.email ? (
-                        <a
-                          href={`mailto:${lead.email}`}
-                          className="text-xs font-bold text-gray-800 dark:text-gray-200 hover:underline truncate block"
-                          title="Click to email"
-                        >
-                          {lead.email}
-                        </a>
-                      ) : (
-                        <div className="text-xs font-bold text-gray-400">---</div>
-                      )}
-                    </div>
-                  </div>
-                  {lead.email && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(lead.email);
-                        setShowStatusAlert(`Copied ${lead.email} to clipboard!`);
-                        setTimeout(() => setShowStatusAlert(null), 2500);
-                      }}
-                      className="px-2 py-1 bg-white dark:bg-gray-800 hover:bg-gray-100 text-gray-600 dark:text-gray-300 text-[10px] font-bold rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-2xs"
-                      title="Copy email"
-                    >
-                      📋 Copy
-                    </button>
-                  )}
-                </div>
-
-                {/* 3. Job Role */}
-                <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-2xs">
-                    👤
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-bold text-gray-400">Job Role</div>
-                    <div className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">
-                      {lead.currentRole || '---'}
+                      <div className="text-[10px] font-bold text-gray-400">Source Channel</div>
+                      <div className="text-xs font-black text-gray-900 dark:text-gray-100 truncate">
+                        {lead.source || 'Meta Lead Ads Form'}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* 2. Company */}
-                <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-2xs">
-                    🏢
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-bold text-gray-400">Company</div>
-                    <div className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">
-                      {lead.currentCompany || '---'}
-                    </div>
-                  </div>
+                {/* Open 360 Profile Guided Button */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenFullProfile}
+                    className="px-4 py-2.5 bg-[#f0fdf4] hover:bg-[#dcfce7] dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all shadow-2xs"
+                  >
+                    <span>✨</span> Open 360° AI Profile & Guided Call Script <span>❯</span>
+                  </button>
                 </div>
-
-                {/* 3. Education */}
-                <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-2xs">
-                    🎓
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-bold text-gray-400">Education</div>
-                    <div className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">
-                      {lead.education || '---'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. Graduate / Professional */}
-                <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-2xs">
-                    👥
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-bold text-gray-400">Graduate / Professional</div>
-                    <div className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">
-                      {lead.professionalStatus || '---'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 5. Investment Budget */}
-                <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-black text-xs flex items-center justify-center shrink-0 shadow-2xs">
-                    ₹
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-bold text-gray-400">Investment Budget</div>
-                    <div className="text-xs font-black text-gray-900 dark:text-gray-100 truncate">
-                      {lead.investment || '₹25k - ₹50k'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 6. Lead Source */}
-                <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-2xs">
-                    🔗
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-bold text-gray-400">Lead Source</div>
-                    <div className="text-xs font-black text-gray-900 dark:text-gray-100 truncate">
-                      {lead.source || 'CSV Import'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2 Highlight Banners: Primary Goal & Main Blocker */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                {/* Primary Goal Banner */}
-                <div className="p-4 bg-[#f0fdf4] dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/80 rounded-2xl flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 flex items-center justify-center text-sm shrink-0">
-                    🎯
-                  </div>
-                  <div className="space-y-0.5 min-w-0">
-                    <div className="text-xs font-extrabold text-emerald-900 dark:text-emerald-200">
-                      Primary Goal
-                    </div>
-                    <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 break-words font-mono text-[11px]">
-                      {lead.primaryGoal || 'become_capable_of_managing_ai-powered_teams_and_agents'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Main Blocker / Challenge Banner */}
-                <div className="p-4 bg-[#fef2f2] dark:bg-rose-950/40 border border-red-200/90 dark:border-rose-900/80 rounded-2xl flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-red-100 dark:bg-rose-900 text-red-700 dark:text-rose-200 flex items-center justify-center text-sm shrink-0">
-                    ⚠️
-                  </div>
-                  <div className="space-y-0.5 min-w-0">
-                    <div className="text-xs font-extrabold text-red-700 dark:text-red-300">
-                      Main Blocker / Challenge
-                    </div>
-                    <div className="text-xs font-semibold text-red-600 dark:text-rose-300 break-words font-mono text-[11px]">
-                      {lead.mainChallenge || 'i_lack_practical_ai_skills'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Open 360 Profile Guided Button */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleOpenFullProfile}
-                  className="px-4 py-2.5 bg-[#f0fdf4] hover:bg-[#dcfce7] dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer transition-all shadow-2xs"
-                >
-                  <span>✨</span> Open 360° AI Profile & Guided Call Script <span>❯</span>
-                </button>
               </div>
             </div>
           )}

@@ -18,7 +18,15 @@ interface ParsedLeadRow {
   currentCompany: string;
   city: string;
   yearsOfExperience: number;
+  experience?: string;
+  aiUsage?: string;
   primaryGoal: string;
+  goal?: string;
+  blocker?: string;
+  investment?: string;
+  education?: string;
+  dateOfFillingForm?: string;
+  createdTime?: string;
   programName: string;
 }
 
@@ -51,7 +59,13 @@ export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps)
       const city = getVal(['city', 'location', 'place']) || 'Bengaluru';
       const expStr = getVal(['yearsofexperience', 'experience', 'exp', 'years']);
       const yearsOfExperience = parseInt(expStr || '5', 10) || 5;
+      const aiUsage = getVal(['aiusage', 'currentaiusagelevel', 'aiuse', 'ai']) || 'Not using AI professionally yet';
       const primaryGoal = getVal(['primarygoal', 'goal', 'objective']) || 'Upskill in Current Role';
+      const blocker = getVal(['blocker', 'mainchallenge', 'challenge', 'hurdle']) || '';
+      const investment = getVal(['investment', 'budget', 'fee', 'price']) || '';
+      const education = getVal(['education', 'qualification', 'degree']) || 'Graduate / Professional';
+      const dateOfFillingForm = getVal(['dateoffillingtheform', 'dateoffillingform', 'date', 'formdate']) || new Date().toISOString().split('T')[0];
+      const createdTime = getVal(['createdtime', 'time', 'timestamp', 'createdat']) || new Date().toISOString().replace('T', ' ').substring(0, 16);
       const programName = getVal(['targetprogram', 'program', 'programname']) || 'AI-Native Project Management';
 
       return {
@@ -62,7 +76,15 @@ export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps)
         currentCompany,
         city,
         yearsOfExperience,
+        experience: expStr || `${yearsOfExperience} years`,
+        aiUsage,
         primaryGoal,
+        goal: primaryGoal,
+        blocker,
+        investment,
+        education,
+        dateOfFillingForm,
+        createdTime,
         programName
       };
     });
@@ -165,7 +187,8 @@ export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps)
         primaryGoal: (row.primaryGoal as any) || 'Upskill in Current Role',
         desiredRole: `Senior ${row.currentRole} (AI-Native)`,
         expectedTimeline: '3–6 months',
-        mainChallenge: 'Needs multi-agent workflow & SOP automation capability.',
+        mainChallenge: row.blocker || 'Needs multi-agent workflow & SOP automation capability.',
+        blocker: row.blocker || 'Needs multi-agent workflow & SOP automation capability.',
         whyNow: 'Committed via Excel bulk lead import.',
         expectedOutcome: 'Achieve AI productivity and career progression.',
         comments: `Bulk imported from Excel file ${fileName || 'Worksheet.xlsx'}.`,
@@ -181,36 +204,20 @@ export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps)
         enrollmentStatus: 'Not Enrolled',
         fitScore,
         intentScore,
-        fitScoreBreakdown: [
-          { factor: 'Domain Experience', score: fitScore, reason: `${row.yearsOfExperience} years experience as ${row.currentRole}.` }
-        ],
-        intentScoreBreakdown: [
-          { factor: 'Excel Batch Priority', score: intentScore, reason: 'Imported via active Excel lead ingestion batch.' }
-        ],
-        likelyDesiredOutcome: `${row.fullName} is seeking to integrate AI execution frameworks into their role at ${row.currentCompany}.`,
-        evidenceLeadProvided: [`Role: ${row.currentRole}`, `Company: ${row.currentCompany}`, `Experience: ${row.yearsOfExperience} yrs`],
-        evidenceAiInterpretation: ['Needs fast-track AI preparation and custom sales outreach.'],
-        recommendedPositioning: `Position ${row.programName} as a high-impact execution multiplier.`,
-        recommendedOpening: `Hi ${row.fullName.split(' ')[0]}, following up on your ${row.programName} registration.`,
-        discoveryQuestions: [
-          `How are AI workflows currently utilized at ${row.currentCompany}?`,
-          `What milestone over the next 3–6 months defines success for you?`
-        ],
-        existingSkills: ['Domain Expertise', 'Operations'],
-        aiSkillsToDevelop: ['AI Agent Orchestration', 'SOP Engineering', 'Automated Reporting'],
-        whyProgramFits: `Matches target profile for ${row.programName}.`,
-        objections: [],
-        recommendedNextAction: 'Review AI profile and initiate first contact call within 24 hours.',
-        callNotesHistory: [],
-    investment: '',
-    education: '',
-    priority: 'P2',
-    qualificationStatus: '',
-    objection: '',
-    preferredBatch: '',
-    preferredContactTime: '',
-    paymentLink: '',
-    aiRecommendation: '',
+        experience: row.experience,
+        aiUsage: row.aiUsage,
+        goal: row.primaryGoal,
+        investment: row.investment || '',
+        education: row.education || 'Graduate / Professional',
+        dateOfFillingForm: row.dateOfFillingForm,
+        createdTime: row.createdTime,
+        priority: 'P2',
+        qualificationStatus: row.blocker ? 'Form Qualified' : 'Unqualified',
+        objection: row.investment || '',
+        preferredBatch: '',
+        preferredContactTime: '6 PM – 9 PM',
+        paymentLink: '',
+        aiRecommendation: '',
     leadScore: 50,
     leadHealthScore: 50,
     aiSummary: '',

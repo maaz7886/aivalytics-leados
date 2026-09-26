@@ -35,16 +35,18 @@ export type PrimaryGoal =
   | 'Start a Business'
   | 'Career Restart'
   | 'Explore AI'
-  | 'Other';
+  | 'Other'
+  | (string & {});
 
 export type ProfessionalStatus =
   | 'Student'
   | 'Working Professional'
   | 'Founder'
   | 'Freelancer'
-  | 'Other';
+  | 'Other'
+  | (string & {});
 
-export type ProgramId = 'ai-pm' | 'ai-gtm' | 'ai-fellowship' | 'other';
+export type ProgramId = 'ai-pm' | 'ai-gtm' | 'ai-fellowship' | 'other' | (string & {});
 
 export interface Lead {
   id: string;
@@ -55,33 +57,39 @@ export interface Lead {
   state: string;
   country: string;
   
-  // Acquisition
+  // Acquisition & Form Metadata (Qualifying Questions)
   source: string;
   metaCampaign: string;
   metaAdSet: string;
   metaAd: string;
   campaignId: string;
   dateCaptured: string;
+  dateOfFillingForm?: string;
+  createdTime?: string;
   
   // Program
   programId: ProgramId;
   programName: string;
   
-  // Professional Profile
+  // Professional Profile & Qualification Responses
   professionalStatus: ProfessionalStatus;
   currentRole: string;
   currentCompany: string;
   industry: string;
   yearsOfExperience: number;
+  experience?: string;
   currentResponsibilities: string;
   currentSkillSet: string[];
-  currentAiUsageLevel: 'Beginner' | 'Intermediate' | 'Advanced' | 'None';
+  currentAiUsageLevel: 'Beginner' | 'Intermediate' | 'Advanced' | 'None' | (string & {});
+  aiUsage?: string;
   
-  // Career Goal
+  // Career Goal & Qualification Questions
   primaryGoal: PrimaryGoal;
+  goal?: string;
   desiredRole: string;
   expectedTimeline: string;
   mainChallenge: string;
+  blocker?: string;
   whyNow: string;
   expectedOutcome: string;
   comments: string;
