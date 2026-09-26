@@ -373,17 +373,23 @@ export async function fetchTasksFromSupabase(): Promise<Task[] | null> {
 export async function upsertTaskInSupabase(task: Task): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
   try {
-    const { error } = await supabase.from('tasks').upsert({
+    const payload = {
       id: task.id,
       lead_id: task.leadId || null,
       lead_name: task.leadName || '',
-      type: task.type || 'call',
-      due_date: task.dueDate || new Date().toISOString().substring(0, 10),
+      type: (task.type || 'call').toLowerCase(),
+      due_date: task.dueDate && task.dueDate.includes('-') ? task.dueDate.substring(0, 10) : new Date().toISOString().substring(0, 10),
       priority: task.priority || 'Medium',
       status: task.status || 'Pending',
       description: task.description || task.title || '',
       assigned_to: task.assignedTo || 'Alex Rivera'
-    });
+    };
+
+    let { error } = await supabase.from('tasks').upsert(payload);
+    if (error && error.code === '23503') {
+      const retry = await supabase.from('tasks').upsert({ ...payload, lead_id: null });
+      error = retry.error;
+    }
 
     if (error) {
       console.warn('Supabase Upsert Task Error:', error);
