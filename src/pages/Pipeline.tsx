@@ -148,6 +148,12 @@ export default function Pipeline() {
                         {lead.currentRole} • {lead.currentCompany}
                       </p>
 
+                      {lead.phone && (
+                        <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                          <span>📱</span> {lead.phone}
+                        </div>
+                      )}
+
                       <div className="text-xs font-semibold text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-950 p-1.5 rounded truncate">
                         {lead.programName}
                       </div>

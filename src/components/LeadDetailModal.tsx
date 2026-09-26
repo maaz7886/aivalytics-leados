@@ -147,7 +147,7 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
               {lead.fullName.charAt(0).toUpperCase()}
             </div>
             
-            <div className="min-w-0 space-y-1">
+            <div className="min-w-0 space-y-1.5">
               {/* Name & Stage & Program Pills */}
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 tracking-tight truncate">
@@ -161,16 +161,65 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
                 </span>
               </div>
 
+              {/* Prominent Contact Row: Mobile Number & Email */}
+              <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                {lead.phone ? (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-xs shadow-2xs">
+                    <span className="text-emerald-700 dark:text-emerald-300 font-bold">📱 Mobile:</span>
+                    <a
+                      href={`tel:${lead.phone}`}
+                      onClick={() => {
+                        logCall(lead.id, 'Connected', 'Outgoing phone call placed');
+                        setShowStatusAlert('📞 Call initiated & logged to Daily Calling Tracker!');
+                        setTimeout(() => setShowStatusAlert(null), 3000);
+                      }}
+                      className="font-black text-gray-900 dark:text-gray-100 hover:text-emerald-700 dark:hover:text-emerald-400 tracking-wide text-xs"
+                      title="Click to dial candidate"
+                    >
+                      {lead.phone}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(lead.phone);
+                        setShowStatusAlert(`Copied ${lead.phone} to clipboard!`);
+                        setTimeout(() => setShowStatusAlert(null), 2500);
+                      }}
+                      className="text-[11px] text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 ml-1 cursor-pointer"
+                      title="Copy phone number"
+                    >
+                      📋
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-medium">
+                    📱 No phone number listed
+                  </span>
+                )}
+                {lead.email && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs shadow-2xs">
+                    <span className="text-gray-500 font-semibold">✉️ Email:</span>
+                    <a
+                      href={`mailto:${lead.email}`}
+                      className="font-semibold text-gray-700 dark:text-gray-300 hover:underline max-w-[220px] truncate"
+                      title="Click to email candidate"
+                    >
+                      {lead.email}
+                    </a>
+                  </div>
+                )}
+              </div>
+
               {/* Subtitle details row: Role | Experience | Collected Date */}
-              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-3 flex-wrap font-medium">
+              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2.5 flex-wrap font-medium pt-0.5">
                 <span className="flex items-center gap-1.5">
                   <span>💼</span> {lead.professionalStatus || lead.currentRole || 'Professional'}
                 </span>
-                <span className="text-gray-300 dark:text-gray-600">|</span>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
                 <span className="flex items-center gap-1.5">
                   <span>⏳</span> {lead.yearsOfExperience || 11} yrs exp
                 </span>
-                <span className="text-gray-300 dark:text-gray-600">|</span>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
                 <span className="flex items-center gap-1.5">
                   <span>📅</span> Collected: {formatCollectionDateTime(lead.dateCaptured)}
                 </span>
@@ -190,9 +239,9 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
                     setTimeout(() => setShowStatusAlert(null), 3000);
                   }}
                   className="px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 flex items-center gap-2 shadow-2xs transition-all cursor-pointer"
-                  title="Direct Phone Call (Logs to Daily Calling Tracker)"
+                  title={`Direct Phone Call to ${lead.phone}`}
                 >
-                  <span>📞</span> Call
+                  <span>📞</span> Call <span className="font-black text-emerald-800 dark:text-emerald-300">{lead.phone}</span>
                 </a>
                 <a
                   href={whatsAppUrl}
@@ -526,9 +575,88 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
                 </select>
               </div>
 
-              {/* 6 Key Detail Boxes in 2 Columns */}
+              {/* Key Detail Boxes in 2 Columns */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* 1. Job Role */}
+                {/* 1. Mobile Phone Number */}
+                <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/80 dark:border-emerald-800/80 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 flex items-center justify-center shrink-0 shadow-2xs text-sm">
+                      📱
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold text-gray-400">Mobile Phone Number</div>
+                      {lead.phone ? (
+                        <a
+                          href={`tel:${lead.phone}`}
+                          onClick={() => {
+                            logCall(lead.id, 'Connected', 'Outgoing phone call placed');
+                            setShowStatusAlert('📞 Call initiated & logged to Daily Calling Tracker!');
+                            setTimeout(() => setShowStatusAlert(null), 3000);
+                          }}
+                          className="text-xs font-black text-emerald-900 dark:text-emerald-200 hover:underline truncate block"
+                          title="Click to dial"
+                        >
+                          {lead.phone}
+                        </a>
+                      ) : (
+                        <div className="text-xs font-bold text-gray-400">---</div>
+                      )}
+                    </div>
+                  </div>
+                  {lead.phone && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(lead.phone);
+                        setShowStatusAlert(`Copied ${lead.phone} to clipboard!`);
+                        setTimeout(() => setShowStatusAlert(null), 2500);
+                      }}
+                      className="px-2 py-1 bg-white dark:bg-gray-800 hover:bg-gray-100 text-gray-600 dark:text-gray-300 text-[10px] font-bold rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-2xs"
+                      title="Copy phone number"
+                    >
+                      📋 Copy
+                    </button>
+                  )}
+                </div>
+
+                {/* 2. Email Address */}
+                <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-2xs text-sm">
+                      ✉️
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold text-gray-400">Email Address</div>
+                      {lead.email ? (
+                        <a
+                          href={`mailto:${lead.email}`}
+                          className="text-xs font-bold text-gray-800 dark:text-gray-200 hover:underline truncate block"
+                          title="Click to email"
+                        >
+                          {lead.email}
+                        </a>
+                      ) : (
+                        <div className="text-xs font-bold text-gray-400">---</div>
+                      )}
+                    </div>
+                  </div>
+                  {lead.email && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(lead.email);
+                        setShowStatusAlert(`Copied ${lead.email} to clipboard!`);
+                        setTimeout(() => setShowStatusAlert(null), 2500);
+                      }}
+                      className="px-2 py-1 bg-white dark:bg-gray-800 hover:bg-gray-100 text-gray-600 dark:text-gray-300 text-[10px] font-bold rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer shadow-2xs"
+                      title="Copy email"
+                    >
+                      📋 Copy
+                    </button>
+                  )}
+                </div>
+
+                {/* 3. Job Role */}
                 <div className="p-3 bg-gray-50/70 dark:bg-gray-750/50 rounded-xl border border-gray-100 dark:border-gray-700/80 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-gray-400 shrink-0 shadow-2xs">
                     👤

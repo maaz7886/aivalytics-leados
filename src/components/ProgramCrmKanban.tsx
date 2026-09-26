@@ -461,9 +461,22 @@ END:VCALENDAR`;
                               >
                                 {lead.fullName}
                               </h4>
-                              <div className="text-[10px] font-medium text-gray-400 truncate max-w-[110px]">
+                              <div className="text-[10px] font-medium text-gray-400 truncate max-w-[130px]">
                                 {lead.currentRole || 'Professional'} • {lead.yearsOfExperience || 0}y exp
                               </div>
+                              {lead.phone && (
+                                <a
+                                  href={`tel:${lead.phone}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    logCall(lead.id, 'Connected', 'Outgoing phone call placed');
+                                  }}
+                                  className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 mt-0.5"
+                                  title={`Click to call ${lead.phone}`}
+                                >
+                                  <span>📱</span> {lead.phone}
+                                </a>
+                              )}
                             </div>
                           </div>
                           <span className="text-[10px] font-extrabold shrink-0" title="Temperature">
