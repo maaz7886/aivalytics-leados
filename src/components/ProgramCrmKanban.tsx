@@ -38,6 +38,7 @@ export default function ProgramCrmKanban({ programId }: ProgramCrmKanbanProps) {
     : null;
 
   // Filters & Selections
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'All' | 'Due' | 'HighFit' | 'Qualified'>('All');
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [bulkStageTarget, setBulkStageTarget] = useState<Stage>('Qualified');
@@ -83,8 +84,28 @@ export default function ProgramCrmKanban({ programId }: ProgramCrmKanbanProps) {
     return { isOverdue: false, isDueToday: false, text: `📅 ${fDate}`, color: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300' };
   };
 
-  // Apply Quick Filters
+  // Apply Quick Filters & Search
   const filteredLeads = programLeads.filter((l) => {
+    // 1. Search Query Filter (Name or Mobile Number or Company)
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const qDigits = searchQuery.replace(/\D/g, '');
+      const leadDigits = (l.phone || '').replace(/\D/g, '');
+
+      const nameMatch = (l.fullName || '').toLowerCase().includes(q);
+      const phoneMatch =
+        (l.phone || '').toLowerCase().includes(q) ||
+        (qDigits.length > 0 && leadDigits.includes(qDigits));
+      const emailMatch = (l.email || '').toLowerCase().includes(q);
+      const companyMatch = (l.currentCompany || '').toLowerCase().includes(q);
+      const roleMatch = (l.currentRole || '').toLowerCase().includes(q);
+
+      if (!nameMatch && !phoneMatch && !emailMatch && !companyMatch && !roleMatch) {
+        return false;
+      }
+    }
+
+    // 2. Active Quick Filter Tab
     if (activeFilter === 'Due') {
       const status = getFollowUpStatus(l);
       return status.isOverdue || status.isDueToday;
@@ -285,95 +306,147 @@ END:VCALENDAR`;
         </div>
       </div>
 
-      {/* Feature 5: Quick Filter Bar & Bulk Actions */}
-      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 bg-gray-50 dark:bg-gray-800/60 p-3 rounded-xl border border-gray-200 dark:border-gray-700">
-        {/* Quick Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <button
-            onClick={() => setActiveFilter('All')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeFilter === 'All'
-                ? 'bg-primary-600 text-white shadow-xs'
-                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'
-            }`}
-          >
-            All Leads ({programLeads.length})
-          </button>
-          <button
-            onClick={() => setActiveFilter('Due')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'Due'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'
-            }`}
-          >
-            <span>⚡ Follow-Up Queue</span>
-            {dueCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-red-500 text-white text-[10px] font-extrabold">
-                {dueCount}
-              </span>
+      {/* Feature 5: Search & Quick Filter Bar & Bulk Actions */}
+      <div className="bg-gray-50 dark:bg-gray-800/60 p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
+        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
+          {/* Live Search Bar for Name or Mobile Number */}
+          <div className="relative flex-1 max-w-md">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              placeholder="Search by name or mobile number (e.g. 9790808200)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-9 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-xs md:text-sm font-medium text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold cursor-pointer"
+                title="Clear search"
+              >
+                ✕
+              </button>
             )}
-          </button>
-          <button
-            onClick={() => setActiveFilter('HighFit')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeFilter === 'HighFit'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'
-            }`}
-          >
-            🌟 High Fit (&gt;85%)
-          </button>
-          <button
-            onClick={() => setActiveFilter('Qualified')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeFilter === 'Qualified'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'
-            }`}
-          >
-            ✅ Qualified Leads ({qualifiedLeads.length})
-          </button>
+          </div>
+
+          {/* Quick Filter Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <button
+              onClick={() => setActiveFilter('All')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                activeFilter === 'All'
+                  ? 'bg-primary-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+              }`}
+            >
+              All Leads ({programLeads.length})
+            </button>
+            <button
+              onClick={() => setActiveFilter('Due')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                activeFilter === 'Due'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+              }`}
+            >
+              <span>⚡ Follow-Up Queue</span>
+              {dueCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-red-500 text-white text-[10px] font-extrabold">
+                  {dueCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveFilter('HighFit')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                activeFilter === 'HighFit'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+              }`}
+            >
+              🌟 High Fit (&gt;85%)
+            </button>
+            <button
+              onClick={() => setActiveFilter('Qualified')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                activeFilter === 'Qualified'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+              }`}
+            >
+              ✅ Qualified Leads ({qualifiedLeads.length})
+            </button>
+          </div>
         </div>
 
-        {/* Bulk Actions Bar */}
-        {selectedLeadIds.length > 0 && (
-          <div className="flex items-center gap-2 bg-primary-900 text-white px-3.5 py-1.5 rounded-lg text-xs animate-fade-in">
-            <span className="font-bold">{selectedLeadIds.length} Selected</span>
-            <select
-              value={bulkStageTarget}
-              onChange={(e) => setBulkStageTarget(e.target.value as Stage)}
-              className="bg-primary-800 text-white font-bold border border-primary-700 rounded px-2 py-1 text-xs"
-            >
-              {REQUIRED_STAGES.map((s) => (
-                <option key={s.stage} value={s.stage}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={handleBulkStageUpdate}
-              className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded cursor-pointer"
-            >
-              Apply Stage
-            </button>
-            <button
-              onClick={() => {
-                if (window.confirm(`Are you sure you want to permanently delete ${selectedLeadIds.length} selected lead(s)? This cannot be undone.`)) {
-                  deleteBulkLeads(selectedLeadIds);
-                  setSelectedLeadIds([]);
-                }
-              }}
-              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded cursor-pointer flex items-center gap-1"
-            >
-              🗑️ Delete ({selectedLeadIds.length})
-            </button>
-            <button
-              onClick={() => setSelectedLeadIds([])}
-              className="text-gray-300 hover:text-white font-bold px-1.5 cursor-pointer"
-            >
-              ✕
-            </button>
+        {/* Active Search / Bulk Actions sub-row */}
+        {(searchQuery.trim() || selectedLeadIds.length > 0) && (
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-gray-200 dark:border-gray-700/60">
+            {searchQuery.trim() ? (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-gray-500 dark:text-gray-400">Search results for:</span>
+                <span className="font-bold text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-600">
+                  "{searchQuery}"
+                </span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                  • {filteredLeads.length} {filteredLeads.length === 1 ? 'lead' : 'leads'} found
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-xs text-red-600 dark:text-red-400 hover:underline font-bold cursor-pointer ml-1"
+                >
+                  Clear search
+                </button>
+              </div>
+            ) : <div />}
+
+            {/* Bulk Actions Bar */}
+            {selectedLeadIds.length > 0 && (
+              <div className="flex items-center gap-2 bg-primary-900 text-white px-3.5 py-1.5 rounded-lg text-xs animate-fade-in">
+                <span className="font-bold">{selectedLeadIds.length} Selected</span>
+                <select
+                  value={bulkStageTarget}
+                  onChange={(e) => setBulkStageTarget(e.target.value as Stage)}
+                  className="bg-primary-800 text-white font-bold border border-primary-700 rounded px-2 py-1 text-xs"
+                >
+                  {REQUIRED_STAGES.map((s) => (
+                    <option key={s.stage} value={s.stage}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleBulkStageUpdate}
+                  className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded cursor-pointer"
+                >
+                  Apply Stage
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Are you sure you want to permanently delete ${selectedLeadIds.length} selected lead(s)? This cannot be undone.`)) {
+                      deleteBulkLeads(selectedLeadIds);
+                      setSelectedLeadIds([]);
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded cursor-pointer flex items-center gap-1"
+                >
+                  🗑️ Delete ({selectedLeadIds.length})
+                </button>
+                <button
+                  onClick={() => setSelectedLeadIds([])}
+                  className="text-gray-300 hover:text-white font-bold px-1.5 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -406,7 +479,7 @@ END:VCALENDAR`;
               <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
                 {stageLeads.length === 0 ? (
                   <div className="p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-center text-xs text-gray-400">
-                    No leads in this stage
+                    {searchQuery.trim() ? 'No matches' : 'No leads in this stage'}
                   </div>
                 ) : (
                   stageLeads.map((lead) => {

@@ -45,10 +45,31 @@ export default function Pipeline() {
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const activeModalLead = selectedLeadForModal
     ? leads.find((l) => l.id === selectedLeadForModal.id) || selectedLeadForModal
     : null;
+
+  const filteredLeads = leads.filter((l) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const qDigits = searchQuery.replace(/\D/g, '');
+      const leadDigits = (l.phone || '').replace(/\D/g, '');
+
+      const nameMatch = (l.fullName || '').toLowerCase().includes(q);
+      const phoneMatch =
+        (l.phone || '').toLowerCase().includes(q) ||
+        (qDigits.length > 0 && leadDigits.includes(qDigits));
+      const emailMatch = (l.email || '').toLowerCase().includes(q);
+      const companyMatch = (l.currentCompany || '').toLowerCase().includes(q);
+
+      if (!nameMatch && !phoneMatch && !emailMatch && !companyMatch) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   const handleDragStart = (_e: React.DragEvent, id: string) => {
     _e.dataTransfer.setData('text/plain', id);
@@ -69,7 +90,7 @@ export default function Pipeline() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Lead Pipeline Kanban</h1>
@@ -91,9 +112,50 @@ export default function Pipeline() {
         </div>
       </div>
 
+      {/* Pipeline Search Bar */}
+      <div className="bg-gray-50 dark:bg-gray-800/60 p-3 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="relative w-full max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            placeholder="Search leads by name or phone number..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-9 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-xs md:text-sm font-medium text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-xs"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold cursor-pointer"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {searchQuery.trim() && (
+          <div className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-2">
+            <span>Found <strong>{filteredLeads.length}</strong> matching leads</span>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="text-xs text-red-600 dark:text-red-400 font-bold hover:underline cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="flex gap-4 overflow-x-auto pb-6">
         {stages.map((stage) => {
-          const stageLeads = leads.filter((l) => {
+          const stageLeads = filteredLeads.filter((l) => {
             if (stage === 'Call Later') {
               return l.crmStage === 'Call Later' || l.crmStage === 'Call Pending';
             }
