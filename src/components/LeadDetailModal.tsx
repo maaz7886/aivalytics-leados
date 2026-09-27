@@ -55,6 +55,7 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
   const statusOptions: { stage: Stage; label: string; icon: string; isDanger?: boolean }[] = [
     { stage: 'Qualified', label: 'Qualified', icon: '☀️' },
     { stage: 'Interested', label: 'Interested', icon: '💬' },
+    { stage: 'Details Sent on WhatsApp', label: 'Details Sent', icon: '📲' },
     { stage: 'Did Not Pick The Call', label: 'Did Not Pick The Call', icon: '🚫', isDanger: true },
     { stage: 'Not Interested', label: 'Not Interested', icon: '🔴', isDanger: true },
     { stage: 'Unqualified', label: 'Unqualified', icon: '🚫', isDanger: true },
@@ -63,7 +64,6 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
   const secondaryStages: Stage[] = [
     'New Lead',
     'Connected',
-    'Details Sent on WhatsApp',
     'Follow-Up 1',
     'Follow-Up 2',
     'Follow-Up 3',
@@ -299,8 +299,8 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
               </div>
             </div>
 
-            {/* 5 Radio Style Status Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+            {/* 6 Radio Style Status Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
               {statusOptions.map((item) => {
                 const isSelected = lead.crmStage === item.stage || (item.stage === 'Did Not Pick The Call' && lead.crmStage === 'Did Not Receive Call');
                 return (
