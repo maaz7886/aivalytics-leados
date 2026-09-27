@@ -299,8 +299,8 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
               </div>
             </div>
 
-            {/* 6 Radio Style Status Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            {/* 6 Radio Style Status Cards - 3x2 Grid for optimal readability */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               {statusOptions.map((item) => {
                 const isSelected = lead.crmStage === item.stage || (item.stage === 'Did Not Pick The Call' && lead.crmStage === 'Did Not Receive Call');
                 return (
@@ -310,12 +310,12 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
                     onClick={() => handleStageClick(item.stage)}
                     className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-emerald-50/70 border-emerald-500/80 text-emerald-950 dark:bg-emerald-950/40 dark:border-emerald-500 dark:text-emerald-200 shadow-xs'
+                        ? 'bg-emerald-50/70 border-emerald-500/80 text-emerald-950 dark:bg-emerald-950/40 dark:border-emerald-500 dark:text-emerald-200 shadow-xs ring-1 ring-emerald-500/30'
                         : 'bg-white dark:bg-gray-800/80 border-gray-200/80 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750'
                     }`}
                   >
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="text-sm">{item.icon}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm shrink-0">{item.icon}</span>
                       <span className="truncate">{item.label}</span>
                     </div>
 
