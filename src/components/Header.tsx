@@ -6,6 +6,7 @@ import { useApp } from "../context/AppContext";
 export default function Header() {
   const { todayCallsCount, dailyCallGoal } = useApp();
   const [user, setUser] = useState<any>(null);
+  const [dbConnected, setDbConnected] = useState<boolean>(true);
   const [isDark, setIsDark] = useState<boolean>(() => {
     return document.documentElement.classList.contains("dark");
   });
@@ -13,6 +14,17 @@ export default function Header() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check Supabase connection health on boot
+    const checkDbHealth = async () => {
+      try {
+        const { error } = await supabase.from('leads').select('id', { count: 'exact', head: true });
+        setDbConnected(!error);
+      } catch {
+        setDbConnected(false);
+      }
+    };
+    checkDbHealth();
+
     const fetchUser = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -71,10 +83,21 @@ export default function Header() {
           v1.0 Production MVP
         </span>
         <span 
-          className="hidden xl:inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80" 
+          className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border transition-all ${
+            dbConnected 
+              ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' 
+              : 'bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border-rose-300'
+          }`}
+          title={dbConnected ? 'Live Supabase Cloud Database Connected • Real-time Sync Active' : 'Connecting to Supabase...'}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${dbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+          {dbConnected ? 'Database Connected' : 'Syncing...'}
+        </span>
+        <span 
+          className="hidden 2xl:inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80" 
           title="Turn Brave shields down if cloud sync is blocked"
         >
-          <span>🛡️ Brave User? Turn Shields DOWN for Cloud Sync</span>
+          <span>🛡️ Brave User? Turn Shields DOWN</span>
         </span>
       </div>
 

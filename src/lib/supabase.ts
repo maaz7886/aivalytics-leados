@@ -95,7 +95,8 @@ export function mapLeadToDb(lead: Partial<Lead>): any {
     recommended_positioning: lead.recommendedPositioning || '',
     recommended_opening: lead.recommendedOpening || '',
     discovery_questions: Array.isArray(lead.discoveryQuestions) ? lead.discoveryQuestions : [],
-    call_notes_history: Array.isArray(lead.callNotesHistory) ? lead.callNotesHistory : []
+    call_notes_history: Array.isArray(lead.callNotesHistory) ? lead.callNotesHistory : [],
+    updated_at: new Date().toISOString()
   };
 }
 
