@@ -2,6 +2,20 @@
 
 export type Role = 'Admin' | 'Salesperson';
 
+export interface Salesperson {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: Role;
+  title: string;
+  status: 'Active' | 'Inactive';
+  dailyCallTarget: number;
+  avatarColor: string;
+  joinedDate: string;
+  bio?: string;
+}
+
 export type Stage =
   | 'New Lead'
   | 'Call Pending'

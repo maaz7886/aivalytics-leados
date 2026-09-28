@@ -1,6 +1,7 @@
 // src/components/Sidebar.tsx
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
+import { useApp } from "../context/AppContext";
 
 interface NavItem {
   name: string;
@@ -10,24 +11,27 @@ interface NavItem {
   hasChevron?: boolean;
 }
 
-const navigation: NavItem[] = [
-  { name: "Dashboard", to: "/dashboard", icon: "🏠", hasChevron: true },
-  { name: "Pipeline", to: "/pipeline", icon: "⚡" },
-  { name: "AI Intelligence", to: "/ai", icon: "✨" },
-  { name: "Conversations", to: "/conversations", icon: "💬" },
-  { name: "All Programs", to: "/programs", icon: "🏛️", hasChevron: true },
-  { name: "AI Project Mgmt", to: "/programs/ai-pm", isSubItem: true },
-  { name: "AI-Native GTM", to: "/programs/ai-gtm", isSubItem: true },
-  { name: "AI Fellowship", to: "/programs/ai-fellowship", isSubItem: true },
-  { name: "Analytics", to: "/analytics", icon: "📊" },
-  { name: "Import Center", to: "/import", icon: "📥" },
-  { name: "Import History", to: "/import-history", icon: "🕒" },
-  { name: "Settings", to: "/settings", icon: "⚙️" },
-];
-
 export default function Sidebar() {
   const location = useLocation();
+  const { salespeople } = useApp();
   const [programsExpanded, setProgramsExpanded] = useState(true);
+  const [teamExpanded, setTeamExpanded] = useState(true);
+
+  const navigation: NavItem[] = [
+    { name: "Dashboard", to: "/dashboard", icon: "🏠" },
+    { name: "Pipeline", to: "/pipeline", icon: "⚡" },
+    { name: "Sales Team", to: "/team", icon: "👥", hasChevron: true },
+    { name: "AI Intelligence", to: "/ai", icon: "✨" },
+    { name: "Conversations", to: "/conversations", icon: "💬" },
+    { name: "All Programs", to: "/programs", icon: "🏛️", hasChevron: true },
+    { name: "AI Project Mgmt", to: "/programs/ai-pm", isSubItem: true },
+    { name: "AI-Native GTM", to: "/programs/ai-gtm", isSubItem: true },
+    { name: "AI Fellowship", to: "/programs/ai-fellowship", isSubItem: true },
+    { name: "Analytics", to: "/analytics", icon: "📊" },
+    { name: "Import Center", to: "/import", icon: "📥" },
+    { name: "Import History", to: "/import-history", icon: "🕒" },
+    { name: "Settings", to: "/settings", icon: "⚙️" },
+  ];
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200/80 dark:border-gray-800 flex flex-col h-full shrink-0 select-none">
@@ -56,6 +60,80 @@ export default function Sidebar() {
           if (item.isSubItem && !programsExpanded) return null;
 
           const isActive = location.pathname === item.to || (item.to === "/dashboard" && location.pathname === "/");
+
+          if (item.name === "Sales Team") {
+            const isTeamActive = location.pathname === "/team" || location.pathname.startsWith("/team/");
+            return (
+              <div key="sales-team-section" className="space-y-1">
+                <div
+                  onClick={() => setTeamExpanded(!teamExpanded)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    isTeamActive
+                      ? "bg-[#133926] text-white shadow-sm shadow-emerald-950/20"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  <Link
+                    to="/team"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-3 flex-1"
+                  >
+                    <span className="text-sm shrink-0">👥</span>
+                    <span>Sales Team</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setTeamExpanded(!teamExpanded)}
+                    className="p-1 text-[10px] text-gray-400 hover:text-white"
+                  >
+                    <span className={`inline-block transition-transform ${isTeamActive ? "text-white/80" : "text-gray-400"} ${!teamExpanded ? "-rotate-90" : ""}`}>
+                      ▼
+                    </span>
+                  </button>
+                </div>
+
+                {/* Sub-items: Team Overview + 5 Salespeople */}
+                {teamExpanded && (
+                  <div className="pl-4 space-y-0.5 pt-0.5">
+                    <Link
+                      to="/team"
+                      className={`flex items-center gap-2 pl-5 pr-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                        location.pathname === "/team"
+                          ? "text-[#133926] dark:text-emerald-300 font-bold bg-emerald-50/70 dark:bg-emerald-950/40"
+                          : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      }`}
+                    >
+                      <span className="text-[10px] text-gray-400">•</span>
+                      <span>Team Operations</span>
+                    </Link>
+
+                    {salespeople.map((rep) => {
+                      const isRepActive = location.pathname === `/team/${rep.id}`;
+                      return (
+                        <Link
+                          key={rep.id}
+                          to={`/team/${rep.id}`}
+                          className={`flex items-center justify-between pl-5 pr-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                            isRepActive
+                              ? "text-[#133926] dark:text-emerald-300 font-bold bg-emerald-50/70 dark:bg-emerald-950/40"
+                              : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="text-[10px] text-gray-400">•</span>
+                            <span className="truncate">{rep.name}</span>
+                          </div>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 font-bold">
+                            Rep
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
 
           if (item.isSubItem) {
             return (

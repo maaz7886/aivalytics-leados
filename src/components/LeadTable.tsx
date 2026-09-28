@@ -5,11 +5,12 @@ import type { Stage, Lead } from '../types';
 import LeadDetailModal from './LeadDetailModal';
 
 export default function LeadTable() {
-  const { leads, setSelectedLeadId, updateLeadStage, deleteLead, deleteBulkLeads, bulkUpdateStage } = useApp();
+  const { leads, setSelectedLeadId, updateLeadStage, deleteLead, deleteBulkLeads, bulkUpdateStage, salespeople = [], assignLead, bulkAssignLeads } = useApp();
 
   const [search, setSearch] = useState('');
   const [programFilter, setProgramFilter] = useState('All');
   const [stageFilter, setStageFilter] = useState('All');
+  const [repFilter, setRepFilter] = useState('All');
   const [selectedView, setSelectedView] = useState('All Leads');
 
   // Multi-selection state for checkboxes
@@ -18,7 +19,7 @@ export default function LeadTable() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
 
-  // Filter leads based on search, program, stage, and saved view
+  // Filter leads based on search, program, stage, rep, and saved view
   const filteredLeads = leads.filter((lead) => {
     const searchLower = (search || '').toLowerCase();
     const matchesSearch =
@@ -32,6 +33,9 @@ export default function LeadTable() {
 
     const matchesProgram = programFilter === 'All' || (lead.programName || '').includes(programFilter);
     const matchesStage = stageFilter === 'All' || lead.crmStage === stageFilter;
+    const matchesRep = repFilter === 'All' || lead.assignedSalesperson === repFilter;
+
+    if (!matchesRep) return false;
 
     if (selectedView === 'Hot Leads') return matchesSearch && matchesProgram && matchesStage && lead.leadTemperature === 'Hot';
     if (selectedView === 'High Fit Leads') return matchesSearch && matchesProgram && matchesStage && (lead.fitScore || 0) >= 85;
@@ -41,6 +45,7 @@ export default function LeadTable() {
 
     return matchesSearch && matchesProgram && matchesStage;
   });
+
 
   // Select All Toggle Logic
   const allFilteredIds = filteredLeads.map((l) => l.id);
@@ -164,6 +169,17 @@ export default function LeadTable() {
             <option value="Unqualified">Not qualified</option>
             <option value="Invalid number">Invalid number</option>
           </select>
+
+          <select
+            value={repFilter}
+            onChange={(e) => setRepFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-semibold bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+          >
+            <option value="All">All Sales Reps</option>
+            {salespeople.map((s) => (
+              <option key={s.id} value={s.name}>👤 {s.name}</option>
+            ))}
+          </select>
         </div>
 
         {/* Saved Views Pills */}
@@ -224,6 +240,27 @@ export default function LeadTable() {
                 <option value="Not Interested">Not interested</option>
                 <option value="Unqualified">Not qualified</option>
                 <option value="Invalid number">Invalid number</option>
+              </select>
+            </div>
+
+            {/* Bulk Sales Rep Reassignment */}
+            <div className="flex items-center gap-1.5 bg-gray-800 p-1 rounded-lg border border-gray-700">
+              <span className="text-xs font-bold text-gray-300 pl-1">Assign to Rep:</span>
+              <select
+                defaultValue=""
+                onChange={(e) => {
+                  const repName = e.target.value;
+                  if (repName && bulkAssignLeads) {
+                    bulkAssignLeads(selectedLeadIds, repName);
+                    setSelectedLeadIds([]);
+                  }
+                }}
+                className="px-2.5 py-1 bg-gray-900 text-white text-xs font-bold rounded border border-gray-600 focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                <option value="">-- Choose Rep --</option>
+                {salespeople.map((s) => (
+                  <option key={s.id} value={s.name}>👤 {s.name}</option>
+                ))}
               </select>
             </div>
 
@@ -358,7 +395,23 @@ export default function LeadTable() {
                         <option value="Lost">Lost</option>
                       </select>
                     </td>
-                    <td className="p-3.5 text-xs text-gray-500">{lead.assignedSalesperson || 'Alex Rivera'}</td>
+                    <td className="p-3.5 text-xs">
+                      <select
+                        value={lead.assignedSalesperson || 'Alex Rivera'}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          if (assignLead) assignLead(lead.id, e.target.value);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-transparent border border-gray-200 dark:border-gray-600 rounded-md px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer"
+                      >
+                        {salespeople.map((s) => (
+                          <option key={s.id} value={s.name}>
+                            👤 {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="p-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button

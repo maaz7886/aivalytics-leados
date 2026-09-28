@@ -17,6 +17,8 @@ import ImportHistory from "./pages/ImportHistory";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ProtectedRoute from "./components/ProtectedRoute";
+import SalesTeam from "./pages/SalesTeam";
+import SalespersonWorkspace from "./pages/SalespersonWorkspace";
 
 function App() {
   return (
@@ -40,6 +42,8 @@ function App() {
             <Route path="/programs/ai-pm" element={<AiPmProgram />} />
             <Route path="/programs/ai-gtm" element={<AiGtmProgram />} />
             <Route path="/programs/ai-fellowship" element={<AiFellowshipProgram />} />
+            <Route path="/team" element={<SalesTeam />} />
+            <Route path="/team/:repId" element={<SalespersonWorkspace />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/integrations" element={<Navigate to="/dashboard" replace />} />
             <Route path="/settings" element={<Settings />} />

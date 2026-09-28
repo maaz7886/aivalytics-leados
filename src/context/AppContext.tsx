@@ -1,7 +1,7 @@
 // @ts-nocheck
 // src/context/AppContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Lead, Task, Program, IntegrationItem, Stage, CallActivity } from '../types';
+import type { Lead, Task, Program, IntegrationItem, Stage, CallActivity, Salesperson } from '../types';
 import {
   supabase,
   fetchLeadsFromSupabase,
@@ -656,6 +656,88 @@ const generateInitialCallActivities = (): CallActivity[] => {
   ];
 };
 
+export const adminUser: Salesperson = {
+  id: 'rep-admin',
+  name: 'Admin Manager',
+  email: 'admin@aivalytics.io',
+  phone: '+91 99999 88888',
+  role: 'Admin',
+  title: 'Head of Sales & Admissions',
+  status: 'Active',
+  dailyCallTarget: 10,
+  avatarColor: 'bg-gray-900',
+  joinedDate: '2025-11-01',
+  bio: 'Full management access across all sales reps, lead pools, and automation.'
+};
+
+export const initialSalespeople: Salesperson[] = [
+  {
+    id: 'rep-alex-rivera',
+    name: 'Alex Rivera',
+    email: 'alex.rivera@aivalytics.io',
+    phone: '+91 98765 43210',
+    role: 'Salesperson',
+    title: 'Senior Account Executive',
+    status: 'Active',
+    dailyCallTarget: 30,
+    avatarColor: 'bg-emerald-600',
+    joinedDate: '2026-01-15',
+    bio: 'Specializes in high-intent AI-PM candidates & enterprise conversions.'
+  },
+  {
+    id: 'rep-sarah-chen',
+    name: 'Sarah Chen',
+    email: 'sarah.chen@aivalytics.io',
+    phone: '+91 98765 43211',
+    role: 'Salesperson',
+    title: 'Admissions & Growth Lead',
+    status: 'Active',
+    dailyCallTarget: 25,
+    avatarColor: 'bg-purple-600',
+    joinedDate: '2026-02-01',
+    bio: 'Expert in candidate qualification, AI-GTM admissions and budget handling.'
+  },
+  {
+    id: 'rep-marcus-vance',
+    name: 'Marcus Vance',
+    email: 'marcus.vance@aivalytics.io',
+    phone: '+91 98765 43212',
+    role: 'Salesperson',
+    title: 'Career Consultant & Advisor',
+    status: 'Active',
+    dailyCallTarget: 25,
+    avatarColor: 'bg-blue-600',
+    joinedDate: '2026-02-15',
+    bio: 'Focuses on working professionals with 5+ years experience and salary uplift counseling.'
+  },
+  {
+    id: 'rep-priya-sharma',
+    name: 'Priya Sharma',
+    email: 'priya.sharma@aivalytics.io',
+    phone: '+91 98765 43213',
+    role: 'Salesperson',
+    title: 'Lead Executive - PM Programs',
+    status: 'Active',
+    dailyCallTarget: 30,
+    avatarColor: 'bg-rose-600',
+    joinedDate: '2026-03-01',
+    bio: 'Dedicated to rapid WhatsApp follow-ups and evening callback batches.'
+  },
+  {
+    id: 'rep-david-kim',
+    name: 'David Kim',
+    email: 'david.kim@aivalytics.io',
+    phone: '+91 98765 43214',
+    role: 'Salesperson',
+    title: 'Technical Program Advisor',
+    status: 'Active',
+    dailyCallTarget: 20,
+    avatarColor: 'bg-amber-600',
+    joinedDate: '2026-03-10',
+    bio: 'Handles technical objections, curriculum deep dives, and fellowship candidates.'
+  }
+];
+
 interface AppContextType {
   leads: Lead[];
   selectedLeadId: string;
@@ -683,7 +765,22 @@ interface AppContextType {
   addProgram: (program: Program) => void;
   toggleIntegration: (id: string) => void;
   simulateAiPrep: (leadId: string) => void;
+  // Sales Team & Role Management
+  salespeople: Salesperson[];
+  currentUser: Salesperson;
+  setCurrentUser: (user: Salesperson) => void;
+  salespersonFilter: string;
+  setSalespersonFilter: (filter: string) => void;
+  roundRobinEnabled: boolean;
+  setRoundRobinEnabled: (enabled: boolean) => void;
+  assignLead: (leadId: string, salespersonName: string) => void;
+  bulkAssignLeads: (leadIds: string[], salespersonName: string) => void;
+  autoDistributeRoundRobin: (leadIds?: string[]) => void;
+  addSalesperson: (rep: Omit<Salesperson, 'id'>) => void;
+  updateSalesperson: (id: string, updates: Partial<Salesperson>) => void;
+  deleteSalesperson: (id: string) => void;
 }
+
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -745,6 +842,136 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('AIVALYTICS_DAILY_CALL_GOAL');
     return saved ? Number(saved) : 40;
   });
+
+  // Sales Team & Role State
+  const [salespeople, setSalespeople] = useState<Salesperson[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_SALESPEOPLE');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.error('Error loading saved salespeople:', e);
+      }
+    }
+    return initialSalespeople;
+  });
+
+  const [currentUser, setCurrentUserState] = useState<Salesperson>(() => {
+    const saved = localStorage.getItem('aivalytics_active_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    const demo = localStorage.getItem('aivalytics_demo_user');
+    if (demo) {
+      try {
+        const parsed = JSON.parse(demo);
+        const match = initialSalespeople.find((s) => s.email === parsed.email);
+        if (match) return match;
+        if (parsed.role === 'Admin') return adminUser;
+      } catch {}
+    }
+    return adminUser;
+  });
+
+  const [salespersonFilter, setSalespersonFilter] = useState<string>('All');
+
+  const [roundRobinEnabled, setRoundRobinEnabledState] = useState<boolean>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_ROUND_ROBIN');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const setRoundRobinEnabled = (val: boolean) => {
+    setRoundRobinEnabledState(val);
+    localStorage.setItem('AIVALYTICS_ROUND_ROBIN', String(val));
+  };
+
+  const setCurrentUser = (user: Salesperson) => {
+    setCurrentUserState(user);
+    localStorage.setItem('aivalytics_active_user', JSON.stringify(user));
+    localStorage.setItem('aivalytics_demo_user', JSON.stringify({ email: user.email, role: user.role }));
+  };
+
+  const addSalesperson = (repData: Omit<Salesperson, 'id'>) => {
+    const newRep: Salesperson = {
+      ...repData,
+      id: `rep-${Date.now()}`
+    };
+    setSalespeople((prev) => {
+      const updated = [...prev, newRep];
+      localStorage.setItem('AIVALYTICS_SALESPEOPLE', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const updateSalesperson = (id: string, updates: Partial<Salesperson>) => {
+    setSalespeople((prev) => {
+      const updated = prev.map((s) => (s.id === id ? { ...s, ...updates } : s));
+      localStorage.setItem('AIVALYTICS_SALESPEOPLE', JSON.stringify(updated));
+      return updated;
+    });
+    if (currentUser.id === id) {
+      setCurrentUser({ ...currentUser, ...updates });
+    }
+  };
+
+  const deleteSalesperson = (id: string) => {
+    setSalespeople((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      localStorage.setItem('AIVALYTICS_SALESPEOPLE', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const assignLead = (leadId: string, salespersonName: string) => {
+    setLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId) {
+          const updated = { ...l, assignedSalesperson: salespersonName };
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+  };
+
+  const bulkAssignLeads = (leadIds: string[], salespersonName: string) => {
+    setLeads((prev) =>
+      prev.map((l) => {
+        if (leadIds.includes(l.id)) {
+          const updated = { ...l, assignedSalesperson: salespersonName };
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+  };
+
+  const autoDistributeRoundRobin = (leadIds?: string[]) => {
+    const activeReps = salespeople.filter((s) => s.status === 'Active');
+    if (activeReps.length === 0) return;
+
+    setLeads((prev) => {
+      let repIdx = 0;
+      return prev.map((l) => {
+        const shouldAssign = leadIds
+          ? leadIds.includes(l.id)
+          : (!l.assignedSalesperson || l.assignedSalesperson === 'Unassigned' || l.assignedSalesperson === 'Alex Rivera');
+        if (shouldAssign) {
+          const rep = activeReps[repIdx % activeReps.length];
+          repIdx++;
+          const updated = { ...l, assignedSalesperson: rep.name };
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      });
+    });
+  };
 
   // Sync state to localStorage on changes
   useEffect(() => {
@@ -1035,6 +1262,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logCall = (leadId: string, outcome: string = 'Call Initiated', notes: string = '') => {
     const targetLead = leads.find((l) => l.id === leadId);
+    const callerName = currentUser?.name || 'Alex Rivera';
     const newActivity: CallActivity = {
       id: `call-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       leadId,
@@ -1044,7 +1272,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: new Date().toISOString(),
       outcome,
       notes: notes || (outcome === 'Call Initiated' ? 'Direct phone call placed' : `Call outcome marked as ${outcome}`),
-      salesperson: 'Alex Rivera'
+      salesperson: callerName
     };
 
     setCallActivities((prev) => [newActivity, ...prev]);
@@ -1053,7 +1281,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newCallNote = {
       id: `note-${Date.now()}`,
       date: new Date().toISOString(),
-      salesperson: 'Alex Rivera',
+      salesperson: callerName,
       rawNotes: `[Outcome: ${outcome}] ${notes || 'Direct outreach call placed'}`,
       aiAnalysis: {
         trueDesiredOutcome: outcome,
@@ -1088,7 +1316,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const todayStr = new Date().toISOString().substring(0, 10);
-  const todayCallActivities = callActivities.filter((c) => c.timestamp.startsWith(todayStr));
+  const todayCallActivities = callActivities.filter((c) => {
+    const isToday = c.timestamp.startsWith(todayStr);
+    if (!isToday) return false;
+    if (currentUser?.role === 'Salesperson') {
+      return c.salesperson === currentUser.name;
+    }
+    return salespersonFilter === 'All' ? true : c.salesperson === salespersonFilter;
+  });
   const todayCallsCount = todayCallActivities.length;
 
   return (
@@ -1119,7 +1354,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProgram,
         addProgram,
         toggleIntegration,
-        simulateAiPrep
+        simulateAiPrep,
+        // Sales Team & Role Management
+        salespeople,
+        currentUser,
+        setCurrentUser,
+        salespersonFilter,
+        setSalespersonFilter,
+        roundRobinEnabled,
+        setRoundRobinEnabled,
+        assignLead,
+        bulkAssignLeads,
+        autoDistributeRoundRobin,
+        addSalesperson,
+        updateSalesperson,
+        deleteSalesperson
       }}
     >
       {children}

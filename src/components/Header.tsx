@@ -4,7 +4,14 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 
 export default function Header() {
-  const { todayCallsCount, dailyCallGoal } = useApp();
+  const {
+    todayCallsCount,
+    dailyCallGoal,
+    currentUser,
+    setCurrentUser,
+    salespeople,
+    setSalespersonFilter
+  } = useApp();
   const [user, setUser] = useState<any>(null);
   const [dbConnected, setDbConnected] = useState<boolean>(true);
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -120,6 +127,47 @@ export default function Header() {
 
       {/* Right: Actions, Theme, Notifications & User Avatar */}
       <div className="flex items-center gap-3 shrink-0">
+        {/* Role & Salesperson Switcher */}
+        <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs shadow-2xs">
+          <span className="text-[11px] font-bold text-gray-400 hidden xl:inline">Role:</span>
+          <select
+            value={currentUser?.id || 'rep-admin'}
+            onChange={(e) => {
+              const selectedId = e.target.value;
+              if (selectedId === 'rep-admin') {
+                setCurrentUser({
+                  id: 'rep-admin',
+                  name: 'Admin Manager',
+                  email: 'admin@aivalytics.io',
+                  phone: '+91 99999 88888',
+                  role: 'Admin',
+                  title: 'Head of Sales & Admissions',
+                  status: 'Active',
+                  dailyCallTarget: 10,
+                  avatarColor: 'bg-gray-900',
+                  joinedDate: '2025-11-01',
+                  bio: 'Full management access across all sales reps, lead pools, and automation.'
+                });
+                setSalespersonFilter('All');
+              } else {
+                const rep = salespeople.find((s) => s.id === selectedId);
+                if (rep) {
+                  setCurrentUser(rep);
+                  setSalespersonFilter(rep.name);
+                }
+              }
+            }}
+            className="bg-transparent font-black text-gray-800 dark:text-gray-200 text-xs focus:outline-hidden cursor-pointer"
+          >
+            <option value="rep-admin">👑 Admin (All Leads)</option>
+            {salespeople.map((s) => (
+              <option key={s.id} value={s.id}>
+                👤 {s.name} ({s.title.split(' ')[0]})
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Today's Calls Live Counter Pill */}
         <button
           onClick={() => {
@@ -163,12 +211,17 @@ export default function Header() {
 
         {/* User Profile Pill */}
         <div className="flex items-center gap-2 pl-1 border-l border-gray-200 dark:border-gray-700">
-          <div className="w-8 h-8 rounded-full bg-[#133926] text-white font-black text-xs flex items-center justify-center shadow-xs">
-            {user?.email ? user.email.charAt(0).toUpperCase() : 'A'}
+          <div className={`w-8 h-8 rounded-full ${currentUser?.avatarColor || 'bg-[#133926]'} text-white font-black text-xs flex items-center justify-center shadow-xs`}>
+            {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'A')}
           </div>
-          <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 hidden lg:inline max-w-[140px] truncate">
-            {user?.email || 'alex.rivera@aivalytics.io'}
-          </span>
+          <div className="hidden lg:block text-left">
+            <span className="text-xs font-bold text-gray-800 dark:text-gray-200 block leading-tight max-w-[140px] truncate">
+              {currentUser?.name || user?.email || 'Alex Rivera'}
+            </span>
+            <span className="text-[10px] text-gray-400 font-semibold block leading-none">
+              {currentUser?.role || 'Admin'}
+            </span>
+          </div>
           <button
             onClick={handleLogout}
             title="Sign Out"

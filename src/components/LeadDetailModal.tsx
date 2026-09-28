@@ -31,7 +31,7 @@ function formatCollectionDateTime(dateStr?: string): string {
 }
 
 export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, onDelete }: LeadDetailModalProps) {
-  const { updateLeadStage, addCallNote, updateLeadFollowUp, setSelectedLeadId, deleteLead, logCall } = useApp();
+  const { updateLeadStage, addCallNote, updateLeadFollowUp, setSelectedLeadId, deleteLead, logCall, salespeople = [], assignLead } = useApp();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<'details' | 'ai' | 'notes'>('details');
@@ -223,7 +223,27 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
                 <span className="flex items-center gap-1.5">
                   <span>📅</span> Collected: {formatCollectionDateTime(lead.dateCaptured)}
                 </span>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
+                <span className="inline-flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700/80 px-2 py-0.5 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <span className="text-gray-500 font-bold">👤 Rep:</span>
+                  <select
+                    value={lead.assignedSalesperson || 'Alex Rivera'}
+                    onChange={(e) => {
+                      if (assignLead) assignLead(lead.id, e.target.value);
+                      setShowStatusAlert(`Assigned to ${e.target.value}!`);
+                      setTimeout(() => setShowStatusAlert(null), 3000);
+                    }}
+                    className="font-bold text-gray-800 dark:text-gray-200 bg-transparent focus:outline-hidden cursor-pointer text-xs"
+                  >
+                    {salespeople.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </span>
               </div>
+
             </div>
           </div>
 
