@@ -11,6 +11,7 @@ export default function SalespersonWorkspace() {
   const {
     salespeople,
     leads,
+    allLeads,
     callActivities,
     currentUser,
     setCurrentUser,
@@ -36,8 +37,9 @@ export default function SalespersonWorkspace() {
 
   const todayStr = new Date().toISOString().substring(0, 10);
 
+  const leadsPool = allLeads || leads;
   // Leads strictly assigned to this salesperson
-  const repLeads = leads.filter((l) => l.assignedSalesperson === rep.name);
+  const repLeads = leadsPool.filter((l) => l.assignedSalesperson === rep.name);
 
   // Calls logged by this rep
   const repCallActivities = callActivities.filter((c) => c.salesperson === rep.name);

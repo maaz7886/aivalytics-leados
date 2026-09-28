@@ -740,6 +740,9 @@ export const initialSalespeople: Salesperson[] = [
 
 interface AppContextType {
   leads: Lead[];
+  allLeads: Lead[];
+  adminWitnessRep: string | null;
+  setAdminWitnessRep: (rep: string | null) => void;
   selectedLeadId: string;
   setSelectedLeadId: (id: string) => void;
   tasks: Task[];
@@ -785,8 +788,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize state from localStorage or fall back to initial dataset
-  const [leads, setLeads] = useState<Lead[]>(() => {
+  // Initialize master state from localStorage or fall back to initial dataset
+  const [masterLeads, setMasterLeads] = useState<Lead[]>(() => {
     const saved = localStorage.getItem('AIVALYTICS_LEADS');
     if (saved) {
       try {
@@ -797,6 +800,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return initialLeads;
   });
+
+  const [adminWitnessRep, setAdminWitnessRep] = useState<string | null>(null);
 
   const [selectedLeadId, setSelectedLeadId] = useState<string>('lead-rahul-001');
 
@@ -878,6 +883,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [salespersonFilter, setSalespersonFilter] = useState<string>('All');
 
+  // Dynamically compute scoped leads based on logged-in salesperson or admin witness mode
+  const leads = React.useMemo(() => {
+    // 1. If logged in as Salesperson, strictly isolate to their assigned leads
+    if (currentUser?.role === 'Salesperson') {
+      return masterLeads.filter((l) => l.assignedSalesperson === currentUser.name);
+    }
+    // 2. If logged in as Admin and in Witness Mode for a rep
+    if (currentUser?.role === 'Admin' && adminWitnessRep) {
+      return masterLeads.filter((l) => l.assignedSalesperson === adminWitnessRep);
+    }
+    // 3. If Admin selected a rep filter in team/kanban
+    if (salespersonFilter && salespersonFilter !== 'All') {
+      return masterLeads.filter((l) => l.assignedSalesperson === salespersonFilter);
+    }
+    // 4. Default: all master leads
+    return masterLeads;
+  }, [masterLeads, currentUser, adminWitnessRep, salespersonFilter]);
+
+  // Keep selectedLeadId pointing to an available lead in current scope
+  useEffect(() => {
+    if (leads.length > 0 && !leads.some((l) => l.id === selectedLeadId)) {
+      setSelectedLeadId(leads[0].id);
+    }
+  }, [leads, selectedLeadId]);
+
   const [roundRobinEnabled, setRoundRobinEnabledState] = useState<boolean>(() => {
     const saved = localStorage.getItem('AIVALYTICS_ROUND_ROBIN');
     return saved !== null ? saved === 'true' : true;
@@ -926,7 +956,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const assignLead = (leadId: string, salespersonName: string) => {
-    setLeads((prev) =>
+    setMasterLeads((prev) =>
       prev.map((l) => {
         if (l.id === leadId) {
           const updated = { ...l, assignedSalesperson: salespersonName };
@@ -940,7 +970,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const bulkAssignLeads = (leadIds: string[], salespersonName: string) => {
     const toUpdate: Lead[] = [];
-    setLeads((prev) => {
+    setMasterLeads((prev) => {
       const nextLeads = prev.map((l) => {
         if (leadIds.includes(l.id)) {
           const updated = { ...l, assignedSalesperson: salespersonName };
@@ -961,7 +991,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (activeReps.length === 0) return;
 
     const toUpdate: Lead[] = [];
-    setLeads((prev) => {
+    setMasterLeads((prev) => {
       let repIdx = 0;
       const nextLeads = prev.map((l) => {
         const shouldAssign = leadIds
@@ -985,8 +1015,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync state to localStorage on changes
   useEffect(() => {
-    localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(leads));
-  }, [leads]);
+    localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(masterLeads));
+  }, [masterLeads]);
 
   useEffect(() => {
     localStorage.setItem('AIVALYTICS_PROGRAMS', JSON.stringify(programs));
@@ -1009,7 +1039,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     async function syncSupabaseOnBoot() {
       const dbLeads = await fetchLeadsFromSupabase();
       if (dbLeads && dbLeads.length > 0) {
-        setLeads(dbLeads);
+        setMasterLeads(dbLeads);
         localStorage.setItem('AIVALYTICS_LEADS', JSON.stringify(dbLeads));
 
         // Reconstruct call activities from dbLeads callNotesHistory
@@ -1076,7 +1106,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         async () => {
           const freshLeads = await fetchLeadsFromSupabase();
           if (freshLeads && freshLeads.length > 0) {
-            setLeads(freshLeads);
+            setMasterLeads(freshLeads);
           }
         }
       )
@@ -1108,44 +1138,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const bulkAddLeads = (newLeads: Lead[]) => {
-    setLeads((prev) => [...newLeads, ...prev]);
+    setMasterLeads((prev) => [...newLeads, ...prev]);
     insertBulkLeadsToSupabase(newLeads);
   };
 
   const addLead = (newLead: Lead) => {
-    setLeads((prev) => [newLead, ...prev]);
+    setMasterLeads((prev) => [newLead, ...prev]);
     insertLeadToSupabase(newLead);
   };
 
   const updateLeadStage = (id: string, stage: Stage) => {
-    setLeads((prev) =>
+    setMasterLeads((prev) =>
       prev.map((l) => (l.id === id ? { ...l, crmStage: stage } : l))
     );
     updateLeadStageInSupabase(id, stage);
   };
 
   const deleteLead = (id: string) => {
-    setLeads((prev) => prev.filter((l) => l.id !== id));
+    setMasterLeads((prev) => prev.filter((l) => l.id !== id));
     deleteLeadFromSupabase(id);
   };
 
   const deleteBulkLeads = (ids: string[]) => {
-    setLeads((prev) => prev.filter((l) => !ids.includes(l.id)));
+    setMasterLeads((prev) => prev.filter((l) => !ids.includes(l.id)));
     deleteBulkLeadsFromSupabase(ids);
   };
 
   const bulkUpdateStage = (ids: string[], stage: Stage) => {
-    setLeads((prev) =>
+    setMasterLeads((prev) =>
       prev.map((l) => (ids.includes(l.id) ? { ...l, crmStage: stage } : l))
     );
     ids.forEach((id) => updateLeadStageInSupabase(id, stage));
   };
 
   const addCallNote = (leadId: string, rawNotes: string) => {
+    const callerName = currentUser?.name || 'Alex Rivera';
     const newNote = {
       id: `note-${Date.now()}`,
       date: new Date().toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }),
-      salesperson: 'Alex Rivera',
+      salesperson: callerName,
       rawNotes,
       aiAnalysis: {
         trueDesiredOutcome: 'Career transition into AI-enabled operational roles with salary growth',
@@ -1160,10 +1191,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    setLeads((prev) =>
+    setMasterLeads((prev) =>
       prev.map((l) => {
         if (l.id === leadId) {
-          const updatedHistory = [newNote, ...l.callNotesHistory];
+          const updatedHistory = [newNote, ...(l.callNotesHistory || [])];
           const updatedLead = {
             ...l,
             callNotesHistory: updatedHistory,
@@ -1184,11 +1215,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     note?: string
   ) => {
     const todayStr = new Date().toISOString().substring(0, 10);
+    const callerName = currentUser?.name || 'Alex Rivera';
     const newNote = note?.trim()
       ? {
           id: `note-${Date.now()}`,
           date: new Date().toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }),
-          salesperson: 'Alex Rivera',
+          salesperson: callerName,
           rawNotes: `[${stage} scheduled for ${nextFollowUpDate}] ${note.trim()}`,
           aiAnalysis: {
             trueDesiredOutcome: 'Follow-up discussion scheduled',
@@ -1204,7 +1236,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       : null;
 
-    setLeads((prev) =>
+    setMasterLeads((prev) =>
       prev.map((l) => {
         if (l.id === leadId) {
           const updatedHistory = newNote ? [newNote, ...(l.callNotesHistory || [])] : (l.callNotesHistory || []);
@@ -1265,13 +1297,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const simulateAiPrep = (leadId: string) => {
-    setLeads((prev) =>
+    setMasterLeads((prev) =>
       prev.map((l) => (l.id === leadId ? { ...l, crmStage: 'Call Pending' as Stage } : l))
     );
   };
 
   const logCall = (leadId: string, outcome: string = 'Call Initiated', notes: string = '') => {
-    const targetLead = leads.find((l) => l.id === leadId);
+    const targetLead = masterLeads.find((l) => l.id === leadId);
     const callerName = currentUser?.name || 'Alex Rivera';
     const newActivity: CallActivity = {
       id: `call-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -1300,7 +1332,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    setLeads((prev) =>
+    setMasterLeads((prev) =>
       prev.map((l) => {
         if (l.id === leadId) {
           const updatedHistory = [newCallNote, ...(l.callNotesHistory || [])];
@@ -1332,6 +1364,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser?.role === 'Salesperson') {
       return c.salesperson === currentUser.name;
     }
+    if (currentUser?.role === 'Admin' && adminWitnessRep) {
+      return c.salesperson === adminWitnessRep;
+    }
     return salespersonFilter === 'All' ? true : c.salesperson === salespersonFilter;
   });
   const todayCallsCount = todayCallActivities.length;
@@ -1340,6 +1375,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         leads,
+        allLeads: masterLeads,
+        adminWitnessRep,
+        setAdminWitnessRep,
         selectedLeadId,
         setSelectedLeadId,
         tasks,

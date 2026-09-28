@@ -9,6 +9,7 @@ export default function SalesTeam() {
   const {
     salespeople,
     leads,
+    allLeads,
     callActivities,
     currentUser,
     setCurrentUser,
@@ -22,6 +23,9 @@ export default function SalesTeam() {
   } = useApp();
 
   const navigate = useNavigate();
+
+  // Use the full 362-lead pool for team overview
+  const teamLeadsPool = allLeads || leads;
 
   // Modals & UI States
   const [selectedRepForEdit, setSelectedRepForEdit] = useState<Salesperson | null>(null);
@@ -48,16 +52,16 @@ export default function SalesTeam() {
   const todayStr = new Date().toISOString().substring(0, 10);
 
   // Calculate team-wide metrics
-  const totalLeads = leads.length;
+  const totalLeads = teamLeadsPool.length;
   const activeReps = salespeople.filter((s) => s.status === 'Active');
   const teamTodayCalls = callActivities.filter((c) => c.timestamp.startsWith(todayStr)).length;
-  const teamTotalQualified = leads.filter(
+  const teamTotalQualified = teamLeadsPool.filter(
     (l) => l.crmStage === 'Qualified' || l.crmStage === 'Details Sent on WhatsApp' || l.crmStage === 'Converted'
   ).length;
 
   // Individual rep stats generator
   const getRepStats = (repName: string) => {
-    const repLeads = leads.filter((l) => l.assignedSalesperson === repName);
+    const repLeads = teamLeadsPool.filter((l) => l.assignedSalesperson === repName);
     const repCallsToday = callActivities.filter(
       (c) => c.salesperson === repName && c.timestamp.startsWith(todayStr)
     ).length;
@@ -80,7 +84,7 @@ export default function SalesTeam() {
   };
 
   // Filtered leads for assignment table
-  const filteredLeads = leads.filter((lead) => {
+  const filteredLeads = teamLeadsPool.filter((lead) => {
     if (filterRep !== 'All') {
       if (filterRep === 'Unassigned') {
         const isAssigned = salespeople.some((s) => s.name === lead.assignedSalesperson);

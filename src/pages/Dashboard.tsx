@@ -43,25 +43,23 @@ export default function Dashboard() {
   });
 
   // Dynamic calculations based on leads in database
-  const totalLeadsCount = filteredLeads.length > 0 ? filteredLeads.length : 367;
+  const totalLeadsCount = filteredLeads.length;
 
   const contactedCount = filteredLeads.filter(
     (l) => l.numberOfCalls > 0 || (l.lastContacted && l.lastContacted !== 'Not Contacted') || (l.crmStage !== 'New Lead')
-  ).length || 7;
+  ).length;
 
-  const interestedCount = filteredLeads.filter((l) => l.crmStage === 'Interested').length || 6;
+  const interestedCount = filteredLeads.filter((l) => l.crmStage === 'Interested').length;
 
   const qualifiedCount = filteredLeads.filter(
     (l) => l.crmStage === 'Qualified' || l.crmStage === 'Details Sent on WhatsApp' || l.crmStage === 'Joined Session' || l.crmStage === 'Converted'
-  ).length || 3;
+  ).length;
 
   const detailsSentCount = filteredLeads.filter((l) => l.crmStage === 'Details Sent on WhatsApp').length;
   const joinedSessionCount = filteredLeads.filter((l) => l.crmStage === 'Joined Session').length;
 
   const pendingTasksCount = tasks.filter((t) => t.status === 'Pending').length;
-  const followUpsDueCount = (pendingTasksCount + filteredLeads.filter((l) => l.numberOfFollowUps > 0 || l.nextFollowUp).length) || 4;
-
-
+  const followUpsDueCount = pendingTasksCount + filteredLeads.filter((l) => l.numberOfFollowUps > 0 || l.nextFollowUp).length;
 
   const enrollmentsCount = filteredLeads.filter(
     (l) => l.crmStage === 'Converted' || l.paymentStatus === 'Paid' || l.enrollmentStatus === 'Enrolled'
@@ -82,15 +80,15 @@ export default function Dashboard() {
 
   const formattedRevenue = totalRevenueNumber > 0
     ? `₹${Math.round(totalRevenueNumber).toLocaleString('en-IN')}`
-    : '₹74,999';
+    : '₹0';
 
   const conversionRate = totalLeadsCount > 0 && enrollmentsCount > 0
     ? `${((enrollmentsCount / totalLeadsCount) * 100).toFixed(1)}%`
     : '0.0%';
 
   // Negative / Nurture Stage counts
-  const noResponseCount = filteredLeads.filter((l) => l.crmStage === "Did Not Receive Call" || l.crmStage === "Did Not Pick The Call" || l.lastContacted === 'Not Contacted').length || totalLeadsCount;
-  const activeNurtureCount = filteredLeads.filter((l) => l.crmStage === 'Follow-Up 1' || l.crmStage === 'Follow-Up 2' || l.crmStage === 'Follow-Up 3' || l.crmStage === 'Call Later').length || 3;
+  const noResponseCount = filteredLeads.filter((l) => l.crmStage === "Did Not Receive Call" || l.crmStage === "Did Not Pick The Call" || l.lastContacted === 'Not Contacted').length;
+  const activeNurtureCount = filteredLeads.filter((l) => l.crmStage === 'Follow-Up 1' || l.crmStage === 'Follow-Up 2' || l.crmStage === 'Follow-Up 3' || l.crmStage === 'Call Later').length;
   const notInterestedCount = filteredLeads.filter((l) => l.crmStage === 'Not Interested').length;
   const unqualifiedCount = filteredLeads.filter((l) => l.crmStage === 'Unqualified' || l.crmStage === 'Lost').length;
 

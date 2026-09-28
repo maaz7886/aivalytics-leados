@@ -40,23 +40,21 @@ const stages: Stage[] = [
 ];
 
 export default function Pipeline() {
-  const { leads, updateLeadStage, deleteLead, logCall, salespeople = [], currentUser } = useApp();
+  const { leads, allLeads, updateLeadStage, deleteLead, logCall, salespeople = [], currentUser } = useApp();
   const navigate = useNavigate();
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRepFilter, setSelectedRepFilter] = useState<string>(() => {
-    return currentUser?.role === 'Salesperson' ? currentUser.name : 'All';
-  });
+  const [selectedRepFilter, setSelectedRepFilter] = useState<string>('All');
 
   const activeModalLead = selectedLeadForModal
     ? leads.find((l) => l.id === selectedLeadForModal.id) || selectedLeadForModal
     : null;
 
   const filteredLeads = leads.filter((l) => {
-    // Role-based / Salesperson Filter
-    if (selectedRepFilter !== 'All' && l.assignedSalesperson !== selectedRepFilter) {
+    // If Admin selects a specific rep filter in the pill bar
+    if (currentUser?.role === 'Admin' && selectedRepFilter !== 'All' && l.assignedSalesperson !== selectedRepFilter) {
       return false;
     }
 
@@ -162,43 +160,57 @@ export default function Pipeline() {
         )}
       </div>
 
-      {/* Sales Rep Filter Bar */}
-      <div className="flex items-center gap-2 flex-wrap bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xs">
-        <span className="text-xs font-bold text-gray-500 dark:text-gray-400 flex items-center gap-1.5 mr-1">
-          <span>👥</span> Sales Rep:
-        </span>
-        <button
-          onClick={() => setSelectedRepFilter('All')}
-          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-            selectedRepFilter === 'All'
-              ? 'bg-[#133926] text-white shadow-2xs'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'
-          }`}
-        >
-          All Reps ({leads.length})
-        </button>
-        {salespeople.map((rep) => {
-          const count = leads.filter((l) => l.assignedSalesperson === rep.name).length;
-          const isSelected = selectedRepFilter === rep.name;
-          return (
-            <button
-              key={rep.id}
-              onClick={() => setSelectedRepFilter(rep.name)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                isSelected
-                  ? 'bg-emerald-700 text-white shadow-2xs'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'
-              }`}
-            >
-              <span>👤</span>
-              <span>{rep.name}</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${isSelected ? 'bg-emerald-900 text-emerald-200' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Sales Rep Filter Bar or Isolated Personal Badge */}
+      {currentUser?.role === 'Salesperson' ? (
+        <div className="flex items-center justify-between bg-emerald-50/90 dark:bg-emerald-950/70 p-3 rounded-xl border border-emerald-300 dark:border-emerald-800 shadow-2xs">
+          <div className="flex items-center gap-2 text-xs font-bold text-emerald-950 dark:text-emerald-100">
+            <span className="p-1 rounded-lg bg-emerald-200 dark:bg-emerald-800 text-xs">🔒</span>
+            <span>Personal Sales Pipeline: <strong>{currentUser.name}</strong></span>
+            <span className="text-gray-400">•</span>
+            <span className="text-emerald-700 dark:text-emerald-300 font-semibold">{currentUser.title}</span>
+          </div>
+          <span className="text-xs font-black bg-emerald-700 text-white px-3 py-1 rounded-full shadow-2xs">
+            {leads.length} Assigned Leads
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xs">
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 flex items-center gap-1.5 mr-1">
+            <span>👥</span> Sales Rep:
+          </span>
+          <button
+            onClick={() => setSelectedRepFilter('All')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              selectedRepFilter === 'All'
+                ? 'bg-[#133926] text-white shadow-2xs'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'
+            }`}
+          >
+            All Reps ({(allLeads || leads).length})
+          </button>
+          {salespeople.map((rep) => {
+            const count = (allLeads || leads).filter((l) => l.assignedSalesperson === rep.name).length;
+            const isSelected = selectedRepFilter === rep.name;
+            return (
+              <button
+                key={rep.id}
+                onClick={() => setSelectedRepFilter(rep.name)}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-emerald-700 text-white shadow-2xs'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                <span>👤</span>
+                <span>{rep.name}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${isSelected ? 'bg-emerald-900 text-emerald-200' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex gap-4 overflow-x-auto pb-6">
         {stages.map((stage) => {

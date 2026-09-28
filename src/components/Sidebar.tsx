@@ -13,25 +13,42 @@ interface NavItem {
 
 export default function Sidebar() {
   const location = useLocation();
-  const { salespeople } = useApp();
+  const { salespeople, currentUser } = useApp();
   const [programsExpanded, setProgramsExpanded] = useState(true);
   const [teamExpanded, setTeamExpanded] = useState(true);
 
-  const navigation: NavItem[] = [
-    { name: "Dashboard", to: "/dashboard", icon: "🏠" },
-    { name: "Pipeline", to: "/pipeline", icon: "⚡" },
-    { name: "Sales Team", to: "/team", icon: "👥", hasChevron: true },
-    { name: "AI Intelligence", to: "/ai", icon: "✨" },
-    { name: "Conversations", to: "/conversations", icon: "💬" },
-    { name: "All Programs", to: "/programs", icon: "🏛️", hasChevron: true },
-    { name: "AI Project Mgmt", to: "/programs/ai-pm", isSubItem: true },
-    { name: "AI-Native GTM", to: "/programs/ai-gtm", isSubItem: true },
-    { name: "AI Fellowship", to: "/programs/ai-fellowship", isSubItem: true },
-    { name: "Analytics", to: "/analytics", icon: "📊" },
-    { name: "Import Center", to: "/import", icon: "📥" },
-    { name: "Import History", to: "/import-history", icon: "🕒" },
-    { name: "Settings", to: "/settings", icon: "⚙️" },
-  ];
+  const isSalesperson = currentUser?.role === 'Salesperson';
+
+  const navigation: NavItem[] = isSalesperson
+    ? [
+        { name: "My Dashboard", to: "/dashboard", icon: "🏠" },
+        { name: "My Pipeline", to: "/pipeline", icon: "⚡" },
+        { name: "My Workspace", to: `/team/${currentUser.id}`, icon: "🎯" },
+        { name: "Sales Team", to: "/team", icon: "👥", hasChevron: true },
+        { name: "AI Intelligence", to: "/ai", icon: "✨" },
+        { name: "Conversations", to: "/conversations", icon: "💬" },
+        { name: "Program CRMs", to: "/programs", icon: "🏛️", hasChevron: true },
+        { name: "AI Project Mgmt", to: "/programs/ai-pm", isSubItem: true },
+        { name: "AI-Native GTM", to: "/programs/ai-gtm", isSubItem: true },
+        { name: "AI Fellowship", to: "/programs/ai-fellowship", isSubItem: true },
+        { name: "My Analytics", to: "/analytics", icon: "📊" },
+        { name: "Settings", to: "/settings", icon: "⚙️" },
+      ]
+    : [
+        { name: "Dashboard", to: "/dashboard", icon: "🏠" },
+        { name: "Pipeline", to: "/pipeline", icon: "⚡" },
+        { name: "Sales Team", to: "/team", icon: "👥", hasChevron: true },
+        { name: "AI Intelligence", to: "/ai", icon: "✨" },
+        { name: "Conversations", to: "/conversations", icon: "💬" },
+        { name: "All Programs", to: "/programs", icon: "🏛️", hasChevron: true },
+        { name: "AI Project Mgmt", to: "/programs/ai-pm", isSubItem: true },
+        { name: "AI-Native GTM", to: "/programs/ai-gtm", isSubItem: true },
+        { name: "AI Fellowship", to: "/programs/ai-fellowship", isSubItem: true },
+        { name: "Analytics", to: "/analytics", icon: "📊" },
+        { name: "Import Center", to: "/import", icon: "📥" },
+        { name: "Import History", to: "/import-history", icon: "🕒" },
+        { name: "Settings", to: "/settings", icon: "⚙️" },
+      ];
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200/80 dark:border-gray-800 flex flex-col h-full shrink-0 select-none">
@@ -181,28 +198,28 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom Live Preparation Status Card */}
+      {/* Bottom User / Portal Status Card */}
       <div className="p-3.5 border-t border-gray-100 dark:border-gray-800">
-        <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/60 dark:border-emerald-800/50 space-y-1.5 relative">
+        <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/60 dark:border-emerald-800/50 space-y-1 relative">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="font-extrabold text-xs text-emerald-950 dark:text-emerald-200">
-                AI Preparation Active
+              <span className="font-extrabold text-xs text-emerald-950 dark:text-emerald-200 truncate max-w-[125px]">
+                {currentUser?.name || 'Admin Manager'}
               </span>
             </div>
-            <Link to="/settings" className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 text-xs" title="Settings">
-              ⚙️
-            </Link>
+            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300 bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+              {currentUser?.role || 'Admin'}
+            </span>
           </div>
           <p className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300 leading-tight">
-            Meta Ads Webhook Connected
+            Target: {currentUser?.dailyCallTarget || 25} calls/day
           </p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400">
-            Last sync: 2 min ago
+            Database: Connected & Synced
           </p>
         </div>
       </div>

@@ -2,40 +2,46 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
+import { useApp, initialSalespeople, adminUser } from "../../context/AppContext";
 
 export default function SignIn() {
   const [email, setEmail] = useState("alex.rivera@aivalytics.io");
   const [password, setPassword] = useState("password123");
   const [error] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { setCurrentUser, setAdminWitnessRep } = useApp();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email, role: "Admin" }));
-        navigate("/dashboard");
-      } else {
-        navigate("/dashboard");
-      }
-    } catch (err) {
-      localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email, role: "Admin" }));
+  const handleLoginSuccess = (repEmail: string) => {
+    setAdminWitnessRep(null);
+    const cleanEmail = repEmail.trim().toLowerCase();
+    const repMatch = initialSalespeople.find(
+      (s) => s.email.toLowerCase() === cleanEmail || s.name.toLowerCase().replace(/\s+/g, '') === cleanEmail.split('@')[0].replace(/[\._]/g, '')
+    );
+
+    if (repMatch) {
+      setCurrentUser(repMatch);
+      localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email: repMatch.email, role: "Salesperson" }));
+      localStorage.setItem("aivalytics_active_user", JSON.stringify(repMatch));
+      navigate("/dashboard");
+    } else {
+      // Default to Admin
+      setCurrentUser(adminUser);
+      localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email: repEmail, role: "Admin" }));
+      localStorage.setItem("aivalytics_active_user", JSON.stringify(adminUser));
       navigate("/dashboard");
     }
   };
 
-  const handleQuickLogin = (repEmail: string, repRole: string, repName: string) => {
-    localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email: repEmail, role: repRole }));
-    localStorage.setItem("aivalytics_active_user", JSON.stringify({
-      name: repName,
-      email: repEmail,
-      role: repRole,
-      title: repRole === 'Admin' ? 'Head of Sales & Admissions' : 'Sales Representative',
-      status: 'Active',
-      dailyCallTarget: repRole === 'Admin' ? 10 : 25
-    }));
-    navigate(repRole === 'Admin' ? "/dashboard" : "/pipeline");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await supabase.auth.signInWithPassword({ email, password });
+    } catch {}
+    handleLoginSuccess(email);
+  };
+
+  const handleQuickLogin = (repEmail: string) => {
+    handleLoginSuccess(repEmail);
   };
 
   return (
@@ -89,7 +95,7 @@ export default function SignIn() {
 
           <button
             type="button"
-            onClick={() => handleQuickLogin("admin@aivalytics.io", "Admin", "Admin Manager")}
+            onClick={() => handleQuickLogin("admin@aivalytics.io")}
             className="w-full px-3 py-2 font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl hover:bg-emerald-100 text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
           >
             <span>👑</span> Sign In as Admin Manager (All Reps)
@@ -106,7 +112,7 @@ export default function SignIn() {
               <button
                 key={s.email}
                 type="button"
-                onClick={() => handleQuickLogin(s.email, "Salesperson", s.name)}
+                onClick={() => handleQuickLogin(s.email)}
                 className="px-2.5 py-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-750 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 transition-all text-left truncate cursor-pointer"
                 title={`Sign in as ${s.name} (${s.title})`}
               >

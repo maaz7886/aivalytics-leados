@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
-import { useApp } from "../context/AppContext";
+import { useApp, adminUser } from "../context/AppContext";
 
 export default function Header() {
   const {
@@ -10,7 +10,9 @@ export default function Header() {
     currentUser,
     setCurrentUser,
     salespeople,
-    setSalespersonFilter
+    setSalespersonFilter,
+    adminWitnessRep,
+    setAdminWitnessRep
   } = useApp();
   const [user, setUser] = useState<any>(null);
   const [dbConnected, setDbConnected] = useState<boolean>(true);
@@ -128,45 +130,71 @@ export default function Header() {
       {/* Right: Actions, Theme, Notifications & User Avatar */}
       <div className="flex items-center gap-3 shrink-0">
         {/* Role & Salesperson Switcher */}
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs shadow-2xs">
-          <span className="text-[11px] font-bold text-gray-400 hidden xl:inline">Role:</span>
-          <select
-            value={currentUser?.id || 'rep-admin'}
-            onChange={(e) => {
-              const selectedId = e.target.value;
-              if (selectedId === 'rep-admin') {
-                setCurrentUser({
-                  id: 'rep-admin',
-                  name: 'Admin Manager',
-                  email: 'admin@aivalytics.io',
-                  phone: '+91 99999 88888',
-                  role: 'Admin',
-                  title: 'Head of Sales & Admissions',
-                  status: 'Active',
-                  dailyCallTarget: 10,
-                  avatarColor: 'bg-gray-900',
-                  joinedDate: '2025-11-01',
-                  bio: 'Full management access across all sales reps, lead pools, and automation.'
-                });
+        {currentUser?.role === 'Salesperson' ? (
+          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50/90 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 rounded-full text-xs shadow-2xs">
+            <span className="text-emerald-800 dark:text-emerald-300 font-extrabold flex items-center gap-1.5">
+              <span>👤</span>
+              <span>{currentUser.name}</span>
+              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">({currentUser.title?.split(' ')[0] || 'Sales Rep'})</span>
+            </span>
+            <button
+              onClick={() => {
+                setCurrentUser(adminUser);
+                setAdminWitnessRep(null);
                 setSalespersonFilter('All');
-              } else {
-                const rep = salespeople.find((s) => s.id === selectedId);
-                if (rep) {
-                  setCurrentUser(rep);
-                  setSalespersonFilter(rep.name);
+                localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email: adminUser.email, role: "Admin" }));
+                localStorage.setItem("aivalytics_active_user", JSON.stringify(adminUser));
+              }}
+              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 dark:hover:text-emerald-100 underline ml-1 cursor-pointer"
+              title="Switch to Admin Manager"
+            >
+              Switch to Admin
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs shadow-2xs">
+            <span className="text-[11px] font-bold text-gray-400 hidden xl:inline">Portal View:</span>
+            <select
+              value={adminWitnessRep ? `witness-${adminWitnessRep}` : 'admin-master'}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'admin-master') {
+                  setAdminWitnessRep(null);
+                  setSalespersonFilter('All');
+                } else if (val.startsWith('witness-')) {
+                  const repName = val.replace('witness-', '');
+                  setAdminWitnessRep(repName);
+                } else if (val.startsWith('login-')) {
+                  const repId = val.replace('login-', '');
+                  const rep = salespeople.find((s) => s.id === repId);
+                  if (rep) {
+                    setAdminWitnessRep(null);
+                    setCurrentUser(rep);
+                    localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email: rep.email, role: "Salesperson" }));
+                    localStorage.setItem("aivalytics_active_user", JSON.stringify(rep));
+                  }
                 }
-              }
-            }}
-            className="bg-transparent font-black text-gray-800 dark:text-gray-200 text-xs focus:outline-hidden cursor-pointer"
-          >
-            <option value="rep-admin">👑 Admin (All Leads)</option>
-            {salespeople.map((s) => (
-              <option key={s.id} value={s.id}>
-                👤 {s.name} ({s.title.split(' ')[0]})
-              </option>
-            ))}
-          </select>
-        </div>
+              }}
+              className="bg-transparent font-black text-gray-800 dark:text-gray-200 text-xs focus:outline-hidden cursor-pointer"
+            >
+              <option value="admin-master">👑 Master Admin (All 362 Leads)</option>
+              <optgroup label="👁️ Witness Salesperson Portal:">
+                {salespeople.map((s) => (
+                  <option key={`witness-${s.id}`} value={`witness-${s.name}`}>
+                    👁️ Witness {s.name}'s Portal
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Direct Account Sign-In:">
+                {salespeople.map((s) => (
+                  <option key={`login-${s.id}`} value={`login-${s.id}`}>
+                    👤 Sign in as {s.name}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+        )}
 
         {/* Today's Calls Live Counter Pill */}
         <button
