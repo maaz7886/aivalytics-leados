@@ -939,25 +939,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const bulkAssignLeads = (leadIds: string[], salespersonName: string) => {
-    setLeads((prev) =>
-      prev.map((l) => {
+    const toUpdate: Lead[] = [];
+    setLeads((prev) => {
+      const nextLeads = prev.map((l) => {
         if (leadIds.includes(l.id)) {
           const updated = { ...l, assignedSalesperson: salespersonName };
-          insertLeadToSupabase(updated);
+          toUpdate.push(updated);
           return updated;
         }
         return l;
-      })
-    );
+      });
+      if (toUpdate.length > 0) {
+        insertBulkLeadsToSupabase(toUpdate);
+      }
+      return nextLeads;
+    });
   };
 
   const autoDistributeRoundRobin = (leadIds?: string[]) => {
     const activeReps = salespeople.filter((s) => s.status === 'Active');
     if (activeReps.length === 0) return;
 
+    const toUpdate: Lead[] = [];
     setLeads((prev) => {
       let repIdx = 0;
-      return prev.map((l) => {
+      const nextLeads = prev.map((l) => {
         const shouldAssign = leadIds
           ? leadIds.includes(l.id)
           : (!l.assignedSalesperson || l.assignedSalesperson === 'Unassigned' || l.assignedSalesperson === 'Alex Rivera');
@@ -965,11 +971,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const rep = activeReps[repIdx % activeReps.length];
           repIdx++;
           const updated = { ...l, assignedSalesperson: rep.name };
-          insertLeadToSupabase(updated);
+          toUpdate.push(updated);
           return updated;
         }
         return l;
       });
+      if (toUpdate.length > 0) {
+        insertBulkLeadsToSupabase(toUpdate);
+      }
+      return nextLeads;
     });
   };
 
