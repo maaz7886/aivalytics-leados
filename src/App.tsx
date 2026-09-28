@@ -44,6 +44,7 @@ function App() {
             <Route path="/programs/ai-fellowship" element={<AiFellowshipProgram />} />
             <Route path="/team" element={<SalesTeam />} />
             <Route path="/team/:repId" element={<SalespersonWorkspace />} />
+            <Route path="/workspace/:repId" element={<SalespersonWorkspace />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/integrations" element={<Navigate to="/dashboard" replace />} />
             <Route path="/settings" element={<Settings />} />

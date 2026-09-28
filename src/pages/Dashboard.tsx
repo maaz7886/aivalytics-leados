@@ -10,18 +10,76 @@ import type { Lead } from '../types';
 export default function Dashboard() {
   const {
     leads,
+    allLeads,
     tasks,
     updateLeadStage,
     todayCallsCount,
     todayCallActivities,
     dailyCallGoal,
     setDailyCallGoal,
-    logCall
+    logCall,
+    salespeople = [],
+    assignLead,
+    autoDistributeRoundRobin
   } = useApp();
   const navigate = useNavigate();
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [selectedCohort, setSelectedCohort] = useState<'all' | 'ai-pm' | 'ai-gtm' | 'ai-fellowship'>('all');
   const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
+
+  // Exception & Risk Center Drill-down State
+  const [selectedRiskCategory, setSelectedRiskCategory] = useState<'unassigned' | 'untouched' | 'overdue' | 'stalled_payments' | 'lagging_reps' | null>(null);
+  const [dashboardToast, setDashboardToast] = useState<string | null>(null);
+
+  const showDashboardToast = (msg: string) => {
+    setDashboardToast(msg);
+    setTimeout(() => setDashboardToast(null), 3500);
+  };
+
+  const todayStr = new Date().toISOString().substring(0, 10);
+  const leadsPool = allLeads || leads;
+
+  // 1. Unassigned leads
+  const unassignedLeads = leadsPool.filter(
+    (l) => !l.assignedSalesperson || l.assignedSalesperson === 'Unassigned'
+  );
+
+  // 2. Untouched leads (0 calls and not terminal)
+  const untouchedLeads = leadsPool.filter(
+    (l) =>
+      (l.numberOfCalls || 0) === 0 &&
+      l.crmStage !== 'Not Interested' &&
+      l.crmStage !== 'Unqualified' &&
+      l.crmStage !== 'Converted'
+  );
+
+  // 3. Overdue follow-ups & tasks
+  const overdueFollowUps = leadsPool.filter((l) => {
+    if (l.crmStage === 'Not Interested' || l.crmStage === 'Unqualified' || l.crmStage === 'Converted') return false;
+    const isOverdueFollowUp = l.nextFollowUp && l.nextFollowUp.substring(0, 10) < todayStr;
+    const isOverdueTask =
+      l.nextTask &&
+      !l.nextTask.completionStatus?.toLowerCase().includes('complete') &&
+      l.nextTask.dueDateTime?.substring(0, 10) < todayStr;
+    return Boolean(isOverdueFollowUp || isOverdueTask);
+  });
+
+  // 4. Stalled payments (payment pending or link sent, unpaid)
+  const stalledPayments = leadsPool.filter(
+    (l) =>
+      (l.crmStage === 'Payment Pending' ||
+        l.paymentState === 'Payment link sent' ||
+        l.paymentState === 'Deposit pending') &&
+      l.paymentStatus !== 'Paid' &&
+      l.paymentState !== 'Paid in full'
+  );
+
+  // 5. Sales reps lagging target
+  const laggingSalesReps = salespeople.filter((s) => {
+    const repCalls = todayCallActivities.filter((c) => c.salesperson === s.name).length;
+    const target = s.dailyCallTarget || 25;
+    return repCalls < Math.floor(target / 2);
+  });
 
   // Quick Call Log Modal State
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
@@ -234,6 +292,365 @@ export default function Dashboard() {
             <span>⚡</span> + Simulate Meta Lead
           </button>
         </div>
+      </div>
+
+      {/* Toast Alert */}
+      {dashboardToast && (
+        <div className="fixed top-5 right-5 z-50 p-4 bg-emerald-900 text-white rounded-xl shadow-xl flex items-center gap-3 border border-emerald-700 animate-in fade-in">
+          <span>✅</span>
+          <span className="text-xs font-bold">{dashboardToast}</span>
+        </div>
+      )}
+
+      {/* 🚨 REVENUE RISK & EXCEPTION MONITOR */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-rose-200 dark:border-rose-900/60 p-5 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-700 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping"></span>
+              <h2 className="text-sm font-black text-gray-900 dark:text-gray-100 tracking-tight flex items-center gap-2">
+                <span>🚨</span> Revenue Risk & Operational Exception Center
+              </h2>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Identifies leads and reps deviating from operational SLA standards. Click any card below to drill down into records and take immediate corrective action.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold px-3 py-1 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-full">
+              {unassignedLeads.length + untouchedLeads.length + overdueFollowUps.length + stalledPayments.length + laggingSalesReps.length} Total Exceptions
+            </span>
+          </div>
+        </div>
+
+        {/* 5 Exception Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* 1. Unassigned Leads */}
+          <div
+            onClick={() => setSelectedRiskCategory(selectedRiskCategory === 'unassigned' ? null : 'unassigned')}
+            className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+              selectedRiskCategory === 'unassigned'
+                ? 'bg-amber-100/80 dark:bg-amber-950/60 border-amber-500 ring-2 ring-amber-500/30 shadow-xs'
+                : 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/40 hover:bg-amber-100/50'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                Unassigned
+              </span>
+              <span className="text-xs">⚠️</span>
+            </div>
+            <div className="my-1.5">
+              <span className="text-2xl font-black text-amber-900 dark:text-amber-200">
+                {unassignedLeads.length}
+              </span>
+              <span className="text-xs font-bold text-gray-500 ml-1">leads</span>
+            </div>
+            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+              Needs rep routing →
+            </span>
+          </div>
+
+          {/* 2. Untouched Leads */}
+          <div
+            onClick={() => setSelectedRiskCategory(selectedRiskCategory === 'untouched' ? null : 'untouched')}
+            className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+              selectedRiskCategory === 'untouched'
+                ? 'bg-rose-100/80 dark:bg-rose-950/60 border-rose-500 ring-2 ring-rose-500/30 shadow-xs'
+                : 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-900/40 hover:bg-rose-100/50'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300">
+                Untouched &gt;24h
+              </span>
+              <span className="text-xs">⏱️</span>
+            </div>
+            <div className="my-1.5">
+              <span className="text-2xl font-black text-rose-900 dark:text-rose-200">
+                {untouchedLeads.length}
+              </span>
+              <span className="text-xs font-bold text-gray-500 ml-1">leads</span>
+            </div>
+            <span className="text-[10px] font-semibold text-rose-700 dark:text-rose-400">
+              0 calls placed →
+            </span>
+          </div>
+
+          {/* 3. Overdue Follow-ups */}
+          <div
+            onClick={() => setSelectedRiskCategory(selectedRiskCategory === 'overdue' ? null : 'overdue')}
+            className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+              selectedRiskCategory === 'overdue'
+                ? 'bg-red-100/80 dark:bg-red-950/60 border-red-500 ring-2 ring-red-500/30 shadow-xs'
+                : 'bg-red-50/40 dark:bg-red-950/20 border-red-200/80 dark:border-red-900/40 hover:bg-red-100/50'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-800 dark:text-red-300">
+                Overdue Tasks
+              </span>
+              <span className="text-xs">🚨</span>
+            </div>
+            <div className="my-1.5">
+              <span className="text-2xl font-black text-red-900 dark:text-red-200">
+                {overdueFollowUps.length}
+              </span>
+              <span className="text-xs font-bold text-gray-500 ml-1">leads</span>
+            </div>
+            <span className="text-[10px] font-semibold text-red-700 dark:text-red-400">
+              Past scheduled date →
+            </span>
+          </div>
+
+          {/* 4. Stalled Payments */}
+          <div
+            onClick={() => setSelectedRiskCategory(selectedRiskCategory === 'stalled_payments' ? null : 'stalled_payments')}
+            className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+              selectedRiskCategory === 'stalled_payments'
+                ? 'bg-purple-100/80 dark:bg-purple-950/60 border-purple-500 ring-2 ring-purple-500/30 shadow-xs'
+                : 'bg-purple-50/40 dark:bg-purple-950/20 border-purple-200/80 dark:border-purple-900/40 hover:bg-purple-100/50'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800 dark:text-purple-300">
+                Payment Stalled
+              </span>
+              <span className="text-xs">💳</span>
+            </div>
+            <div className="my-1.5">
+              <span className="text-2xl font-black text-purple-900 dark:text-purple-200">
+                {stalledPayments.length}
+              </span>
+              <span className="text-xs font-bold text-gray-500 ml-1">leads</span>
+            </div>
+            <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-400">
+              Pending payment link →
+            </span>
+          </div>
+
+          {/* 5. Reps Lagging Target */}
+          <div
+            onClick={() => setSelectedRiskCategory(selectedRiskCategory === 'lagging_reps' ? null : 'lagging_reps')}
+            className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between col-span-2 sm:col-span-1 ${
+              selectedRiskCategory === 'lagging_reps'
+                ? 'bg-blue-100/80 dark:bg-blue-950/60 border-blue-500 ring-2 ring-blue-500/30 shadow-xs'
+                : 'bg-blue-50/40 dark:bg-blue-950/20 border-blue-200/80 dark:border-blue-900/40 hover:bg-blue-100/50'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300">
+                Reps Lagging
+              </span>
+              <span className="text-xs">🏃</span>
+            </div>
+            <div className="my-1.5">
+              <span className="text-2xl font-black text-blue-900 dark:text-blue-200">
+                {laggingSalesReps.length}
+              </span>
+              <span className="text-xs font-bold text-gray-500 ml-1">reps</span>
+            </div>
+            <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400">
+              &lt;50% daily target →
+            </span>
+          </div>
+        </div>
+
+        {/* INTERACTIVE DRILL-DOWN PANEL */}
+        {selectedRiskCategory && (
+          <div className="mt-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/90 dark:bg-gray-750 space-y-3 animate-in fade-in duration-150">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-700 pb-2.5">
+              <div>
+                <h3 className="text-xs font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
+                  <span>🔎 Drill-Down:</span>
+                  {selectedRiskCategory === 'unassigned' && `Unassigned Leads (${unassignedLeads.length})`}
+                  {selectedRiskCategory === 'untouched' && `Untouched Leads >24h (${untouchedLeads.length})`}
+                  {selectedRiskCategory === 'overdue' && `Overdue Follow-ups & Tasks (${overdueFollowUps.length})`}
+                  {selectedRiskCategory === 'stalled_payments' && `Stalled Payment Requests (${stalledPayments.length})`}
+                  {selectedRiskCategory === 'lagging_reps' && `Sales Reps Lagging Daily Target (${laggingSalesReps.length})`}
+                </h3>
+                <p className="text-[11px] text-gray-500">
+                  {selectedRiskCategory === 'unassigned' && 'Incoming candidates waiting to be assigned to a representative.'}
+                  {selectedRiskCategory === 'untouched' && 'Leads captured in CRM that have received 0 outreach calls.'}
+                  {selectedRiskCategory === 'overdue' && 'Leads whose scheduled follow-up or callback is in the past.'}
+                  {selectedRiskCategory === 'stalled_payments' && 'Candidates with sent payment links that have not converted to Paid.'}
+                  {selectedRiskCategory === 'lagging_reps' && 'Sales reps pacing below 50% of their daily calling targets.'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {selectedRiskCategory === 'unassigned' && (
+                  <button
+                    onClick={() => {
+                      if (autoDistributeRoundRobin) {
+                        autoDistributeRoundRobin();
+                        showDashboardToast('All unassigned leads distributed evenly across sales reps!');
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-[#133926] hover:bg-[#1a4a33] text-white text-xs font-bold rounded-lg shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>⚡</span> Auto-Assign via Round-Robin
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedRiskCategory(null)}
+                  className="px-2.5 py-1 bg-white dark:bg-gray-700 hover:bg-gray-100 text-gray-600 dark:text-gray-300 text-xs font-bold rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer"
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+            {/* Drill-down list for Reps */}
+            {selectedRiskCategory === 'lagging_reps' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {laggingSalesReps.map((rep) => {
+                  const repCalls = todayCallActivities.filter((c) => c.salesperson === rep.name).length;
+                  return (
+                    <div
+                      key={rep.id}
+                      className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-9 h-9 rounded-lg ${rep.avatarColor || 'bg-emerald-600'} text-white font-black text-xs flex items-center justify-center`}>
+                          {rep.name.split(' ').map((n) => n[0]).join('')}
+                        </div>
+                        <div>
+                          <div className="font-bold text-xs text-gray-900 dark:text-gray-100">{rep.name}</div>
+                          <div className="text-[10px] text-gray-400">
+                            {repCalls} calls done / {rep.dailyCallTarget || 25} goal
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => navigate(`/workspace/${rep.id}`)}
+                        className="px-2.5 py-1 text-[11px] font-bold bg-[#133926] text-white rounded-lg hover:bg-[#1a4a33]"
+                      >
+                        Workspace →
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Drill-down table for Leads */
+              <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 max-h-72 overflow-y-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="sticky top-0 bg-gray-100 dark:bg-gray-750 text-gray-500 font-bold uppercase text-[10px] border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                      <th className="p-2.5">Candidate</th>
+                      <th className="p-2.5">Program</th>
+                      <th className="p-2.5">Phone & Contact</th>
+                      <th className="p-2.5">Assigned Rep</th>
+                      <th className="p-2.5">Stage / Status</th>
+                      <th className="p-2.5 text-right">Remediation Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {(() => {
+                      const records =
+                        selectedRiskCategory === 'unassigned'
+                          ? unassignedLeads
+                          : selectedRiskCategory === 'untouched'
+                          ? untouchedLeads
+                          : selectedRiskCategory === 'overdue'
+                          ? overdueFollowUps
+                          : stalledPayments;
+
+                      if (records.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={6} className="p-6 text-center text-gray-400 italic">
+                              🎉 No exception records found in this category!
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return records.slice(0, 30).map((l) => (
+                        <tr key={l.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-750/50">
+                          <td className="p-2.5 font-bold text-gray-900 dark:text-gray-100">
+                            <span
+                              onClick={() => setSelectedLeadForModal(l)}
+                              className="hover:text-emerald-700 cursor-pointer"
+                            >
+                              {l.fullName}
+                            </span>
+                            <div className="text-[10px] text-gray-400 font-normal">{l.currentRole || 'Candidate'}</div>
+                          </td>
+
+                          <td className="p-2.5 text-gray-600 dark:text-gray-300 font-medium">
+                            {l.programName || 'AI Program'}
+                          </td>
+
+                          <td className="p-2.5">
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={`tel:${l.phone}`}
+                                onClick={() => {
+                                  logCall(l.id, 'Connected', 'Direct exception dial');
+                                  showDashboardToast(`Calling ${l.fullName}!`);
+                                }}
+                                className="font-bold text-gray-800 dark:text-gray-200 hover:text-emerald-600 flex items-center gap-1"
+                              >
+                                <span>📞</span> {l.phone}
+                              </a>
+                            </div>
+                          </td>
+
+                          <td className="p-2.5">
+                            <select
+                              value={l.assignedSalesperson || 'Unassigned'}
+                              onChange={(e) => {
+                                if (assignLead) assignLead(l.id, e.target.value);
+                                showDashboardToast(`Assigned ${l.fullName} to ${e.target.value}!`);
+                              }}
+                              className="px-2 py-0.5 border rounded-lg text-[11px] font-bold dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                            >
+                              <option value="Unassigned">Unassigned</option>
+                              {salespeople.map((s) => (
+                                <option key={s.id} value={s.name}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          <td className="p-2.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                              {l.crmStage}
+                            </span>
+                          </td>
+
+                          <td className="p-2.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {l.phone && (
+                                <a
+                                  href={`https://wa.me/${l.phone.replace(/\D/g, '')}?text=Hi%20${encodeURIComponent(l.fullName.split(' ')[0])},%20following%20up%20from%20Aivalytics.`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[10px] font-bold"
+                                >
+                                  WhatsApp
+                                </a>
+                              )}
+                              <button
+                                onClick={() => setSelectedLeadForModal(l)}
+                                className="px-2.5 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-800 dark:text-gray-200 rounded text-[10px] font-bold cursor-pointer"
+                              >
+                                Details →
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 2. KPI METRICS CARDS (8 Horizontal Cards) */}

@@ -7,7 +7,7 @@ import { useApp, initialSalespeople, adminUser } from "../../context/AppContext"
 export default function SignIn() {
   const [email, setEmail] = useState("alex.rivera@aivalytics.io");
   const [password, setPassword] = useState("password123");
-  const [error] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { setCurrentUser, setAdminWitnessRep } = useApp();
 
@@ -40,10 +40,6 @@ export default function SignIn() {
     handleLoginSuccess(email);
   };
 
-  const handleQuickLogin = (repEmail: string) => {
-    handleLoginSuccess(repEmail);
-  };
-
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 px-4 py-8">
       <div className="w-full max-w-md p-8 space-y-5 bg-white rounded-2xl shadow-xl dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
@@ -59,12 +55,16 @@ export default function SignIn() {
 
         <form onSubmit={handleSubmit} className="space-y-4 text-sm">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">Email Address</label>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">Work Email Address</label>
             <input
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="e.g. alex.rivera@aivalytics.io"
               className="w-full px-3.5 py-2 mt-1 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
@@ -74,7 +74,11 @@ export default function SignIn() {
               type="password"
               required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="••••••••••••"
               className="w-full px-3.5 py-2 mt-1 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
@@ -87,40 +91,31 @@ export default function SignIn() {
           </button>
         </form>
 
-        {/* 1-Click Role Login for Admin & 5 Salespeople */}
-        <div className="pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
-          <span className="text-[10px] font-black text-gray-400 block text-center uppercase tracking-wider">
-            Quick 1-Click Role Access
-          </span>
-
-          <button
-            type="button"
-            onClick={() => handleQuickLogin("admin@aivalytics.io")}
-            className="w-full px-3 py-2 font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl hover:bg-emerald-100 text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <span>👑</span> Sign In as Admin Manager (All Reps)
-          </button>
-
-          <div className="grid grid-cols-2 gap-1.5 pt-1">
-            {[
-              { name: "Alex Rivera", email: "alex.rivera@aivalytics.io", title: "Senior AE" },
-              { name: "Sarah Chen", email: "sarah.chen@aivalytics.io", title: "Admissions" },
-              { name: "Marcus Vance", email: "marcus.vance@aivalytics.io", title: "Career Adv" },
-              { name: "Priya Sharma", email: "priya.sharma@aivalytics.io", title: "PM Lead" },
-              { name: "David Kim", email: "david.kim@aivalytics.io", title: "Tech Advisor" },
-            ].map((s) => (
-              <button
-                key={s.email}
-                type="button"
-                onClick={() => handleQuickLogin(s.email)}
-                className="px-2.5 py-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-750 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 transition-all text-left truncate cursor-pointer"
-                title={`Sign in as ${s.name} (${s.title})`}
-              >
-                👤 {s.name}
-              </button>
-            ))}
+        {/* Collapsible Credentials Guide for Authorized Team Members */}
+        <details className="pt-2 text-[11px] text-gray-500 border-t border-gray-100 dark:border-gray-700">
+          <summary className="cursor-pointer font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors list-none flex items-center justify-between">
+            <span>🔐 Authorized Team Accounts Directory</span>
+            <span>▾</span>
+          </summary>
+          <div className="mt-2 p-2.5 bg-gray-50 dark:bg-gray-750 rounded-lg space-y-1.5 text-[11px] text-gray-600 dark:text-gray-300">
+            <div>
+              <strong className="text-gray-900 dark:text-gray-100">Admin Manager:</strong> admin@aivalytics.io
+            </div>
+            <div>
+              <strong className="text-gray-900 dark:text-gray-100">Sales Representatives:</strong>
+              <div className="grid grid-cols-2 gap-1 pt-1 font-mono text-[10px]">
+                <span>• alex.rivera@...</span>
+                <span>• sarah.chen@...</span>
+                <span>• marcus.vance@...</span>
+                <span>• priya.sharma@...</span>
+                <span>• david.kim@...</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-400 pt-1 italic">
+              Standard secure password required for all corporate portal logins.
+            </p>
           </div>
-        </div>
+        </details>
 
         <p className="text-xs text-center text-gray-500">
           Need an account? <Link to="/auth/signup" className="text-primary-600 font-bold hover:underline">Sign Up</Link>

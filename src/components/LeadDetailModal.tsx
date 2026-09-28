@@ -31,7 +31,17 @@ function formatCollectionDateTime(dateStr?: string): string {
 }
 
 export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, onDelete }: LeadDetailModalProps) {
-  const { updateLeadStage, addCallNote, updateLeadFollowUp, setSelectedLeadId, deleteLead, logCall, salespeople = [], assignLead } = useApp();
+  const {
+    updateLeadStage,
+    addCallNote,
+    updateLeadFollowUp,
+    setSelectedLeadId,
+    deleteLead,
+    logCall,
+    salespeople = [],
+    assignLead,
+    updatePaymentState
+  } = useApp();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<'details' | 'ai' | 'notes'>('details');
@@ -532,6 +542,109 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
                 </div>
               </div>
             )}
+          </div>
+
+          {/* CARD 3: PAYMENT & TRANSACTION STATE */}
+          <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">💳</span>
+                <div>
+                  <h2 className="text-sm font-black text-gray-900 dark:text-gray-100">Payment & Transaction State</h2>
+                  <p className="text-[11px] text-gray-400 font-medium">Decoupled transaction lifecycle (independent of outreach stage)</p>
+                </div>
+              </div>
+              <span
+                className={`text-[11px] font-bold px-3 py-1 rounded-full border ${
+                  lead.paymentState === 'Paid in full' || lead.paymentStatus === 'Paid'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                    : lead.paymentState === 'Payment link sent' || lead.paymentState === 'Deposit pending'
+                    ? 'bg-amber-50 text-amber-800 border-amber-300'
+                    : 'bg-gray-50 text-gray-700 border-gray-300'
+                }`}
+              >
+                {lead.paymentState || lead.paymentStatus || 'No payment request'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (updatePaymentState) {
+                    updatePaymentState(lead.id, 'Payment link sent', lead.amountPaid || 0);
+                    setShowStatusAlert('Razorpay Payment link marked as Sent!');
+                    setTimeout(() => setShowStatusAlert(null), 3000);
+                  }
+                }}
+                className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  lead.paymentState === 'Payment link sent'
+                    ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-2xs'
+                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'
+                }`}
+              >
+                <span>🔗 Link Sent</span>
+                <span className="text-[10px] text-gray-400">Checkout Link</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (updatePaymentState) {
+                    updatePaymentState(lead.id, 'Deposit received', 5000);
+                    setShowStatusAlert('Recorded ₹5,000 Deposit Received!');
+                    setTimeout(() => setShowStatusAlert(null), 3000);
+                  }
+                }}
+                className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  lead.paymentState === 'Deposit received'
+                    ? 'bg-blue-50 border-blue-500 text-blue-900 shadow-2xs'
+                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'
+                }`}
+              >
+                <span>💵 Deposit (₹5k)</span>
+                <span className="text-[10px] text-gray-400">Seat Reserved</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (updatePaymentState) {
+                    const fullFee = lead.programId === 'ai-fellowship' ? 99999 : lead.programId === 'ai-gtm' ? 54999 : 34999;
+                    updatePaymentState(lead.id, 'Paid in full', fullFee);
+                    setShowStatusAlert(`Marked Paid in Full (₹${fullFee.toLocaleString('en-IN')})!`);
+                    setTimeout(() => setShowStatusAlert(null), 3000);
+                  }
+                }}
+                className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  lead.paymentState === 'Paid in full' || lead.paymentStatus === 'Paid'
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-2xs'
+                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'
+                }`}
+              >
+                <span>✅ Paid in Full</span>
+                <span className="text-[10px] text-gray-400">Enrolled Student</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (updatePaymentState) {
+                    updatePaymentState(lead.id, 'Refunded', 0);
+                    setShowStatusAlert('Transaction marked as Refunded.');
+                    setTimeout(() => setShowStatusAlert(null), 3000);
+                  }
+                }}
+                className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  lead.paymentState === 'Refunded'
+                    ? 'bg-rose-50 border-rose-500 text-rose-900 shadow-2xs'
+                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'
+                }`}
+              >
+                <span>↩️ Refunded</span>
+                <span className="text-[10px] text-gray-400">Cancelled Deal</span>
+              </button>
+            </div>
           </div>
 
           {/* 3. NAVIGATION TABS */}

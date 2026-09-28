@@ -1,7 +1,21 @@
 // @ts-nocheck
 // src/context/AppContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Lead, Task, Program, IntegrationItem, Stage, CallActivity, Salesperson } from '../types';
+import type {
+  Lead,
+  Task,
+  Program,
+  IntegrationItem,
+  Stage,
+  CallActivity,
+  Salesperson,
+  LeadLifecycleStage,
+  ActivityOutcome,
+  PaymentState,
+  NextTask,
+  ActivityRecord,
+  PaymentRecord
+} from '../types';
 import {
   supabase,
   fetchLeadsFromSupabase,
@@ -16,6 +30,81 @@ import {
   upsertTaskInSupabase,
   deleteTaskFromSupabase
 } from '../lib/supabase';
+
+export function mapCrmStageToLifecycle(crmStage: Stage): {
+  leadStage: LeadLifecycleStage;
+  activityOutcome?: ActivityOutcome;
+  paymentState: PaymentState;
+} {
+  switch (crmStage) {
+    case 'New Lead':
+      return { leadStage: 'New', paymentState: 'No payment request' };
+    case 'Call Pending':
+    case 'Did Not Pick The Call':
+    case 'Did Not Receive Call':
+      return { leadStage: 'Contacting', activityOutcome: 'No answer', paymentState: 'No payment request' };
+    case 'Connected':
+      return { leadStage: 'Connected', activityOutcome: 'Connected', paymentState: 'No payment request' };
+    case 'Interested':
+      return { leadStage: 'Connected', activityOutcome: 'Interested', paymentState: 'No payment request' };
+    case 'Details Sent on WhatsApp':
+      return { leadStage: 'Connected', activityOutcome: 'WhatsApp sent', paymentState: 'No payment request' };
+    case 'Call Later':
+      return { leadStage: 'Contacting', activityOutcome: 'Call later', paymentState: 'No payment request' };
+    case 'Follow-Up 1':
+    case 'Follow-Up 2':
+    case 'Follow-Up 3':
+      return { leadStage: 'Contacting', activityOutcome: 'Follow-up scheduled', paymentState: 'No payment request' };
+    case 'Qualified':
+      return { leadStage: 'Qualified', activityOutcome: 'Connected', paymentState: 'No payment request' };
+    case 'Payment Discussion':
+    case 'Payment Pending':
+      return { leadStage: 'Payment Pending', paymentState: 'Payment link sent' };
+    case 'Joined Session':
+      return { leadStage: 'Session Completed', activityOutcome: 'Connected', paymentState: 'No payment request' };
+    case 'Converted':
+      return { leadStage: 'Paid / Enrolled', paymentState: 'Paid in full' };
+    case 'Not Interested':
+    case 'Lost':
+      return { leadStage: 'Closed Lost', activityOutcome: 'Not interested', paymentState: 'No payment request' };
+    case 'Unqualified':
+      return { leadStage: 'Unqualified', paymentState: 'No payment request' };
+    default:
+      return { leadStage: 'New', paymentState: 'No payment request' };
+  }
+}
+
+export function normalizeLeadArchitecture(lead: Lead): Lead {
+  const mapped = mapCrmStageToLifecycle(lead.crmStage || 'New Lead');
+  const leadStage: LeadLifecycleStage = lead.leadStage || mapped.leadStage;
+  const paymentState: PaymentState = lead.paymentState || mapped.paymentState;
+  const lastActivityOutcome: ActivityOutcome = lead.lastActivityOutcome || mapped.activityOutcome || 'No answer';
+
+  // Ensure next task exists for active leads
+  let nextTask = lead.nextTask;
+  if (!nextTask && ['New', 'Contacting', 'Connected', 'Qualified', 'Payment Pending'].includes(leadStage)) {
+    const due = lead.nextFollowUp || new Date(Date.now() + 86400000).toISOString().substring(0, 16).replace('T', ' ');
+    nextTask = {
+      id: `task-init-${lead.id}`,
+      leadId: lead.id,
+      owner: lead.assignedSalesperson || 'Alex Rivera',
+      taskType: leadStage === 'New' ? 'Call' : leadStage === 'Payment Pending' ? 'Payment Follow-Up' : 'Call',
+      dueDateTime: due,
+      priority: lead.leadTemperature === 'Hot' ? 'Critical' : 'High',
+      completionStatus: 'Pending',
+      notes: leadStage === 'New' ? 'Initial Meta Lead Outreach' : 'Follow-up on inquiry'
+    };
+  }
+
+  return {
+    ...lead,
+    leadStage,
+    paymentState,
+    lastActivityOutcome,
+    nextTask: nextTask || null,
+    activities: lead.activities || []
+  };
+}
 
 // Pre-populated realistic demo lead: Abhishek Raneja & Rahul Sharma
 const initialLeads: Lead[] = [
@@ -782,6 +871,28 @@ interface AppContextType {
   addSalesperson: (rep: Omit<Salesperson, 'id'>) => void;
   updateSalesperson: (id: string, updates: Partial<Salesperson>) => void;
   deleteSalesperson: (id: string) => void;
+  // Decoupled Architecture Operations
+  recordActivity: (
+    leadId: string,
+    activityType: 'Call' | 'WhatsApp' | 'Note' | 'Stage Change',
+    outcome: ActivityOutcome | string,
+    notes: string,
+    nextTaskData?: {
+      taskType: 'Call' | 'WhatsApp' | 'Session' | 'Payment Follow-Up' | 'Review';
+      dueDateTime: string;
+      notes?: string;
+    },
+    durationSeconds?: number
+  ) => void;
+  updateLeadLifecycleStage: (leadId: string, stage: LeadLifecycleStage) => void;
+  updatePaymentState: (
+    leadId: string,
+    paymentState: PaymentState,
+    amount?: number,
+    transactionRef?: string
+  ) => void;
+  createNextTask: (task: Omit<NextTask, 'id'>) => void;
+  completeNextTask: (leadId: string, taskId: string) => void;
 }
 
 
@@ -793,12 +904,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('AIVALYTICS_LEADS');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(normalizeLeadArchitecture);
+        }
       } catch (e) {
         console.error('Error loading saved leads:', e);
       }
     }
-    return initialLeads;
+    return initialLeads.map(normalizeLeadArchitecture);
   });
 
   const [adminWitnessRep, setAdminWitnessRep] = useState<string | null>(null);
@@ -1357,6 +1471,207 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const updateLeadLifecycleStage = (leadId: string, stage: LeadLifecycleStage) => {
+    setMasterLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId) {
+          let crmStage: Stage = l.crmStage;
+          if (stage === 'New') crmStage = 'New Lead';
+          else if (stage === 'Contacting') crmStage = 'Call Pending';
+          else if (stage === 'Connected') crmStage = 'Connected';
+          else if (stage === 'Qualified') crmStage = 'Qualified';
+          else if (stage === 'Session Scheduled') crmStage = 'Interested';
+          else if (stage === 'Session Completed') crmStage = 'Joined Session';
+          else if (stage === 'Payment Pending') crmStage = 'Payment Pending';
+          else if (stage === 'Paid / Enrolled') crmStage = 'Converted';
+          else if (stage === 'Closed Lost') crmStage = 'Lost';
+          else if (stage === 'Unqualified') crmStage = 'Unqualified';
+
+          const updated = { ...l, leadStage: stage, crmStage };
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+  };
+
+  const createNextTask = (taskData: Omit<NextTask, 'id'>) => {
+    const newTask: NextTask = {
+      ...taskData,
+      id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+    };
+    setMasterLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === taskData.leadId) {
+          const updated = { ...l, nextTask: newTask, nextFollowUp: newTask.dueDateTime };
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+  };
+
+  const completeNextTask = (leadId: string, taskId: string) => {
+    setMasterLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId && l.nextTask && l.nextTask.id === taskId) {
+          const updated = {
+            ...l,
+            nextTask: { ...l.nextTask, completionStatus: 'Completed' as const }
+          };
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+  };
+
+  const updatePaymentState = (
+    leadId: string,
+    paymentState: PaymentState,
+    amount: number = 0,
+    transactionRef: string = ''
+  ) => {
+    const timestamp = new Date().toISOString();
+    setMasterLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId) {
+          const rec: PaymentRecord = {
+            id: `pay-${Date.now()}`,
+            leadId,
+            leadName: l.fullName,
+            programId: l.programId,
+            amount: amount || (paymentState === 'Paid in full' ? 49999 : paymentState === 'Deposit received' ? 5000 : 0),
+            paymentState,
+            transactionRef: transactionRef || `TXN-${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
+            timestamp
+          };
+          const isPaid = paymentState === 'Paid in full' || paymentState === 'Payment cleared';
+          const isPartial = paymentState === 'Deposit received';
+          const updated: Lead = {
+            ...l,
+            paymentState,
+            paymentStatus: isPaid ? 'Paid' : isPartial ? 'Partial' : 'Unpaid',
+            amountPaid: rec.amount,
+            enrollmentStatus: isPaid ? 'Enrolled' : isPartial ? 'Reserved' : 'Not Enrolled',
+            leadStage: isPaid ? 'Paid / Enrolled' : paymentState === 'Payment link sent' ? 'Payment Pending' : (l.leadStage || 'New'),
+            crmStage: isPaid ? 'Converted' : (l.crmStage || 'New Lead'),
+            paymentRecords: [rec, ...(l.paymentRecords || [])]
+          };
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+  };
+
+  const recordActivity = (
+    leadId: string,
+    activityType: 'Call' | 'WhatsApp' | 'Note' | 'Stage Change',
+    outcome: ActivityOutcome | string,
+    notes: string,
+    nextTaskData?: {
+      taskType: 'Call' | 'WhatsApp' | 'Session' | 'Payment Follow-Up' | 'Review';
+      dueDateTime: string;
+      notes?: string;
+    },
+    durationSeconds: number = 0
+  ) => {
+    const callerName = currentUser?.name || 'Alex Rivera';
+    const timestamp = new Date().toISOString();
+
+    let createdTask: NextTask | undefined;
+    if (nextTaskData && nextTaskData.dueDateTime) {
+      createdTask = {
+        id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        leadId,
+        owner: callerName,
+        taskType: nextTaskData.taskType || 'Call',
+        dueDateTime: nextTaskData.dueDateTime,
+        priority: 'High',
+        completionStatus: 'Pending',
+        notes: nextTaskData.notes || notes
+      };
+    }
+
+    const activity: ActivityRecord = {
+      id: `act-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      leadId,
+      activityType,
+      outcome,
+      notes,
+      durationSeconds,
+      performedBy: callerName,
+      timestamp,
+      nextTaskCreated: createdTask
+    };
+
+    setMasterLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId) {
+          let nextLeadStage: LeadLifecycleStage = l.leadStage || 'New';
+          if (outcome === 'Interested') nextLeadStage = 'Connected';
+          else if (outcome === 'Connected') nextLeadStage = 'Connected';
+          else if (outcome === 'No answer' && nextLeadStage === 'New') nextLeadStage = 'Contacting';
+          else if (outcome === 'WhatsApp sent' && nextLeadStage === 'New') nextLeadStage = 'Contacting';
+          else if (outcome === 'Not interested') nextLeadStage = 'Closed Lost';
+
+          const existingActivities = l.activities || [];
+          const existingCallNotes = l.callNotesHistory || [];
+
+          const newNote = {
+            id: `note-${Date.now()}`,
+            date: timestamp,
+            salesperson: callerName,
+            rawNotes: `[${activityType} - ${outcome}] ${notes}`,
+            aiAnalysis: {
+              trueDesiredOutcome: outcome,
+              primaryMotivation: 'Outreach engagement',
+              purchaseIntent: outcome === 'Interested' ? 85 : 60
+            }
+          };
+
+          const updated: Lead = {
+            ...l,
+            numberOfCalls: activityType === 'Call' ? (l.numberOfCalls || 0) + 1 : (l.numberOfCalls || 0),
+            lastContacted: timestamp,
+            lastActivityOutcome: outcome as ActivityOutcome,
+            leadStage: nextLeadStage,
+            nextTask: createdTask || l.nextTask,
+            nextFollowUp: createdTask ? createdTask.dueDateTime : l.nextFollowUp,
+            activities: [activity, ...existingActivities],
+            callNotesHistory: [newNote, ...existingCallNotes]
+          };
+
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+
+    if (activityType === 'Call') {
+      const targetLead = masterLeads.find((l) => l.id === leadId);
+      const newCallAct: CallActivity = {
+        id: `call-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        leadId,
+        leadName: targetLead ? targetLead.fullName : 'Lead',
+        leadPhone: targetLead ? targetLead.phone : '',
+        programName: targetLead ? targetLead.programName : 'AI Program',
+        timestamp,
+        outcome: String(outcome),
+        notes: notes || `Call logged as ${outcome}`,
+        salesperson: callerName,
+        durationSeconds
+      };
+      setCallActivities((prev) => [newCallAct, ...prev]);
+    }
+  };
+
   const todayStr = new Date().toISOString().substring(0, 10);
   const todayCallActivities = callActivities.filter((c) => {
     const isToday = c.timestamp.startsWith(todayStr);
@@ -1416,7 +1731,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         autoDistributeRoundRobin,
         addSalesperson,
         updateSalesperson,
-        deleteSalesperson
+        deleteSalesperson,
+        // Decoupled Operations
+        recordActivity,
+        updateLeadLifecycleStage,
+        updatePaymentState,
+        createNextTask,
+        completeNextTask
       }}
     >
       {children}

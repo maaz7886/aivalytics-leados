@@ -37,6 +37,82 @@ export type Stage =
   | 'Lost'
   | 'Converted';
 
+// Architecture Decoupling: 1. Core Lead Lifecycle Stage
+export type LeadLifecycleStage =
+  | 'New'
+  | 'Contacting'
+  | 'Connected'
+  | 'Qualified'
+  | 'Session Scheduled'
+  | 'Session Completed'
+  | 'Payment Pending'
+  | 'Paid / Enrolled'
+  | 'Nurture'
+  | 'Closed Lost'
+  | 'Unqualified';
+
+// Architecture Decoupling: 2. Activity Outcome
+export type ActivityOutcome =
+  | 'Connected'
+  | 'No answer'
+  | 'Call later'
+  | 'Interested'
+  | 'WhatsApp sent'
+  | 'Follow-up scheduled'
+  | 'Invalid number'
+  | 'Not interested';
+
+// Architecture Decoupling: 3. Payment State
+export type PaymentState =
+  | 'No payment request'
+  | 'Payment link sent'
+  | 'Deposit pending'
+  | 'Deposit received'
+  | 'Balance pending'
+  | 'Paid in full'
+  | 'Payment cleared'
+  | 'Refunded';
+
+// Architecture Decoupling: 4. Next Task Record (Mandatory for active pipeline)
+export interface NextTask {
+  id: string;
+  leadId: string;
+  owner: string;
+  taskType: 'Call' | 'WhatsApp' | 'Session' | 'Payment Follow-Up' | 'Review';
+  dueDateTime: string;
+  priority: 'Critical' | 'High' | 'Medium' | 'Low';
+  completionStatus: 'Pending' | 'Completed' | 'Overdue';
+  notes?: string;
+}
+
+// Activity Record (First-class history)
+export interface ActivityRecord {
+  id: string;
+  leadId: string;
+  leadName?: string;
+  leadPhone?: string;
+  activityType: 'Call' | 'WhatsApp' | 'Note' | 'Stage Change' | 'Task Created';
+  outcome: ActivityOutcome | string;
+  notes: string;
+  durationSeconds?: number;
+  performedBy: string;
+  timestamp: string;
+  nextTaskCreated?: NextTask;
+}
+
+// Payment Record
+export interface PaymentRecord {
+  id: string;
+  leadId: string;
+  leadName: string;
+  programId: string;
+  amount: number;
+  paymentState: PaymentState;
+  paymentMethod?: string;
+  transactionRef?: string;
+  timestamp: string;
+}
+
 
 export type PrimaryGoal =
   | 'Upskill in Current Role'
@@ -117,9 +193,15 @@ export interface Lead {
   paymentLink: string;
   aiRecommendation: string;
   
-  // Sales & CRM
+  // Sales & CRM (Decoupled 4-record Architecture)
   assignedSalesperson: string;
   crmStage: Stage;
+  leadStage?: LeadLifecycleStage;
+  lastActivityOutcome?: ActivityOutcome;
+  paymentState?: PaymentState;
+  nextTask?: NextTask | null;
+  activities?: ActivityRecord[];
+  paymentRecords?: PaymentRecord[];
   leadTemperature: 'Hot' | 'Warm' | 'Cold';
   lastContacted: string;
   nextFollowUp: string;
