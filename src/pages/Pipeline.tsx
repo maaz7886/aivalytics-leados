@@ -1,10 +1,10 @@
-// src/pages/Pipeline.tsx
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Lead, Stage } from '../types';
 import { useNavigate } from 'react-router-dom';
 import LeadDetailModal from '../components/LeadDetailModal';
 import MetaLeadSimulatorModal from '../components/MetaLeadSimulatorModal';
+import { calculate48HourWorkingSla } from '../utils/cadenceUtils';
 
 function formatCollectionDate(dateStr?: string): string {
   if (!dateStr) return 'N/A';
@@ -287,6 +287,51 @@ export default function Pipeline() {
                         <span className="font-bold text-primary-600">Fit: {lead.fitScore}%</span>
                         <span className="font-bold text-emerald-600">Intent: {lead.intentScore}%</span>
                       </div>
+
+                      {/* 48-Hour Working SLA & Outreach Cadence */}
+                      {(() => {
+                        const sla = calculate48HourWorkingSla(lead.dateCaptured);
+                        const callAttempts = lead.outreachCadence?.callAttempts ?? (lead.numberOfCalls || 0);
+                        const waTouches = lead.outreachCadence?.whatsappTouches ?? (lead.crmStage === 'Details Sent on WhatsApp' ? 1 : 0);
+                        return (
+                          <div className="pt-2 border-t border-gray-100 dark:border-gray-600/70 space-y-1 text-[10px]">
+                            <div className="flex items-center justify-between gap-1 flex-wrap">
+                              <span
+                                className={`px-2 py-0.5 rounded-full font-extrabold border ${
+                                  sla.isWithin48Hours
+                                    ? sla.remainingHours <= 12
+                                      ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+                                      : 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
+                                    : 'bg-red-50 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300'
+                                }`}
+                                title="48-Hour SLA (7:00 AM – 8:00 PM working window)"
+                              >
+                                ⏰ {sla.isWithin48Hours ? `${sla.remainingHours.toFixed(1)}h left` : 'SLA Expired'}
+                              </span>
+                              <span className="font-bold text-gray-500 dark:text-gray-400">
+                                📞 {callAttempts}/3 • 💬 {waTouches}/5
+                              </span>
+                            </div>
+
+                            {/* Conversion Pathway Indicator if Booked */}
+                            {lead.mentorMeeting && (
+                              <div className="bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 px-2 py-0.5 rounded-md font-bold truncate border border-purple-200">
+                                🎓 Mentor: {lead.mentorMeeting.mentorName} ({lead.mentorMeeting.scheduledDate})
+                              </div>
+                            )}
+                            {lead.demoSession && (
+                              <div className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 px-2 py-0.5 rounded-md font-bold truncate border border-indigo-200">
+                                🖥️ Demo: {lead.demoSession.sessionTitle}
+                              </div>
+                            )}
+                            {lead.directSale && (
+                              <div className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold truncate border border-emerald-200">
+                                💳 Sale: {lead.directSale.plan || lead.directSale.paymentPlan} (₹{(lead.directSale.finalAmount || lead.directSale.amount || 0).toLocaleString('en-IN')})
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Date of Collecting and Follow-up Info (User Requirement) */}
                       <div className="pt-2 border-t border-gray-100 dark:border-gray-600/70 space-y-1.5 text-[11px]">

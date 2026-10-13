@@ -14,7 +14,11 @@ import type {
   PaymentState,
   NextTask,
   ActivityRecord,
-  PaymentRecord
+  PaymentRecord,
+  MentorMeeting,
+  DemoSession,
+  DirectSale,
+  OutreachCadence
 } from '../types';
 import {
   supabase,
@@ -60,6 +64,10 @@ export function mapCrmStageToLifecycle(crmStage: Stage): {
     case 'Payment Discussion':
     case 'Payment Pending':
       return { leadStage: 'Payment Pending', paymentState: 'Payment link sent' };
+    case 'Mentor Session Scheduled':
+      return { leadStage: 'Session Scheduled', activityOutcome: 'Follow-up scheduled', paymentState: 'No payment request' };
+    case 'Demo Session Scheduled':
+      return { leadStage: 'Session Scheduled', activityOutcome: 'WhatsApp sent', paymentState: 'No payment request' };
     case 'Joined Session':
       return { leadStage: 'Session Completed', activityOutcome: 'Connected', paymentState: 'No payment request' };
     case 'Converted':
@@ -893,6 +901,26 @@ interface AppContextType {
   ) => void;
   createNextTask: (task: Omit<NextTask, 'id'>) => void;
   completeNextTask: (leadId: string, taskId: string) => void;
+  // 3 Core Conversion Pathways & Cadence
+  scheduleMentorMeeting: (
+    leadId: string,
+    meetingData: Omit<MentorMeeting, 'id' | 'createdAt'>,
+    callDurationSeconds?: number,
+    callNotes?: string
+  ) => void;
+  inviteDemoSession: (
+    leadId: string,
+    demoData: Omit<DemoSession, 'id' | 'createdAt'>,
+    callDurationSeconds?: number,
+    callNotes?: string
+  ) => void;
+  initiateDirectSale: (
+    leadId: string,
+    saleData: Omit<DirectSale, 'id' | 'createdAt'>,
+    callDurationSeconds?: number,
+    callNotes?: string
+  ) => void;
+  incrementCadenceTouch: (leadId: string, touchType: 'Call' | 'WhatsApp') => void;
 }
 
 
@@ -1672,6 +1700,325 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // 1. PATHWAY 1: SCHEDULE 1-ON-1 MEETING WITH MENTOR
+  const scheduleMentorMeeting = (
+    leadId: string,
+    meetingData: Omit<MentorMeeting, 'id' | 'createdAt'>,
+    callDurationSeconds: number = 300,
+    callNotes: string = ''
+  ) => {
+    const callerName = currentUser?.name || 'Alex Rivera';
+    const timestamp = new Date().toISOString();
+    const newMeeting: MentorMeeting = {
+      id: `mentor-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      createdAt: timestamp,
+      ...meetingData
+    };
+
+    const task: NextTask = {
+      id: `task-mentor-${Date.now()}`,
+      leadId,
+      owner: callerName,
+      taskType: 'Session',
+      dueDateTime: meetingData.scheduledAt,
+      priority: 'Critical',
+      completionStatus: 'Pending',
+      notes: `1-on-1 Mentor Strategy Session with ${meetingData.mentorName}. Link: ${meetingData.meetingLink || 'Google Meet'}`
+    };
+
+    const summaryNotes =
+      callNotes ||
+      `Spoke with candidate for ${Math.round(callDurationSeconds / 60)} mins. Scheduled 1-on-1 Mentor Strategy Session with ${meetingData.mentorName} on ${meetingData.scheduledAt}.`;
+
+    setMasterLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId) {
+          const currentCalls = l.outreachCadence?.callsAttempted ?? (l.numberOfCalls || 0);
+          const currentWa = l.outreachCadence?.whatsappAttempted ?? 0;
+          const updatedCadence: OutreachCadence = {
+            callsAttempted: currentCalls + 1,
+            maxCalls: 3,
+            whatsappAttempted: currentWa,
+            maxWhatsapp: 5,
+            cycleStart: l.outreachCadence?.cycleStart || l.dateCaptured || timestamp,
+            workingHoursStart: 7,
+            workingHoursEnd: 20
+          };
+
+          const newNote = {
+            id: `note-${Date.now()}`,
+            date: timestamp,
+            salesperson: callerName,
+            rawNotes: `[🎓 Mentor Session Scheduled] ${summaryNotes}`,
+            aiAnalysis: {
+              trueDesiredOutcome: 'Mentor Session Scheduled',
+              primaryMotivation: '1-on-1 Mentorship & Career Guidance',
+              purchaseIntent: 90
+            }
+          };
+
+          const updated: Lead = {
+            ...l,
+            crmStage: 'Mentor Session Scheduled',
+            leadStage: 'Session Scheduled',
+            lastContacted: timestamp,
+            lastActivityOutcome: 'Follow-up scheduled',
+            numberOfCalls: (l.numberOfCalls || 0) + 1,
+            nextTask: task,
+            nextFollowUp: meetingData.scheduledAt,
+            mentorMeeting: newMeeting,
+            outreachCadence: updatedCadence,
+            callNotesHistory: [newNote, ...(l.callNotesHistory || [])]
+          };
+
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+
+    const targetLead = masterLeads.find((l) => l.id === leadId);
+    const newCallAct: CallActivity = {
+      id: `call-mentor-${Date.now()}`,
+      leadId,
+      leadName: targetLead ? targetLead.fullName : 'Lead',
+      leadPhone: targetLead ? targetLead.phone : '',
+      programName: targetLead ? targetLead.programName : 'AI Program',
+      timestamp,
+      outcome: 'Mentor Session Scheduled',
+      notes: summaryNotes,
+      salesperson: callerName,
+      durationSeconds: callDurationSeconds
+    };
+    setCallActivities((prev) => [newCallAct, ...prev]);
+  };
+
+  // 2. PATHWAY 2: INVITE TO LIVE DEMO SESSION
+  const inviteDemoSession = (
+    leadId: string,
+    demoData: Omit<DemoSession, 'id' | 'createdAt'>,
+    callDurationSeconds: number = 0,
+    callNotes: string = ''
+  ) => {
+    const callerName = currentUser?.name || 'Alex Rivera';
+    const timestamp = new Date().toISOString();
+    const newDemo: DemoSession = {
+      id: `demo-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      createdAt: timestamp,
+      ...demoData
+    };
+
+    const task: NextTask = {
+      id: `task-demo-${Date.now()}`,
+      leadId,
+      owner: callerName,
+      taskType: 'Session',
+      dueDateTime: demoData.scheduledAt,
+      priority: 'High',
+      completionStatus: 'Pending',
+      notes: `Live Demo Session: ${demoData.sessionTitle}. Link: ${demoData.sessionLink || 'Live Demo Link'}`
+    };
+
+    const summaryNotes =
+      callNotes || `Invited candidate to Live Demo Session: ${demoData.sessionTitle} on ${demoData.scheduledAt}.`;
+
+    setMasterLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId) {
+          const currentWa = (l.outreachCadence?.whatsappAttempted ?? 0) + 1;
+          const updatedCadence: OutreachCadence = {
+            callsAttempted: l.outreachCadence?.callsAttempted ?? (l.numberOfCalls || 0),
+            maxCalls: 3,
+            whatsappAttempted: currentWa,
+            maxWhatsapp: 5,
+            cycleStart: l.outreachCadence?.cycleStart || l.dateCaptured || timestamp,
+            workingHoursStart: 7,
+            workingHoursEnd: 20
+          };
+
+          const newNote = {
+            id: `note-${Date.now()}`,
+            date: timestamp,
+            salesperson: callerName,
+            rawNotes: `[🖥️ Demo Session Invited] ${summaryNotes}`,
+            aiAnalysis: {
+              trueDesiredOutcome: 'Demo Session Invitation',
+              primaryMotivation: 'Curriculum & Hands-on Evaluation',
+              purchaseIntent: 80
+            }
+          };
+
+          const updated: Lead = {
+            ...l,
+            crmStage: 'Demo Session Scheduled',
+            leadStage: 'Session Scheduled',
+            lastContacted: timestamp,
+            lastActivityOutcome: 'WhatsApp sent',
+            nextTask: task,
+            nextFollowUp: demoData.scheduledAt,
+            demoSession: newDemo,
+            outreachCadence: updatedCadence,
+            callNotesHistory: [newNote, ...(l.callNotesHistory || [])]
+          };
+
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+
+    const targetLead = masterLeads.find((l) => l.id === leadId);
+    const newCallAct: CallActivity = {
+      id: `call-demo-${Date.now()}`,
+      leadId,
+      leadName: targetLead ? targetLead.fullName : 'Lead',
+      leadPhone: targetLead ? targetLead.phone : '',
+      programName: targetLead ? targetLead.programName : 'AI Program',
+      timestamp,
+      outcome: 'Demo Session Invited',
+      notes: summaryNotes,
+      salesperson: callerName,
+      durationSeconds: callDurationSeconds
+    };
+    setCallActivities((prev) => [newCallAct, ...prev]);
+  };
+
+  // 3. PATHWAY 3: DIRECT COURSE SALE & CHECKOUT
+  const initiateDirectSale = (
+    leadId: string,
+    saleData: Omit<DirectSale, 'id' | 'createdAt'>,
+    callDurationSeconds: number = 0,
+    callNotes: string = ''
+  ) => {
+    const callerName = currentUser?.name || 'Alex Rivera';
+    const timestamp = new Date().toISOString();
+    const newSale: DirectSale = {
+      id: `sale-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      createdAt: timestamp,
+      ...saleData
+    };
+
+    const isPaidInFull = saleData.status === 'Paid in Full';
+    const isDeposit = saleData.status === 'Deposit Received';
+
+    const targetStage: Stage = isPaidInFull ? 'Converted' : 'Payment Pending';
+    const targetLeadStage: LeadLifecycleStage = isPaidInFull ? 'Paid / Enrolled' : 'Payment Pending';
+    const targetPaymentState: PaymentState = isPaidInFull
+      ? 'Paid in full'
+      : isDeposit
+      ? 'Deposit received'
+      : 'Payment link sent';
+
+    const amountPaid = isPaidInFull ? saleData.finalAmount : isDeposit ? 5000 : 0;
+
+    const task: NextTask = {
+      id: `task-sale-${Date.now()}`,
+      leadId,
+      owner: callerName,
+      taskType: 'Payment Follow-Up',
+      dueDateTime: new Date(Date.now() + 86400000).toISOString().substring(0, 16).replace('T', ' '),
+      priority: 'Critical',
+      completionStatus: isPaidInFull ? 'Completed' : 'Pending',
+      notes: isPaidInFull
+        ? `Payment verified ₹${saleData.finalAmount}. Onboard to cohort.`
+        : `Payment follow-up for ${saleData.paymentPlan} (Link: ${saleData.paymentLink})`
+    };
+
+    const summaryNotes =
+      callNotes ||
+      `Direct Sale: ${saleData.programName} - ${saleData.paymentPlan} for ₹${saleData.finalAmount.toLocaleString('en-IN')}. Status: ${saleData.status}.`;
+
+    setMasterLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId) {
+          const newNote = {
+            id: `note-${Date.now()}`,
+            date: timestamp,
+            salesperson: callerName,
+            rawNotes: `[💳 Direct Course Sale] ${summaryNotes}`,
+            aiAnalysis: {
+              trueDesiredOutcome: isPaidInFull ? 'Student Enrolled' : 'Checkout Link Shared',
+              primaryMotivation: 'Immediate Enrollment',
+              purchaseIntent: isPaidInFull ? 100 : 95
+            }
+          };
+
+          const updated: Lead = {
+            ...l,
+            crmStage: targetStage,
+            leadStage: targetLeadStage,
+            paymentState: targetPaymentState,
+            paymentStatus: isPaidInFull ? 'Paid' : isDeposit ? 'Partial' : 'Unpaid',
+            enrollmentStatus: isPaidInFull ? 'Enrolled' : isDeposit ? 'Reserved' : 'Not Enrolled',
+            amountPaid: amountPaid > 0 ? amountPaid : l.amountPaid,
+            lastContacted: timestamp,
+            lastActivityOutcome: isPaidInFull ? 'Connected' : 'WhatsApp sent',
+            nextTask: task,
+            directSale: newSale,
+            callNotesHistory: [newNote, ...(l.callNotesHistory || [])]
+          };
+
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+
+    const targetLead = masterLeads.find((l) => l.id === leadId);
+    const newCallAct: CallActivity = {
+      id: `call-sale-${Date.now()}`,
+      leadId,
+      leadName: targetLead ? targetLead.fullName : 'Lead',
+      leadPhone: targetLead ? targetLead.phone : '',
+      programName: targetLead ? targetLead.programName : 'AI Program',
+      timestamp,
+      outcome: targetStage,
+      notes: summaryNotes,
+      salesperson: callerName,
+      durationSeconds: callDurationSeconds
+    };
+    setCallActivities((prev) => [newCallAct, ...prev]);
+  };
+
+  // 4. CADENCE TOUCH INCREMENT (3 Calls / 5 WhatsApp touches)
+  const incrementCadenceTouch = (leadId: string, touchType: 'Call' | 'WhatsApp') => {
+    const timestamp = new Date().toISOString();
+    setMasterLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === leadId) {
+          const currentCalls = l.outreachCadence?.callsAttempted ?? (l.numberOfCalls || 0);
+          const currentWa = l.outreachCadence?.whatsappAttempted ?? 0;
+          const newCalls = touchType === 'Call' ? currentCalls + 1 : currentCalls;
+          const newWa = touchType === 'WhatsApp' ? currentWa + 1 : currentWa;
+
+          const updatedCadence: OutreachCadence = {
+            callsAttempted: newCalls,
+            maxCalls: 3,
+            whatsappAttempted: newWa,
+            maxWhatsapp: 5,
+            cycleStart: l.outreachCadence?.cycleStart || l.dateCaptured || timestamp,
+            workingHoursStart: 7,
+            workingHoursEnd: 20,
+            isCompleted: newCalls >= 3 && newWa >= 5
+          };
+
+          const updated: Lead = {
+            ...l,
+            numberOfCalls: touchType === 'Call' ? (l.numberOfCalls || 0) + 1 : (l.numberOfCalls || 0),
+            outreachCadence: updatedCadence,
+            lastContacted: timestamp
+          };
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
+  };
+
   const todayStr = new Date().toISOString().substring(0, 10);
   const todayCallActivities = callActivities.filter((c) => {
     const isToday = c.timestamp.startsWith(todayStr);
@@ -1732,12 +2079,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addSalesperson,
         updateSalesperson,
         deleteSalesperson,
-        // Decoupled Operations
+        // Decoupled Operations & 3 Conversion Pathways
         recordActivity,
         updateLeadLifecycleStage,
         updatePaymentState,
         createNextTask,
-        completeNextTask
+        completeNextTask,
+        scheduleMentorMeeting,
+        inviteDemoSession,
+        initiateDirectSale,
+        incrementCadenceTouch
       }}
     >
       {children}

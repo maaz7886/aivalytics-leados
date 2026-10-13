@@ -1,9 +1,16 @@
-// @ts-nocheck
 // src/components/LeadDetailModal.tsx
-import React, { useState } from 'react';
-import type { Lead, Stage } from '../types';
+import React, { useState, useEffect } from 'react';
+import type { Lead, Stage, MentorMeeting, DemoSession, DirectSale } from '../types';
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
+import {
+  MENTOR_PRESETS,
+  DEMO_SESSION_PRESETS,
+  calculate48HourWorkingSla,
+  generateMentorWhatsAppMessage,
+  generateDemoWhatsAppMessage,
+  generateDirectSaleWhatsAppMessage
+} from '../utils/cadenceUtils';
 
 interface LeadDetailModalProps {
   lead: Lead | null;
@@ -11,6 +18,7 @@ interface LeadDetailModalProps {
   onClose: () => void;
   onStageChange?: (newStage: Stage) => void;
   onDelete?: (leadId: string) => void;
+  initialPathway?: 'none' | 'mentor' | 'demo' | 'sale';
 }
 
 function formatCollectionDateTime(dateStr?: string): string {
@@ -30,7 +38,14 @@ function formatCollectionDateTime(dateStr?: string): string {
   return String(dateStr);
 }
 
-export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, onDelete }: LeadDetailModalProps) {
+export default function LeadDetailModal({
+  lead,
+  isOpen,
+  onClose,
+  onStageChange,
+  onDelete,
+  initialPathway = 'none'
+}: LeadDetailModalProps) {
   const {
     updateLeadStage,
     addCallNote,
@@ -40,7 +55,11 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
     logCall,
     salespeople = [],
     assignLead,
-    updatePaymentState
+    updatePaymentState,
+    scheduleMentorMeeting,
+    inviteDemoSession,
+    initiateDirectSale,
+    incrementCadenceTouch
   } = useApp();
   const navigate = useNavigate();
 
@@ -48,6 +67,54 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
   const [callNoteText, setCallNoteText] = useState('');
   const [showStatusAlert, setShowStatusAlert] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // 3 Core Conversion Pathways State: 'none' | 'mentor' | 'demo' | 'sale'
+  const [activePathway, setActivePathway] = useState<'none' | 'mentor' | 'demo' | 'sale'>(initialPathway);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActivePathway(initialPathway || 'none');
+    }
+  }, [isOpen, initialPathway]);
+
+  // Pathway 1: Mentor Meeting Form
+  const [mentorName, setMentorName] = useState(MENTOR_PRESETS[0].name);
+  const [mentorMeetingDate, setMentorMeetingDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [mentorMeetingTime, setMentorMeetingTime] = useState('16:00');
+  const [mentorDurationMinutes, setMentorDurationMinutes] = useState(30);
+  const [mentorCallDurationMinutes, setMentorCallDurationMinutes] = useState(5); // user: "talked for around five to six minutes"
+  const [mentorMeetingLink, setMentorMeetingLink] = useState('https://meet.google.com/aiv-mentor-session');
+  const [mentorAgenda, setMentorAgenda] = useState('1-on-1 AI Transition Strategy & Curriculum Alignment');
+
+  // Pathway 2: Demo Session Form
+  const [selectedDemoIndex, setSelectedDemoIndex] = useState(0);
+  const [demoDate, setDemoDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return d.toISOString().split('T')[0];
+  });
+  const [demoTime, setDemoTime] = useState('11:00');
+  const [demoLink, setDemoLink] = useState(DEMO_SESSION_PRESETS[0].link);
+  const [demoNotes, setDemoNotes] = useState('Invited prospect to live cohort demo masterclass');
+
+  // Pathway 3: Direct Sale Form
+  const baseProgramFee =
+    lead?.programId === 'ai-fellowship' ? 99999 : lead?.programId === 'ai-gtm' ? 54999 : 34999;
+  const [salePaymentPlan, setSalePaymentPlan] = useState<
+    'Full Payment' | 'Token Deposit (₹5,000)' | '3-Month No-Cost EMI'
+  >('Full Payment');
+  const [saleAmount, setSaleAmount] = useState(baseProgramFee);
+  const [salePaymentLink, setSalePaymentLink] = useState(
+    lead?.paymentLink || 'https://pages.razorpay.com/aivalytics-checkout'
+  );
+  const [saleActionStatus, setSaleActionStatus] = useState<'Payment Link Sent' | 'Deposit Received' | 'Paid in Full'>(
+    'Payment Link Sent'
+  );
+  const [saleNotes, setSaleNotes] = useState('Direct course sale pitch conducted on phone call');
 
   // Follow-Up Scheduler State
   const [selectedFollowUpStage, setSelectedFollowUpStage] = useState<Stage | null>(null);
@@ -133,6 +200,120 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
     setSelectedLeadId(lead.id);
     onClose();
     navigate('/profile');
+  };
+
+  const handleConfirmMentorMeeting = () => {
+    if (!mentorMeetingDate) {
+      setShowStatusAlert('Please pick a date for the mentor session.');
+      return;
+    }
+    const combinedDateTime = `${mentorMeetingDate} ${mentorMeetingTime || '16:00'}`;
+    const selectedPreset = MENTOR_PRESETS.find((m) => m.name === mentorName) || MENTOR_PRESETS[0];
+    const meetingPayload: Omit<MentorMeeting, 'id' | 'createdAt'> = {
+      mentorName,
+      mentorTitle: selectedPreset.title,
+      scheduledAt: combinedDateTime,
+      durationMinutes: Number(mentorDurationMinutes) || 30,
+      meetingLink: mentorMeetingLink,
+      agenda: mentorAgenda,
+      status: 'Scheduled',
+      callDurationSeconds: Number(mentorCallDurationMinutes) * 60,
+      notes: `Spoke for ${mentorCallDurationMinutes} mins. Scheduled 1-on-1 Mentor Strategy Session.`
+    };
+    scheduleMentorMeeting(lead.id, meetingPayload, Number(mentorCallDurationMinutes) * 60, meetingPayload.notes);
+    setShowStatusAlert(`🎉 Mentor Session with ${mentorName} booked for ${combinedDateTime}!`);
+    setActivePathway('none');
+    setTimeout(() => setShowStatusAlert(null), 4000);
+  };
+
+  const handleConfirmDemoSession = () => {
+    const preset = DEMO_SESSION_PRESETS[selectedDemoIndex] || DEMO_SESSION_PRESETS[0];
+    const combinedDateTime = `${demoDate} ${demoTime || '11:00'}`;
+    const demoPayload: Omit<DemoSession, 'id' | 'createdAt'> = {
+      sessionTitle: preset.title,
+      scheduledAt: combinedDateTime,
+      durationMinutes: preset.durationMinutes,
+      sessionLink: demoLink || preset.link,
+      hostName: preset.host,
+      status: 'Invited',
+      notes: demoNotes
+    };
+    inviteDemoSession(lead.id, demoPayload, 180, demoNotes);
+    setShowStatusAlert(`🎉 Candidate invited to Demo Session (${preset.title})!`);
+    setActivePathway('none');
+    setTimeout(() => setShowStatusAlert(null), 4000);
+  };
+
+  const handleConfirmDirectSale = () => {
+    const finalAmt =
+      salePaymentPlan === 'Token Deposit (₹5,000)'
+        ? 5000
+        : salePaymentPlan === '3-Month No-Cost EMI'
+        ? Math.round(baseProgramFee / 3)
+        : saleAmount;
+
+    const salePayload: Omit<DirectSale, 'id' | 'createdAt'> = {
+      programId: lead.programId,
+      programName: lead.programName || 'AI Cohort Program',
+      tuitionFee: baseProgramFee,
+      finalAmount: finalAmt,
+      paymentPlan: salePaymentPlan,
+      paymentLink: salePaymentLink,
+      status:
+        saleActionStatus === 'Paid in Full'
+          ? 'Paid in Full'
+          : saleActionStatus === 'Deposit Received'
+          ? 'Deposit Received'
+          : 'Payment Link Sent',
+      notes: saleNotes
+    };
+    initiateDirectSale(lead.id, salePayload, 300, saleNotes);
+    setShowStatusAlert(`🎉 Direct Sale transaction saved (${salePaymentPlan} - ${saleActionStatus})!`);
+    setActivePathway('none');
+    setTimeout(() => setShowStatusAlert(null), 4000);
+  };
+
+  const handleSendMentorWhatsApp = () => {
+    const meeting = lead.mentorMeeting || {
+      mentorName,
+      mentorTitle: MENTOR_PRESETS.find((m) => m.name === mentorName)?.title,
+      scheduledAt: `${mentorMeetingDate} ${mentorMeetingTime}`,
+      durationMinutes: Number(mentorDurationMinutes) || 30,
+      meetingLink: mentorMeetingLink
+    };
+    const msg = generateMentorWhatsAppMessage(lead.fullName, meeting);
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    incrementCadenceTouch(lead.id, 'WhatsApp');
+    setShowStatusAlert('Opening WhatsApp with Mentor Session confirmation!');
+    setTimeout(() => setShowStatusAlert(null), 3000);
+  };
+
+  const handleSendDemoWhatsApp = () => {
+    const preset = DEMO_SESSION_PRESETS[selectedDemoIndex] || DEMO_SESSION_PRESETS[0];
+    const demo = lead.demoSession || {
+      sessionTitle: preset.title,
+      scheduledAt: `${demoDate} ${demoTime}`,
+      sessionLink: demoLink || preset.link
+    };
+    const msg = generateDemoWhatsAppMessage(lead.fullName, demo);
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    incrementCadenceTouch(lead.id, 'WhatsApp');
+    setShowStatusAlert('Opening WhatsApp with Live Demo Session invitation!');
+    setTimeout(() => setShowStatusAlert(null), 3000);
+  };
+
+  const handleSendSaleWhatsApp = () => {
+    const sale = lead.directSale || {
+      programName: lead.programName || 'AI Cohort Program',
+      finalAmount: salePaymentPlan === 'Token Deposit (₹5,000)' ? 5000 : baseProgramFee,
+      paymentPlan: salePaymentPlan,
+      paymentLink: salePaymentLink
+    };
+    const msg = generateDirectSaleWhatsAppMessage(lead.fullName, sale);
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    incrementCadenceTouch(lead.id, 'WhatsApp');
+    setShowStatusAlert('Opening WhatsApp with Checkout & Payment details!');
+    setTimeout(() => setShowStatusAlert(null), 3000);
   };
 
   const cleanPhone = (lead.phone || '').replace(/\D/g, '');
@@ -311,6 +492,584 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onStageChange, 
 
         {/* 2. BODY CONTENT (SCROLLABLE CONTAINER) */}
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
+          {/* 48-HOUR WORKING CADENCE & SLA STRIP */}
+          {(() => {
+            const sla = calculate48HourWorkingSla(lead.dateCaptured || lead.dateOfFillingForm);
+            const calls = lead.outreachCadence?.callsAttempted ?? lead.numberOfCalls ?? 0;
+            const wa = lead.outreachCadence?.whatsappAttempted ?? 0;
+
+            return (
+              <div className="bg-gradient-to-r from-gray-900 via-gray-850 to-[#133926] text-white p-4 rounded-2xl border border-emerald-800/80 shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">⏳</span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black tracking-tight text-white">
+                          48-Hour Working Cycle Engine
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            sla.isExpired
+                              ? 'bg-rose-950 text-rose-300 border-rose-700'
+                              : sla.remainingWorkingHours < 12
+                              ? 'bg-amber-950 text-amber-300 border-amber-700 animate-pulse'
+                              : 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                          }`}
+                        >
+                          {sla.statusLabel}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-300 mt-0.5">
+                        Active Window: <strong className="text-white">Morning 7:00 AM – Evening 8:00 PM</strong> (13 Working Hours/Day)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 self-end sm:self-auto text-xs font-mono">
+                    <span className="text-[11px] text-emerald-200">
+                      Elapsed: <strong>{sla.elapsedWorkingHours}h</strong> / 48h
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress Bar & Cadence Counters */}
+                <div className="space-y-2">
+                  <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-white/10">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        sla.isExpired ? 'bg-rose-500' : sla.percentElapsed > 75 ? 'bg-amber-400' : 'bg-emerald-400'
+                      }`}
+                      style={{ width: `${Math.min(100, Math.max(5, sla.percentElapsed))}%` }}
+                    />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                    {/* Cadence Indicators */}
+                    <div className="flex items-center gap-4 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">📞</span>
+                        <span className="text-gray-300 text-[11px]">Calls:</span>
+                        <span className="font-black text-white px-2 py-0.5 bg-white/10 rounded-md">
+                          {calls} / 3 Attempts
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            incrementCadenceTouch(lead.id, 'Call');
+                            logCall(lead.id, 'Connected', 'Direct cadence call logged');
+                            setShowStatusAlert('Recorded call attempt in 48h cadence!');
+                            setTimeout(() => setShowStatusAlert(null), 2500);
+                          }}
+                          className="text-[10px] px-2 py-0.5 bg-emerald-700/60 hover:bg-emerald-600 rounded text-emerald-100 font-bold border border-emerald-500/50 cursor-pointer"
+                        >
+                          + Attempt
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">💬</span>
+                        <span className="text-gray-300 text-[11px]">WhatsApp:</span>
+                        <span className="font-black text-white px-2 py-0.5 bg-white/10 rounded-md">
+                          {wa} / 5 Touches
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            incrementCadenceTouch(lead.id, 'WhatsApp');
+                            window.open(whatsAppUrl, '_blank');
+                            setShowStatusAlert('Recorded WhatsApp touch in 48h cadence!');
+                            setTimeout(() => setShowStatusAlert(null), 2500);
+                          }}
+                          className="text-[10px] px-2 py-0.5 bg-emerald-700/60 hover:bg-emerald-600 rounded text-emerald-100 font-bold border border-emerald-500/50 cursor-pointer"
+                        >
+                          + Touch
+                        </button>
+                      </div>
+                    </div>
+
+                    <span className="text-[10px] text-emerald-300/80 italic">
+                      Target Cadence: 3 Calls + 5 WhatsApp Touches within 48h
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ⚡ 3 CORE SALES CONVERSION PATHWAYS */}
+          <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border-2 border-emerald-600/30 dark:border-emerald-500/20 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">⚡</span>
+                  <h2 className="text-sm font-black text-gray-900 dark:text-gray-100 tracking-tight">
+                    Sales Conversion Action Engine (3 Core Pathways)
+                  </h2>
+                </div>
+                <p className="text-[11px] text-gray-500">
+                  Select the primary conversion outcome for this prospect after call discovery:
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  3 Pathways Ready
+                </span>
+              </div>
+            </div>
+
+            {/* 3 Pathway Action Cards / Toggles */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Pathway 1 */}
+              <button
+                type="button"
+                onClick={() => setActivePathway(activePathway === 'mentor' ? 'none' : 'mentor')}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  activePathway === 'mentor' || lead.mentorMeeting
+                    ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-600 ring-2 ring-emerald-500/30'
+                    : 'bg-gray-50/70 hover:bg-gray-100/80 dark:bg-gray-750 border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">🎓</span>
+                    {lead.mentorMeeting && (
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-emerald-600 text-white rounded-full">
+                        Scheduled
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xs font-black text-gray-900 dark:text-gray-100 mt-1.5">
+                    1. Schedule Mentor 1-on-1
+                  </h3>
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    Spoke 5-6 mins → Arrange meeting with mentor on specific date
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 mt-2 block">
+                  {activePathway === 'mentor' ? '▾ Close Config' : 'Configure & Book →'}
+                </span>
+              </button>
+
+              {/* Pathway 2 */}
+              <button
+                type="button"
+                onClick={() => setActivePathway(activePathway === 'demo' ? 'none' : 'demo')}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  activePathway === 'demo' || lead.demoSession
+                    ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-600 ring-2 ring-blue-500/30'
+                    : 'bg-gray-50/70 hover:bg-gray-100/80 dark:bg-gray-750 border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">🖥️</span>
+                    {lead.demoSession && (
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-blue-600 text-white rounded-full">
+                        Invited
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xs font-black text-gray-900 dark:text-gray-100 mt-1.5">
+                    2. Invite to Demo Session
+                  </h3>
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    Invite candidate to upcoming live cohort demo / masterclass
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 mt-2 block">
+                  {activePathway === 'demo' ? '▾ Close Config' : 'Configure & Invite →'}
+                </span>
+              </button>
+
+              {/* Pathway 3 */}
+              <button
+                type="button"
+                onClick={() => setActivePathway(activePathway === 'sale' ? 'none' : 'sale')}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  activePathway === 'sale' || lead.directSale
+                    ? 'bg-purple-50/80 dark:bg-purple-950/40 border-purple-600 ring-2 ring-purple-500/30'
+                    : 'bg-gray-50/70 hover:bg-gray-100/80 dark:bg-gray-750 border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg">💳</span>
+                    {lead.directSale && (
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-purple-600 text-white rounded-full">
+                        {lead.directSale.status}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xs font-black text-gray-900 dark:text-gray-100 mt-1.5">
+                    3. Direct Course Sale
+                  </h3>
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    Directly close admission, share Razorpay link or EMI plan
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold text-purple-700 dark:text-purple-400 mt-2 block">
+                  {activePathway === 'sale' ? '▾ Close Config' : 'Checkout & Payment →'}
+                </span>
+              </button>
+            </div>
+
+            {/* EXPANDED PANEL: PATHWAY 1 (MENTOR MEETING) */}
+            {activePathway === 'mentor' && (
+              <div className="p-4 bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-300 dark:border-emerald-800 rounded-xl space-y-3.5 animate-in fade-in">
+                <div className="flex items-center justify-between border-b border-emerald-200 dark:border-emerald-800/60 pb-2">
+                  <h4 className="text-xs font-black text-emerald-950 dark:text-emerald-200 flex items-center gap-2">
+                    <span>🎓</span> Configure Mentor 1-on-1 Strategy Session
+                  </h4>
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                    Auto-schedules task & stage
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Select Mentor
+                    </label>
+                    <select
+                      value={mentorName}
+                      onChange={(e) => setMentorName(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg font-bold"
+                    >
+                      {MENTOR_PRESETS.map((m) => (
+                        <option key={m.name} value={m.name}>
+                          {m.name} — {m.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Meeting Date & Time
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={mentorMeetingDate}
+                        onChange={(e) => setMentorMeetingDate(e.target.value)}
+                        className="w-2/3 px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg font-medium"
+                      />
+                      <input
+                        type="time"
+                        value={mentorMeetingTime}
+                        onChange={(e) => setMentorMeetingTime(e.target.value)}
+                        className="w-1/3 px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Call Discovery Duration (User Reference: ~5-6 mins)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={mentorCallDurationMinutes}
+                        onChange={(e) => setMentorCallDurationMinutes(Number(e.target.value))}
+                        className="w-24 px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg font-bold"
+                      />
+                      <span className="text-gray-500 font-semibold">minutes talked</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Mentor Session Duration
+                    </label>
+                    <select
+                      value={mentorDurationMinutes}
+                      onChange={(e) => setMentorDurationMinutes(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg font-bold"
+                    >
+                      <option value={30}>30 Minutes</option>
+                      <option value={45}>45 Minutes</option>
+                      <option value={60}>60 Minutes</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Meeting Link (Google Meet / Zoom)
+                    </label>
+                    <input
+                      type="url"
+                      value={mentorMeetingLink}
+                      onChange={(e) => setMentorMeetingLink(e.target.value)}
+                      placeholder="https://meet.google.com/..."
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Discussion Summary & Agenda
+                    </label>
+                    <input
+                      type="text"
+                      value={mentorAgenda}
+                      onChange={(e) => setMentorAgenda(e.target.value)}
+                      placeholder="e.g. Evaluated candidate's 6y experience, looking to transition into AI PM role..."
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-emerald-200 dark:border-emerald-800/60">
+                  <button
+                    type="button"
+                    onClick={handleSendMentorWhatsApp}
+                    className="px-3.5 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-400 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>💬</span> WhatsApp Confirmation
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmMentorMeeting}
+                    className="px-4 py-1.5 bg-[#133926] hover:bg-[#1a4a33] text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    ✓ Confirm Mentor Session & Move Stage
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* EXPANDED PANEL: PATHWAY 2 (DEMO SESSION) */}
+            {activePathway === 'demo' && (
+              <div className="p-4 bg-blue-50/40 dark:bg-blue-950/20 border border-blue-300 dark:border-blue-800 rounded-xl space-y-3.5 animate-in fade-in">
+                <div className="flex items-center justify-between border-b border-blue-200 dark:border-blue-800/60 pb-2">
+                  <h4 className="text-xs font-black text-blue-950 dark:text-blue-200 flex items-center gap-2">
+                    <span>🖥️</span> Invite to Live Cohort Demo Session / Masterclass
+                  </h4>
+                  <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                    Interactive Hands-On Walkthrough
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="sm:col-span-2">
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Choose Upcoming Demo Session
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {DEMO_SESSION_PRESETS.map((demo, idx) => (
+                        <button
+                          key={demo.title}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDemoIndex(idx);
+                            setDemoLink(demo.link);
+                          }}
+                          className={`p-2.5 rounded-lg border text-left cursor-pointer transition-all ${
+                            selectedDemoIndex === idx
+                              ? 'bg-blue-100 dark:bg-blue-900/60 border-blue-500 font-bold'
+                              : 'bg-white dark:bg-gray-800 border-gray-200'
+                          }`}
+                        >
+                          <div className="font-black text-[11px] text-gray-900 dark:text-gray-100 truncate">
+                            {demo.title}
+                          </div>
+                          <div className="text-[10px] text-blue-700 dark:text-blue-300 mt-1">{demo.dayTiming}</div>
+                          <div className="text-[10px] text-gray-400 mt-0.5">Host: {demo.host}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Custom Session Date & Time (Optional)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={demoDate}
+                        onChange={(e) => setDemoDate(e.target.value)}
+                        className="w-2/3 px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg font-medium"
+                      />
+                      <input
+                        type="time"
+                        value={demoTime}
+                        onChange={(e) => setDemoTime(e.target.value)}
+                        className="w-1/3 px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Live Webinar / Demo Joining Link
+                    </label>
+                    <input
+                      type="url"
+                      value={demoLink}
+                      onChange={(e) => setDemoLink(e.target.value)}
+                      placeholder="https://meet.google.com/..."
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Invitation Notes & Candidate Focus
+                    </label>
+                    <input
+                      type="text"
+                      value={demoNotes}
+                      onChange={(e) => setDemoNotes(e.target.value)}
+                      placeholder="e.g. Highlighted AI agent sprint tracking workflows to candidate"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-blue-200 dark:border-blue-800/60">
+                  <button
+                    type="button"
+                    onClick={handleSendDemoWhatsApp}
+                    className="px-3.5 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-400 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>💬</span> WhatsApp Demo Invite
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDemoSession}
+                    className="px-4 py-1.5 bg-[#133926] hover:bg-[#1a4a33] text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    ✓ Confirm Demo Invitation
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* EXPANDED PANEL: PATHWAY 3 (DIRECT SALE) */}
+            {activePathway === 'sale' && (
+              <div className="p-4 bg-purple-50/40 dark:bg-purple-950/20 border border-purple-300 dark:border-purple-800 rounded-xl space-y-3.5 animate-in fade-in">
+                <div className="flex items-center justify-between border-b border-purple-200 dark:border-purple-800/60 pb-2">
+                  <h4 className="text-xs font-black text-purple-950 dark:text-purple-200 flex items-center gap-2">
+                    <span>💳</span> Direct Course Sale & Checkout Options
+                  </h4>
+                  <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300">
+                    Tuition Base: ₹{baseProgramFee.toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Payment Plan Option
+                    </label>
+                    <select
+                      value={salePaymentPlan}
+                      onChange={(e) => {
+                        const plan = e.target.value as any;
+                        setSalePaymentPlan(plan);
+                        if (plan === 'Token Deposit (₹5,000)') setSaleAmount(5000);
+                        else if (plan === '3-Month No-Cost EMI') setSaleAmount(Math.round(baseProgramFee / 3));
+                        else setSaleAmount(baseProgramFee);
+                      }}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg font-bold"
+                    >
+                      <option value="Full Payment">Full Tuition (₹{baseProgramFee.toLocaleString('en-IN')})</option>
+                      <option value="Token Deposit (₹5,000)">Token Seat Reservation Deposit (₹5,000)</option>
+                      <option value="3-Month No-Cost EMI">
+                        3-Month No-Cost EMI (₹{Math.round(baseProgramFee / 3).toLocaleString('en-IN')}/mo)
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Transaction Action Status
+                    </label>
+                    <select
+                      value={saleActionStatus}
+                      onChange={(e) => setSaleActionStatus(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg font-bold"
+                    >
+                      <option value="Payment Link Sent">Payment Link Sent (Pending Payment)</option>
+                      <option value="Deposit Received">Deposit Received (₹5,000 Verified)</option>
+                      <option value="Paid in Full">Paid in Full (Full Enrollment Completed)</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Razorpay Checkout Payment Link
+                    </label>
+                    <input
+                      type="url"
+                      value={salePaymentLink}
+                      onChange={(e) => setSalePaymentLink(e.target.value)}
+                      placeholder="https://pages.razorpay.com/..."
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg font-mono text-[11px]"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      Sale Notes & Discussion Context
+                    </label>
+                    <input
+                      type="text"
+                      value={saleNotes}
+                      onChange={(e) => setSaleNotes(e.target.value)}
+                      placeholder="e.g. Addressed budget objection with 3-month no-cost EMI plan"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-purple-200 dark:border-purple-800/60">
+                  <button
+                    type="button"
+                    onClick={handleSendSaleWhatsApp}
+                    className="px-3.5 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-400 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>💬</span> WhatsApp Payment Link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDirectSale}
+                    className="px-4 py-1.5 bg-[#133926] hover:bg-[#1a4a33] text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    ✓ Save Sale & Move to {saleActionStatus === 'Paid in Full' ? 'Converted' : 'Payment Pending'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Confirmed Badges if already scheduled/sold */}
+            {(lead.mentorMeeting || lead.demoSession || lead.directSale) && (
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-700 flex items-center gap-2 flex-wrap text-xs">
+                {lead.mentorMeeting && (
+                  <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200 border border-emerald-300 rounded-lg font-bold flex items-center gap-1.5">
+                    <span>🎓</span> Mentor Meeting Booked: {lead.mentorMeeting.mentorName} ({lead.mentorMeeting.scheduledAt})
+                  </span>
+                )}
+                {lead.demoSession && (
+                  <span className="px-3 py-1 bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-200 border border-blue-300 rounded-lg font-bold flex items-center gap-1.5">
+                    <span>🖥️</span> Demo Invited: {lead.demoSession.sessionTitle}
+                  </span>
+                )}
+                {lead.directSale && (
+                  <span className="px-3 py-1 bg-purple-50 dark:bg-purple-950 text-purple-900 dark:text-purple-200 border border-purple-300 rounded-lg font-bold flex items-center gap-1.5">
+                    <span>💳</span> Direct Sale: {lead.directSale.paymentPlan} ({lead.directSale.status})
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* CARD 1: LEAD STATUS (RADIO TILES MATCHING SCREENSHOT) */}
           <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs space-y-3.5">
             <div className="flex items-center justify-between">

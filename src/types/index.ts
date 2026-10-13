@@ -31,6 +31,8 @@ export type Stage =
   | 'Qualified'
   | 'Payment Discussion'
   | 'Payment Pending'
+  | 'Mentor Session Scheduled'
+  | 'Demo Session Scheduled'
   | 'Joined Session'
   | 'Not Interested'
   | 'Unqualified'
@@ -111,6 +113,67 @@ export interface PaymentRecord {
   paymentMethod?: string;
   transactionRef?: string;
   timestamp: string;
+}
+
+// Pathway 1: Mentor 1-on-1 Session Meeting
+export interface MentorMeeting {
+  id: string;
+  mentorName: string;
+  mentorTitle?: string;
+  scheduledAt: string; // ISO datetime string or formatted string
+  scheduledDate?: string; // alias
+  scheduledTime?: string; // alias
+  durationMinutes: number; // e.g. 30 mins
+  meetingLink?: string;
+  agenda?: string;
+  callDurationSeconds?: number;
+  notes?: string;
+  status: 'Scheduled' | 'Completed' | 'Rescheduled' | 'Cancelled';
+  createdAt: string;
+}
+
+// Pathway 2: Live Demo Session / Masterclass Invitation
+export interface DemoSession {
+  id: string;
+  sessionTitle: string;
+  scheduledAt: string; // ISO datetime string or formatted string
+  durationMinutes?: number;
+  sessionLink?: string;
+  hostName?: string;
+  status: 'Invited' | 'Confirmed' | 'Attended' | 'No Show';
+  notes?: string;
+  createdAt: string;
+}
+
+// Pathway 3: Direct Course Sale / Checkout
+export interface DirectSale {
+  id: string;
+  programId: string;
+  programName: string;
+  tuitionFee: number;
+  discountApplied?: number;
+  finalAmount: number;
+  amount?: number; // alias for finalAmount
+  paymentPlan: 'Full Payment' | 'Token Deposit (₹5,000)' | '3-Month No-Cost EMI' | '6-Month EMI';
+  plan?: string; // alias for paymentPlan
+  paymentLink: string;
+  status: 'Payment Link Sent' | 'Deposit Received' | 'Paid in Full' | 'Abandoned';
+  notes?: string;
+  createdAt: string;
+}
+
+// 48-Hour Working Hours Cadence Tracking (Morning 7:00 AM – Evening 8:00 PM)
+export interface OutreachCadence {
+  callsAttempted: number; // target: 3 calls
+  callAttempts?: number; // alias
+  maxCalls: number; // default: 3
+  whatsappAttempted: number; // target: 5 whatsapp touches
+  whatsappTouches?: number; // alias
+  maxWhatsapp: number; // default: 5
+  cycleStart: string; // ISO date when lead was captured
+  workingHoursStart: number; // 7 (7 AM)
+  workingHoursEnd: number; // 20 (8 PM, 13 hours/day)
+  isCompleted?: boolean;
 }
 
 
@@ -210,6 +273,12 @@ export interface Lead {
   paymentStatus: 'Unpaid' | 'Partial' | 'Paid';
   amountPaid: number;
   enrollmentStatus: 'Not Enrolled' | 'Reserved' | 'Enrolled';
+
+  // 3 Core Sales Conversion Pathways & 48h Cadence
+  mentorMeeting?: MentorMeeting;
+  demoSession?: DemoSession;
+  directSale?: DirectSale;
+  outreachCadence?: OutreachCadence;
   
   // AI Intelligence Scores & Analysis
   fitScore: number;

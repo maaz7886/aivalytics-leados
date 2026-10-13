@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import type { Lead, ActivityOutcome } from '../types';
 import LeadDetailModal from '../components/LeadDetailModal';
+import { calculate48HourWorkingSla } from '../utils/cadenceUtils';
 
 export default function SalespersonWorkspace() {
   const { repId } = useParams<{ repId: string }>();
@@ -26,6 +27,7 @@ export default function SalespersonWorkspace() {
   const [stageFilter, setStageFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLeadForDetail, setSelectedLeadForDetail] = useState<Lead | null>(null);
+  const [modalInitialPathway, setModalInitialPathway] = useState<'none' | 'mentor' | 'demo' | 'sale'>('none');
 
   // Quick Log Modal State with Mandatory Next Task
   const [quickLogModalLead, setQuickLogModalLead] = useState<Lead | null>(null);
@@ -194,6 +196,10 @@ export default function SalespersonWorkspace() {
       lead.fullName.split(' ')[0]
     )},%20this%20is%20${encodeURIComponent(rep.name)}%20from%20Aivalytics.`;
 
+    const sla = calculate48HourWorkingSla(lead.dateCaptured);
+    const callAttempts = lead.outreachCadence?.callAttempts ?? (lead.numberOfCalls || 0);
+    const waTouches = lead.outreachCadence?.whatsappTouches ?? (lead.crmStage === 'Details Sent on WhatsApp' ? 1 : 0);
+
     return (
       <div
         key={lead.id}
@@ -203,7 +209,10 @@ export default function SalespersonWorkspace() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h4
-                onClick={() => setSelectedLeadForDetail(lead)}
+                onClick={() => {
+                  setSelectedLeadForDetail(lead);
+                  setModalInitialPathway('none');
+                }}
                 className="font-black text-sm text-gray-900 dark:text-gray-100 hover:text-emerald-700 cursor-pointer truncate"
               >
                 {lead.fullName}
@@ -222,6 +231,42 @@ export default function SalespersonWorkspace() {
               {lead.crmStage}
             </span>
           </div>
+        </div>
+
+        {/* 48-Hour Working SLA & Cadence Counters Strip */}
+        <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+          <span
+            className={`px-2 py-0.5 rounded-full font-extrabold border ${
+              sla.isWithin48Hours
+                ? sla.remainingHours <= 12
+                  ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
+                : 'bg-red-50 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300'
+            }`}
+            title={`48h Working Hours Cycle (7am-8pm). Passed: ${sla.elapsedWorkingHours.toFixed(1)}h`}
+          >
+            ⏰ {sla.isWithin48Hours ? `${sla.remainingHours.toFixed(1)}h left (7am-8pm)` : '48h SLA Breached'}
+          </span>
+
+          <span className="px-2 py-0.5 rounded-full font-bold bg-gray-100 dark:bg-gray-750 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+            📞 {callAttempts}/3 calls • 💬 {waTouches}/5 WA
+          </span>
+
+          {lead.mentorMeeting && (
+            <span className="px-2 py-0.5 rounded-full font-bold bg-purple-50 text-purple-800 border border-purple-300 dark:bg-purple-950 dark:text-purple-300">
+              🎓 {lead.mentorMeeting.mentorName} ({lead.mentorMeeting.scheduledDate})
+            </span>
+          )}
+          {lead.demoSession && (
+            <span className="px-2 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-800 border border-indigo-300 dark:bg-indigo-950 dark:text-indigo-300">
+              🖥️ {lead.demoSession.sessionTitle}
+            </span>
+          )}
+          {lead.directSale && (
+            <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300">
+              💳 {lead.directSale.plan || lead.directSale.paymentPlan} (₹{(lead.directSale.finalAmount || lead.directSale.amount || 0).toLocaleString('en-IN')})
+            </span>
+          )}
         </div>
 
         {/* Task & Context Snippet */}
@@ -259,6 +304,46 @@ export default function SalespersonWorkspace() {
           )}
         </div>
 
+        {/* 3 Core Fast Track Pathways Bar */}
+        <div className="pt-2 border-t border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-between gap-1 text-[11px]">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Fast Pathway:</span>
+          <div className="flex items-center gap-1 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedLeadForDetail(lead);
+                setModalInitialPathway('mentor');
+              }}
+              className="px-2 py-0.5 font-bold rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 hover:bg-purple-100 border border-purple-200 transition-all cursor-pointer flex items-center gap-1"
+              title="Schedule Mentor 1-on-1 Meeting (Pathway 1)"
+            >
+              <span>🎓</span> Mentor
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedLeadForDetail(lead);
+                setModalInitialPathway('demo');
+              }}
+              className="px-2 py-0.5 font-bold rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 border border-indigo-200 transition-all cursor-pointer flex items-center gap-1"
+              title="Invite to Demo Session (Pathway 2)"
+            >
+              <span>🖥️</span> Demo
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedLeadForDetail(lead);
+                setModalInitialPathway('sale');
+              }}
+              className="px-2 py-0.5 font-bold rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer flex items-center gap-1"
+              title="Direct Course Sale & Razorpay Link (Pathway 3)"
+            >
+              <span>💳</span> Direct Sale
+            </button>
+          </div>
+        </div>
+
         {/* Action Row */}
         <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-2">
@@ -292,7 +377,10 @@ export default function SalespersonWorkspace() {
             </button>
             <button
               type="button"
-              onClick={() => setSelectedLeadForDetail(lead)}
+              onClick={() => {
+                setSelectedLeadForDetail(lead);
+                setModalInitialPathway('none');
+              }}
               className="px-2.5 py-1 text-[11px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 cursor-pointer"
             >
               Details
@@ -665,14 +753,34 @@ export default function SalespersonWorkspace() {
                     >
                       <td className="p-3">
                         <div
-                          onClick={() => setSelectedLeadForDetail(lead)}
+                          onClick={() => {
+                            setSelectedLeadForDetail(lead);
+                            setModalInitialPathway('none');
+                          }}
                           className="font-bold text-gray-900 dark:text-gray-100 hover:text-emerald-700 cursor-pointer"
                         >
                           {lead.fullName}
                         </div>
-                        <span className="text-[11px] text-gray-400">
+                        <div className="text-[11px] text-gray-400">
                           {lead.currentRole || lead.professionalStatus || 'Candidate'}
-                        </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap text-[10px]">
+                          {(() => {
+                            const sla = calculate48HourWorkingSla(lead.dateCaptured);
+                            const callAttempts = lead.outreachCadence?.callAttempts ?? (lead.numberOfCalls || 0);
+                            const waTouches = lead.outreachCadence?.whatsappTouches ?? (lead.crmStage === 'Details Sent on WhatsApp' ? 1 : 0);
+                            return (
+                              <>
+                                <span className={`px-1.5 py-0.2 rounded font-bold border ${sla.isWithin48Hours ? (sla.remainingHours <= 12 ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-emerald-50 text-emerald-800 border-emerald-300') : 'bg-red-50 text-red-800 border-red-300'}`}>
+                                  ⏰ {sla.isWithin48Hours ? `${sla.remainingHours.toFixed(1)}h` : 'Expired'}
+                                </span>
+                                <span className="text-gray-500 font-semibold">
+                                  📞{callAttempts}/3 • 💬{waTouches}/5
+                                </span>
+                              </>
+                            );
+                          })()}
+                        </div>
                       </td>
 
                       <td className="p-3">
@@ -748,13 +856,26 @@ export default function SalespersonWorkspace() {
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => {
+                              setSelectedLeadForDetail(lead);
+                              setModalInitialPathway('mentor');
+                            }}
+                            className="px-2 py-1 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 rounded-lg text-xs font-bold cursor-pointer"
+                            title="Fast Pathway: Book Mentor Meeting"
+                          >
+                            🎓
+                          </button>
+                          <button
                             onClick={() => handleOpenQuickLog(lead)}
                             className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 rounded-lg text-xs font-bold cursor-pointer"
                           >
                             + Log Call
                           </button>
                           <button
-                            onClick={() => setSelectedLeadForDetail(lead)}
+                            onClick={() => {
+                              setSelectedLeadForDetail(lead);
+                              setModalInitialPathway('none');
+                            }}
                             className="px-2.5 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-700 dark:text-gray-200 rounded-lg text-xs font-bold cursor-pointer"
                           >
                             Details
@@ -960,6 +1081,51 @@ export default function SalespersonWorkspace() {
               )}
             </div>
 
+            {/* Fast Pathway Jump from Quick Log Modal */}
+            <div className="p-3 bg-purple-50/70 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800 flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-[11px] font-bold text-purple-900 dark:text-purple-300">
+                ⚡ Ready to Convert?
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const l = quickLogModalLead;
+                    setQuickLogModalLead(null);
+                    setSelectedLeadForDetail(l);
+                    setModalInitialPathway('mentor');
+                  }}
+                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-300 rounded-md border border-purple-300 hover:bg-purple-100 cursor-pointer shadow-2xs"
+                >
+                  🎓 Book Mentor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const l = quickLogModalLead;
+                    setQuickLogModalLead(null);
+                    setSelectedLeadForDetail(l);
+                    setModalInitialPathway('demo');
+                  }}
+                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 rounded-md border border-indigo-300 hover:bg-indigo-100 cursor-pointer shadow-2xs"
+                >
+                  🖥️ Demo Session
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const l = quickLogModalLead;
+                    setQuickLogModalLead(null);
+                    setSelectedLeadForDetail(l);
+                    setModalInitialPathway('sale');
+                  }}
+                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 rounded-md border border-emerald-300 hover:bg-emerald-100 cursor-pointer shadow-2xs"
+                >
+                  💳 Direct Sale
+                </button>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
               <button
                 type="button"
@@ -982,9 +1148,13 @@ export default function SalespersonWorkspace() {
       {/* Lead Detail Modal */}
       {selectedLeadForDetail && (
         <LeadDetailModal
-          lead={selectedLeadForDetail}
+          lead={leadsPool.find((l) => l.id === selectedLeadForDetail.id) || selectedLeadForDetail}
           isOpen={!!selectedLeadForDetail}
-          onClose={() => setSelectedLeadForDetail(null)}
+          onClose={() => {
+            setSelectedLeadForDetail(null);
+            setModalInitialPathway('none');
+          }}
+          initialPathway={modalInitialPathway}
         />
       )}
     </div>
