@@ -6,21 +6,6 @@ import LeadDetailModal from '../components/LeadDetailModal';
 import MetaLeadSimulatorModal from '../components/MetaLeadSimulatorModal';
 import { calculate48HourWorkingSla } from '../utils/cadenceUtils';
 
-function formatCollectionDate(dateStr?: string): string {
-  if (!dateStr) return 'N/A';
-  try {
-    const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      });
-    }
-  } catch {}
-  return String(dateStr).split('T')[0] || String(dateStr);
-}
-
 const stages: Stage[] = [
   'New Lead',
   'Interested',
@@ -40,7 +25,7 @@ const stages: Stage[] = [
 ];
 
 export default function Pipeline() {
-  const { leads, allLeads, updateLeadStage, deleteLead, logCall, salespeople = [], currentUser } = useApp();
+  const { leads, allLeads, updateLeadStage, logCall, salespeople = [], currentUser } = useApp();
   const navigate = useNavigate();
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
@@ -261,112 +246,67 @@ export default function Pipeline() {
                           {lead.fullName}
                         </h4>
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium">
-                          {lead.yearsOfExperience}y exp
+                          {lead.yearsOfExperience || lead.experience || '3+'}y
                         </span>
                       </div>
 
                       <p className="text-xs text-gray-500 dark:text-gray-300 font-medium truncate">
-                        {lead.currentRole} • {lead.currentCompany}
+                        {lead.currentRole || 'Candidate'} {lead.currentCompany ? `• ${lead.currentCompany}` : ''}
                       </p>
 
-                      {lead.phone && (
-                        <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                          <span>📱</span> {lead.phone}
-                        </div>
-                      )}
-
-                      <div className="text-xs font-semibold text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-950 p-1.5 rounded truncate">
-                        {lead.programName}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[11px] font-semibold text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-950 px-2 py-0.5 rounded truncate max-w-[160px]">
+                          {lead.programName || 'AI Cohort'}
+                        </span>
+                        {lead.phone && (
+                          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                            {lead.phone}
+                          </span>
+                        )}
                       </div>
 
-                      <div className="text-[11px] text-gray-500 italic truncate">
-                        🎯 {lead.primaryGoal}
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-600 text-[11px]">
-                        <span className="font-bold text-primary-600">Fit: {lead.fitScore}%</span>
-                        <span className="font-bold text-emerald-600">Intent: {lead.intentScore}%</span>
-                      </div>
-
-                      {/* 48-Hour Working SLA & Outreach Cadence */}
+                      {/* Clean 48h SLA & Follow-up strip */}
                       {(() => {
                         const sla = calculate48HourWorkingSla(lead.dateCaptured);
                         const callAttempts = lead.outreachCadence?.callAttempts ?? (lead.numberOfCalls || 0);
                         const waTouches = lead.outreachCadence?.whatsappTouches ?? (lead.crmStage === 'Details Sent on WhatsApp' ? 1 : 0);
                         return (
-                          <div className="pt-2 border-t border-gray-100 dark:border-gray-600/70 space-y-1 text-[10px]">
-                            <div className="flex items-center justify-between gap-1 flex-wrap">
-                              <span
-                                className={`px-2 py-0.5 rounded-full font-extrabold border ${
-                                  sla.isWithin48Hours
-                                    ? sla.remainingHours <= 12
-                                      ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
-                                      : 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
-                                    : 'bg-red-50 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300'
-                                }`}
-                                title="48-Hour SLA (7:00 AM – 8:00 PM working window)"
-                              >
-                                ⏰ {sla.isWithin48Hours ? `${sla.remainingHours.toFixed(1)}h left` : 'SLA Expired'}
-                              </span>
-                              <span className="font-bold text-gray-500 dark:text-gray-400">
-                                📞 {callAttempts}/3 • 💬 {waTouches}/5
-                              </span>
-                            </div>
-
-                            {/* Conversion Pathway Indicator if Booked */}
-                            {lead.mentorMeeting && (
-                              <div className="bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 px-2 py-0.5 rounded-md font-bold truncate border border-purple-200">
-                                🎓 Mentor: {lead.mentorMeeting.mentorName} ({lead.mentorMeeting.scheduledDate})
-                              </div>
-                            )}
-                            {lead.demoSession && (
-                              <div className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 px-2 py-0.5 rounded-md font-bold truncate border border-indigo-200">
-                                🖥️ Demo: {lead.demoSession.sessionTitle}
-                              </div>
-                            )}
-                            {lead.directSale && (
-                              <div className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold truncate border border-emerald-200">
-                                💳 Sale: {lead.directSale.plan || lead.directSale.paymentPlan} (₹{(lead.directSale.finalAmount || lead.directSale.amount || 0).toLocaleString('en-IN')})
-                              </div>
-                            )}
+                          <div className="pt-1.5 border-t border-gray-100 dark:border-gray-600/70 flex items-center justify-between text-[10px]">
+                            <span
+                              className={`px-2 py-0.5 rounded-full font-bold border ${
+                                sla.isWithin48Hours
+                                  ? sla.remainingHours <= 12
+                                    ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                    : 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                  : 'bg-red-50 text-red-800 border-red-300'
+                              }`}
+                            >
+                              ⏰ {sla.isWithin48Hours ? `${sla.remainingHours.toFixed(1)}h` : 'Expired'}
+                            </span>
+                            <span className="text-gray-500 font-medium">
+                              📞 {callAttempts}/3 • 💬 {waTouches}/5
+                            </span>
                           </div>
                         );
                       })()}
 
-                      {/* Date of Collecting and Follow-up Info (User Requirement) */}
-                      <div className="pt-2 border-t border-gray-100 dark:border-gray-600/70 space-y-1.5 text-[11px]">
-                        <div className="flex items-center justify-between text-gray-500 dark:text-gray-400">
-                          <span className="flex items-center gap-1 font-medium" title="Date of lead collection">
-                            <span>📥</span> Collected:
-                          </span>
-                          <span className="font-bold text-gray-700 dark:text-gray-300">
-                            {formatCollectionDate(lead.dateCaptured)}
-                          </span>
+                      {lead.nextFollowUp && (
+                        <div className="text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900 truncate">
+                          ⏰ Follow-Up: {lead.nextFollowUp}
                         </div>
-
-                        {lead.nextFollowUp && (
-                          <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-950/50 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-800/60">
-                            <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1">
-                              <span>⏰</span> Follow-Up:
-                            </span>
-                            <span className="text-[10px] font-extrabold text-amber-900 dark:text-amber-200 truncate max-w-[120px]">
-                              {lead.nextFollowUp}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      )}
 
                       {/* Quick Contact & Details Bar */}
-                      <div className="flex items-center justify-between pt-1 text-[11px]">
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-600 text-[11px]">
                         <div className="flex items-center gap-1.5">
                           <a
                             href={`tel:${lead.phone.replace(/[^0-9+]/g, '')}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              logCall(lead.id, 'Connected', 'Outgoing call placed from Pipeline Kanban');
+                              logCall(lead.id, 'Connected', 'Outgoing call from Kanban');
                             }}
                             className="p-1 rounded bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 hover:bg-emerald-100 cursor-pointer"
-                            title="Call Lead (Logs to Daily Calling Tracker)"
+                            title="Call Lead"
                           >
                             📞
                           </a>
@@ -380,25 +320,10 @@ export default function Pipeline() {
                           >
                             💬
                           </a>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm(`Are you sure you want to permanently delete lead "${lead.fullName}"?`)) {
-                                deleteLead(lead.id);
-                              }
-                            }}
-                            className="p-1 rounded bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 cursor-pointer transition-all"
-                            title="Delete Lead"
-                          >
-                            🗑️
-                          </button>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200">
                             👤 {lead.assignedSalesperson?.split(' ')[0] || 'Rep'}
-                          </span>
-                          <span className="text-[10px] font-bold text-primary-600 hover:underline">
-                            Details →
                           </span>
                         </div>
                       </div>

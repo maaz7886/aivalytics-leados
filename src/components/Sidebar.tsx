@@ -14,8 +14,8 @@ interface NavItem {
 export default function Sidebar() {
   const location = useLocation();
   const { salespeople, currentUser } = useApp();
-  const [programsExpanded, setProgramsExpanded] = useState(true);
-  const [teamExpanded, setTeamExpanded] = useState(true);
+  const [programsExpanded, setProgramsExpanded] = useState(false);
+  const [teamExpanded, setTeamExpanded] = useState(false);
 
   const isSalesperson = currentUser?.role === 'Salesperson';
 
@@ -25,28 +25,16 @@ export default function Sidebar() {
         { name: "My Pipeline", to: "/pipeline", icon: "⚡" },
         { name: "My Workspace", to: `/team/${currentUser.id}`, icon: "🎯" },
         { name: "Sales Team", to: "/team", icon: "👥", hasChevron: true },
-        { name: "AI Intelligence", to: "/ai", icon: "✨" },
-        { name: "Conversations", to: "/conversations", icon: "💬" },
-        { name: "Program CRMs", to: "/programs", icon: "🏛️", hasChevron: true },
-        { name: "AI Project Mgmt", to: "/programs/ai-pm", isSubItem: true },
-        { name: "AI-Native GTM", to: "/programs/ai-gtm", isSubItem: true },
-        { name: "AI Fellowship", to: "/programs/ai-fellowship", isSubItem: true },
         { name: "My Analytics", to: "/analytics", icon: "📊" },
-        { name: "Settings", to: "/settings", icon: "⚙️" },
+        { name: "Programs", to: "/programs", icon: "🏛️" },
       ]
     : [
         { name: "Dashboard", to: "/dashboard", icon: "🏠" },
         { name: "Pipeline", to: "/pipeline", icon: "⚡" },
         { name: "Sales Team", to: "/team", icon: "👥", hasChevron: true },
-        { name: "AI Intelligence", to: "/ai", icon: "✨" },
-        { name: "Conversations", to: "/conversations", icon: "💬" },
-        { name: "All Programs", to: "/programs", icon: "🏛️", hasChevron: true },
-        { name: "AI Project Mgmt", to: "/programs/ai-pm", isSubItem: true },
-        { name: "AI-Native GTM", to: "/programs/ai-gtm", isSubItem: true },
-        { name: "AI Fellowship", to: "/programs/ai-fellowship", isSubItem: true },
         { name: "Analytics", to: "/analytics", icon: "📊" },
+        { name: "Programs", to: "/programs", icon: "🏛️" },
         { name: "Import Center", to: "/import", icon: "📥" },
-        { name: "Import History", to: "/import-history", icon: "🕒" },
         { name: "Settings", to: "/settings", icon: "⚙️" },
       ];
 

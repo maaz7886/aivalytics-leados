@@ -83,31 +83,15 @@ export default function Header() {
 
   return (
     <header className="flex items-center justify-between px-6 py-2.5 border-b border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xs gap-4 shrink-0">
-      {/* Left: Brand & Badges */}
-      <div className="flex items-center gap-2.5 shrink-0">
-        <span className="font-black text-gray-900 dark:text-gray-100 text-lg tracking-tight">
+      {/* Left: Brand */}
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="font-bold text-gray-900 dark:text-gray-100 text-base tracking-tight">
           Aivalytics LeadOS
         </span>
-        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-          v1.0 Production MVP
-        </span>
         <span 
-          className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border transition-all ${
-            dbConnected 
-              ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' 
-              : 'bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border-rose-300'
-          }`}
-          title={dbConnected ? 'Live Supabase Cloud Database Connected • Real-time Sync Active' : 'Connecting to Supabase...'}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${dbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
-          {dbConnected ? 'Database Connected' : 'Syncing...'}
-        </span>
-        <span 
-          className="hidden 2xl:inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80" 
-          title="Turn Brave shields down if cloud sync is blocked"
-        >
-          <span>🛡️ Brave User? Turn Shields DOWN</span>
-        </span>
+          className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} 
+          title={dbConnected ? 'Cloud Sync Active' : 'Connecting...'}
+        />
       </div>
 
       {/* Center: Search Bar */}
