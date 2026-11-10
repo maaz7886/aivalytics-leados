@@ -586,31 +586,59 @@ const initialTasks: Task[] = [
 
 const initialPrograms: Program[] = [
   {
+    id: 'workshop-3day',
+    name: '3-Day AI Builder Workshop',
+    duration: '3 Days (Weekend)',
+    price: 2999,
+    structure: [
+      { month: 'Day 1 (Friday 7-10 PM)', title: 'AI Foundations & Autonomous Agent Architecture', topics: ['Prompt Engineering & System Prompts', 'LLM Function Calling & Contexts', 'Hands-on Agent Framework Setup'] },
+      { month: 'Day 2 (Saturday 10 AM-6 PM)', title: 'Building Autonomous Research & Workflow Automation Engines', topics: ['n8n Autonomous Pipelines', 'Web Scraper & Lead Enrichment Agent', 'Automated QA & Evaluation Loops'] },
+      { month: 'Day 3 (Sunday 10 AM-6 PM)', title: 'Production Multi-Modal Agent, Deployment & Showcase', topics: ['Multi-Modal Voice & Vision Assistant', 'Cloud Deployment & Webhook Integration', 'Live Capstone Project Showcase'] }
+    ],
+    eligibility: 'Open to all working professionals, engineers, PMs, consultants, and founders wanting immediate practical AI building skills.',
+    placementSupport: 'Direct production project repository, builder certificate, and exclusive alumni AI network.',
+    outcomes: [
+      'Build and deploy 3 production-grade autonomous AI agents in 1 intensive weekend',
+      'Orchestrate complex workflows using n8n, Claude 3.5 Sonnet, and OpenAI APIs',
+      'Direct in-call closing pathway (₹2,999) or free webinar masterclass fallback'
+    ],
+    projects: [
+      'Autonomous Market Research & Lead Enrichment Agent',
+      'Enterprise Sprint Review & Workflow Orchestration Agent',
+      'Multi-Modal Customer Intelligence Bot'
+    ],
+    batchTiming: 'Every Friday Evening (7:00-10:00 PM), Saturday (10:00 AM-6:00 PM), Sunday (10:00 AM-6:00 PM IST)',
+    faqs: [
+      { question: 'What is the schedule?', answer: 'Happens every weekend: Friday evening (7 PM - 10 PM), Saturday full day (10 AM - 6 PM), and Sunday full day (10 AM - 6 PM IST).' },
+      { question: 'Is prior coding required?', answer: 'No coding required. We build production systems with low-code and modern AI APIs.' }
+    ]
+  },
+  {
     id: 'ai-pm',
-    name: 'AI-Native Project Management',
+    name: 'AI-Native Product Management (4 Certifications in 3 Months)',
     duration: '3 Months',
     price: 49999,
     structure: [
-      { month: 'Month 1', title: 'AI Foundations & Tooling', topics: ['Prompt Engineering for PMs', 'ChatGPT Plus & Claude Pro Workflows', 'Custom GPT creation for PRDs'] },
-      { month: 'Month 2', title: 'AI Agents & Workflow Orchestration', topics: ['Multi-Agent Orchestration', 'n8n & Zapier Central Workflows', 'Automated Sprint Audit Agents'] },
-      { month: 'Month 3', title: 'AI-Native Project Execution & Capstone', topics: ['SOP Engineering', 'Human + AI Delegation Models', 'Production Capstone Project & Portfolio'] }
+      { month: 'Month 1', title: 'Certification 1: AI-Native Product Ideation & PRD Engineering', topics: ['AI PRD Engineering', 'Custom GPTs & Claude 3.5 Workflows', 'Competitive AI Benchmarking'] },
+      { month: 'Month 2', title: 'Certification 2: Multi-Agent Workflows & Autonomous PM Systems', topics: ['Multi-Agent Architecture for PMs', 'n8n & Zapier Central Orchestration', 'Automated Sprint Risk Auditing'] },
+      { month: 'Month 3', title: 'Certifications 3 & 4: Data-Driven AI Product Metrics & Production Capstone Defense', topics: ['RAG Benchmarks & Latency/Cost Optimization', 'Executive Defense & Portfolio Presentation', '4 Industry Certifications Awarded'] }
     ],
-    eligibility: '3+ years experience in PM, Operations, Tech, or Business Delivery',
-    placementSupport: 'Resume positioning for AI-PM roles, 1-on-1 career coaching, top company referrals',
+    eligibility: '3+ years experience in PM, Operations, Tech, Consulting, or Business Delivery',
+    placementSupport: 'Resume overhaul, 1-on-1 executive coaching, portfolio defense, and top AI hiring partner referrals',
     outcomes: [
+      'Earn 4 recognized industry certifications in 12 intensive weeks',
       'Build multi-agent workflow systems that automate 50% of routine PM tasks',
-      'Engineer custom AI SOPs for cross-functional engineering and design teams',
-      'Position yourself for AI Project Manager & Operations Transformation roles'
+      'Position yourself for elite AI Product Manager & Transformation Lead roles'
     ],
     projects: [
       'Autonomous Sprint Status & Risk Auditor Agent',
       'AI-Powered PRD & User Story Generator Workflow',
       'Enterprise AI Transformation Readiness Roadmap'
     ],
-    batchTiming: 'Saturdays & Sundays (10:00 AM - 1:00 PM IST)',
+    batchTiming: 'Saturdays & Sundays (10:00 AM - 1:00 PM IST) + Midweek Strategy Office Hours',
     faqs: [
-      { question: 'Do I need coding knowledge?', answer: 'No prior coding experience required. We focus on no-code agent platforms (n8n, Flowise, Custom GPTs) and low-code Python scripts.' },
-      { question: 'Is placement guaranteed?', answer: 'We offer dedicated career placement assistance, portfolio reviews, and interview prep. We do NOT guarantee employment outcomes.' }
+      { question: 'What certifications are included?', answer: 'The program includes 4 industry certifications: 1. AI PRD Engineering, 2. Autonomous PM Systems, 3. AI Product Metrics, 4. Production AI Agent Capstone.' },
+      { question: 'Can this be paid in installments?', answer: 'Yes, no-cost EMI options starting at ₹4,500/month are available.' }
     ]
   },
   {

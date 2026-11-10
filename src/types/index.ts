@@ -199,7 +199,8 @@ export type ProfessionalStatus =
   | 'Other'
   | (string & {});
 
-export type ProgramId = 'ai-pm' | 'ai-gtm' | 'ai-fellowship' | 'other' | (string & {});
+export type ProgramId = 'workshop-3day' | 'ai-pm' | 'ai-gtm' | 'ai-fellowship' | 'other' | (string & {});
+export type CoreOfferingType = '3-Day AI Builder Workshop' | 'AI-Native PM (4 Certs in 3 Months)';
 
 export interface Lead {
   id: string;

@@ -6,10 +6,17 @@ import {
   MENTOR_PRESETS,
   DEMO_SESSION_PRESETS,
   calculate48HourWorkingSla,
-  generateMentorWhatsAppMessage,
-  generateDemoWhatsAppMessage,
-  generateDirectSaleWhatsAppMessage
+  generateMentorWhatsAppMessage
 } from '../utils/cadenceUtils';
+import {
+  WORKSHOP_DIRECT_SALE_SCRIPT,
+  FREE_WEBINAR_FALLBACK_SCRIPT,
+  AI_PM_PROGRAM_SCRIPT,
+  getWorkshopDirectSaleWhatsApp,
+  getFreeWebinarWhatsApp,
+  getAiPmProgramWhatsApp,
+  getPostWebinarDualProposalWhatsApp
+} from '../utils/offeringTemplates';
 
 interface LeadDetailModalProps {
   lead: Lead | null;
@@ -79,12 +86,31 @@ export default function LeadDetailModal({
     incrementCadenceTouch
   } = useApp();
 
-  const [activeActionTab, setActiveActionTab] = useState<'mentor' | 'demo' | 'sale' | 'followup' | 'notes'>('followup');
+  const [activeActionTab, setActiveActionTab] = useState<'workshop-sale' | 'webinar-invite' | 'aipm-track' | 'followup'>('workshop-sale');
   const [callNoteText, setCallNoteText] = useState('');
   const [toastAlert, setToastAlert] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Pathway 1: Mentor Form State
+  // Offering and Script Drawer States
+  const [selectedOffering, setSelectedOffering] = useState<'workshop-3day' | 'ai-pm'>(() => {
+    if (lead?.programId === 'workshop-3day' || lead?.programName?.includes('Workshop') || lead?.programName?.includes('3-Day') || lead?.programName?.includes('3 Days')) {
+      return 'workshop-3day';
+    }
+    return 'ai-pm';
+  });
+  const [showScriptDrawer, setShowScriptDrawer] = useState(false);
+  const [scriptTab, setScriptTab] = useState<'workshop' | 'webinar' | 'aipm'>('workshop');
+
+  // Offering 1: 3-Day Workshop In-Call Close State
+  const [workshopFee, setWorkshopFee] = useState<number>(2999);
+  const [workshopBatch, setWorkshopBatch] = useState<string>('Upcoming Weekend: Friday (7-10 PM), Saturday (10 AM-6 PM), Sunday (10 AM-6 PM)');
+  const [workshopCheckoutLink] = useState('https://pages.razorpay.com/aiv-3day-builder');
+
+  // Offering 2: AI-Native PM (4 Certifications in 3 Months) State
+  const [aiPmFee] = useState<number>(49999);
+  const [aiPmEmi] = useState<number>(4500);
+
+  // Pathway 1: Mentor Form State (for AI-PM)
   const [mentorName, setMentorName] = useState(MENTOR_PRESETS[0].name);
   const [mentorDate, setMentorDate] = useState(() => {
     const d = new Date();
@@ -92,27 +118,20 @@ export default function LeadDetailModal({
     return d.toISOString().split('T')[0];
   });
   const [mentorTime, setMentorTime] = useState('16:00');
-  const [mentorCallMinutes, setMentorCallMinutes] = useState(5);
-  const [mentorLink, setMentorLink] = useState('https://meet.google.com/aiv-mentor-session');
+  const mentorCallMinutes = 5;
+  const mentorLink = 'https://meet.google.com/aiv-mentor-session';
   const mentorDuration = 30;
   const mentorAgenda = '1-on-1 AI Career Transition & Curriculum Alignment';
 
-  // Pathway 2: Demo Form State
+  // Fallback: Free Webinar State
   const [selectedDemoIdx, setSelectedDemoIdx] = useState(0);
   const [demoDate, setDemoDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 2);
     return d.toISOString().split('T')[0];
   });
-  const [demoTime, setDemoTime] = useState('11:00');
-  const [demoLink, setDemoLink] = useState(DEMO_SESSION_PRESETS[0].link);
-
-  // Pathway 3: Direct Sale Form State
-  const baseProgramFee =
-    lead?.programId === 'ai-fellowship' ? 99999 : lead?.programId === 'ai-gtm' ? 54999 : 34999;
-  const [salePlan, setSalePlan] = useState<'Full Payment' | 'Token Deposit (₹5,000)' | '3-Month No-Cost EMI'>('Full Payment');
-  const [saleStatus, setSaleStatus] = useState<'Payment Link Sent' | 'Deposit Received' | 'Paid in Full'>('Payment Link Sent');
-  const [saleLink, setSaleLink] = useState(lead?.paymentLink || 'https://pages.razorpay.com/aivalytics-checkout');
+  const [demoTime, setDemoTime] = useState('20:00');
+  const [demoLink, setDemoLink] = useState('https://meet.google.com/aiv-free-masterclass');
 
   // Custom Follow-up State
   const [nextStage, setNextStage] = useState<Stage>('Interested');
@@ -126,10 +145,17 @@ export default function LeadDetailModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (initialPathway === 'mentor') setActiveActionTab('mentor');
-      else if (initialPathway === 'demo') setActiveActionTab('demo');
-      else if (initialPathway === 'sale') setActiveActionTab('sale');
-      else setActiveActionTab('followup');
+      if (initialPathway === 'mentor') {
+        setSelectedOffering('ai-pm');
+        setActiveActionTab('aipm-track');
+      } else if (initialPathway === 'demo') {
+        setActiveActionTab('webinar-invite');
+      } else if (initialPathway === 'sale') {
+        setSelectedOffering('workshop-3day');
+        setActiveActionTab('workshop-sale');
+      } else {
+        setActiveActionTab('workshop-sale');
+      }
     }
   }, [isOpen, initialPathway]);
 
@@ -158,6 +184,65 @@ export default function LeadDetailModal({
     showNotification(`Stage changed to "${newStage}"`);
   };
 
+  const handleConfirmWorkshopSale = () => {
+    const payload: Omit<DirectSale, 'id' | 'createdAt'> = {
+      programId: 'workshop-3day',
+      programName: '3-Day AI Builder Workshop',
+      tuitionFee: 5999,
+      finalAmount: workshopFee,
+      paymentPlan: 'Full Payment',
+      paymentLink: workshopCheckoutLink,
+      status: 'Payment Link Sent',
+      notes: `Direct in-call close: ₹${workshopFee} for 3-Day AI Builder Workshop (Fri Evening - Sun Full Day)`
+    };
+    initiateDirectSale(lead.id, payload, 300, payload.notes);
+    updateLeadStage(lead.id, 'Payment Pending');
+
+    const msg = getWorkshopDirectSaleWhatsApp(lead.fullName, workshopBatch);
+    window.open(`https://wa.me/${whatsAppPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    incrementCadenceTouch(lead.id, 'WhatsApp');
+
+    showNotification(`✓ 3-Day Workshop (₹${workshopFee}) in-call checkout sent to WhatsApp!`);
+  };
+
+  const handleConfirmWebinar = () => {
+    const scheduledAt = `${demoDate} ${demoTime}`;
+    const payload: Omit<DemoSession, 'id' | 'createdAt'> = {
+      sessionTitle: 'Free Live AI Masterclass (Dual Program Proposal)',
+      scheduledAt,
+      durationMinutes: 75,
+      sessionLink: demoLink,
+      hostName: 'Lead AI Architect',
+      status: 'Invited',
+      notes: `Fallback invitation to Free Live AI Masterclass. In-call pitch was given, candidate invited to see live agent demos.`
+    };
+    inviteDemoSession(lead.id, payload, 180, payload.notes);
+    updateLeadStage(lead.id, 'Demo Session Scheduled');
+
+    const msg = getFreeWebinarWhatsApp(lead.fullName, scheduledAt, demoLink);
+    window.open(`https://wa.me/${whatsAppPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    incrementCadenceTouch(lead.id, 'WhatsApp');
+
+    showNotification(`✓ Free Webinar pass sent to WhatsApp for ${scheduledAt}!`);
+  };
+
+  const handleSendAiPmBrochure = () => {
+    const msg = getAiPmProgramWhatsApp(lead.fullName);
+    window.open(`https://wa.me/${whatsAppPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    incrementCadenceTouch(lead.id, 'WhatsApp');
+    logCall(lead.id, 'Details Sent on WhatsApp', 'Sent AI-Native PM (4 Certifications in 3 Months) syllabus');
+    updateLeadStage(lead.id, 'Details Sent on WhatsApp');
+    showNotification('✓ AI-Native PM 4-Cert brochure sent to WhatsApp!');
+  };
+
+  const handleSendDualProposal = () => {
+    const msg = getPostWebinarDualProposalWhatsApp(lead.fullName);
+    window.open(`https://wa.me/${whatsAppPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    incrementCadenceTouch(lead.id, 'WhatsApp');
+    logCall(lead.id, 'Details Sent on WhatsApp', 'Sent post-webinar dual proposal (3-Day Workshop vs AI-PM Program)');
+    showNotification('✓ Post-webinar dual proposal sent to WhatsApp!');
+  };
+
   const handleConfirmMentor = () => {
     const scheduledAt = `${mentorDate} ${mentorTime}`;
     const preset = MENTOR_PRESETS.find((m) => m.name === mentorName) || MENTOR_PRESETS[0];
@@ -180,48 +265,6 @@ export default function LeadDetailModal({
     incrementCadenceTouch(lead.id, 'WhatsApp');
 
     showNotification(`✓ Mentor meeting booked for ${scheduledAt} & WhatsApp sent!`);
-  };
-
-  const handleConfirmDemo = () => {
-    const scheduledAt = `${demoDate} ${demoTime}`;
-    const preset = DEMO_SESSION_PRESETS[selectedDemoIdx] || DEMO_SESSION_PRESETS[0];
-    const payload: Omit<DemoSession, 'id' | 'createdAt'> = {
-      sessionTitle: preset.title,
-      scheduledAt,
-      durationMinutes: preset.durationMinutes,
-      sessionLink: demoLink || preset.link,
-      hostName: preset.host,
-      status: 'Invited',
-      notes: `Invited to ${preset.title}`
-    };
-    inviteDemoSession(lead.id, payload, 120, payload.notes);
-
-    const msg = generateDemoWhatsAppMessage(lead.fullName, { ...payload, id: 'temp', createdAt: '' });
-    window.open(`https://wa.me/${whatsAppPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-    incrementCadenceTouch(lead.id, 'WhatsApp');
-
-    showNotification(`✓ Demo invite scheduled & WhatsApp sent!`);
-  };
-
-  const handleConfirmSale = () => {
-    const amount = salePlan === 'Token Deposit (₹5,000)' ? 5000 : salePlan === '3-Month No-Cost EMI' ? Math.round(baseProgramFee / 3) : baseProgramFee;
-    const payload: Omit<DirectSale, 'id' | 'createdAt'> = {
-      programId: lead.programId,
-      programName: lead.programName || 'AI Cohort',
-      tuitionFee: baseProgramFee,
-      finalAmount: amount,
-      paymentPlan: salePlan,
-      paymentLink: saleLink,
-      status: saleStatus,
-      notes: `Direct sale: ${salePlan} - ${saleStatus}`
-    };
-    initiateDirectSale(lead.id, payload, 300, payload.notes);
-
-    const msg = generateDirectSaleWhatsAppMessage(lead.fullName, { ...payload, id: 'temp', createdAt: '' });
-    window.open(`https://wa.me/${whatsAppPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-    incrementCadenceTouch(lead.id, 'WhatsApp');
-
-    showNotification(`✓ Direct sale saved & checkout link sent!`);
   };
 
   const handleSaveFollowUp = () => {
@@ -487,9 +530,132 @@ export default function LeadDetailModal({
           </div>
 
           {/* RIGHT COLUMN: Minimalist Action & History (7 cols) */}
-          <div className="md:col-span-7 space-y-4">
+          <div className="md:col-span-7 space-y-3.5">
+            {/* Core Offering Selector Header */}
+            <div className="flex items-center justify-between bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-2.5 rounded-xl text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-gray-800 dark:text-gray-200">
+                <span className="text-sm">🎯</span>
+                <span>Offering:</span>
+              </div>
+              <div className="flex gap-1.5 font-semibold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedOffering('workshop-3day');
+                    setActiveActionTab('workshop-sale');
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                    selectedOffering === 'workshop-3day'
+                      ? 'bg-[#133926] text-white shadow-xs font-bold'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  ⚡ 3-Day Builder Workshop
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedOffering('ai-pm');
+                    setActiveActionTab('aipm-track');
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                    selectedOffering === 'ai-pm'
+                      ? 'bg-[#133926] text-white shadow-xs font-bold'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  🎓 AI-Native PM (4 Certs / 3 Mo)
+                </button>
+              </div>
+            </div>
+
+            {/* Quick In-Call Script & Objection Guide Toggle */}
+            <div className="border border-amber-200 dark:border-amber-800/80 bg-amber-50/60 dark:bg-amber-950/30 rounded-xl p-2.5 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-200">
+                  {selectedOffering === 'workshop-3day'
+                    ? '⚡ Fri Eve (7-10 PM), Sat Full Day (10-6 PM), Sun Full Day (10-6 PM)'
+                    : '🎓 4 Industry Certifications across 12 Weeks (Weekend Masterclasses + Midweek Strategy)'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowScriptDrawer(!showScriptDrawer)}
+                  className="text-amber-900 dark:text-amber-300 font-bold hover:underline flex items-center gap-1 cursor-pointer text-[11px]"
+                >
+                  <span>{showScriptDrawer ? '▲ Hide Pitch Scripts' : '▼ Live Call Script & Objections'}</span>
+                </button>
+              </div>
+
+              {showScriptDrawer && (
+                <div className="pt-2 border-t border-amber-200 dark:border-amber-800/80 space-y-2">
+                  <div className="flex gap-1.5 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setScriptTab('workshop')}
+                      className={`px-2 py-0.5 rounded cursor-pointer ${
+                        scriptTab === 'workshop' ? 'bg-amber-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border'
+                      }`}
+                    >
+                      ⚡ 3-Day In-Call Close
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScriptTab('webinar')}
+                      className={`px-2 py-0.5 rounded cursor-pointer ${
+                        scriptTab === 'webinar' ? 'bg-amber-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border'
+                      }`}
+                    >
+                      🎟️ Fallback Webinar Invite
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScriptTab('aipm')}
+                      className={`px-2 py-0.5 rounded cursor-pointer ${
+                        scriptTab === 'aipm' ? 'bg-amber-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border'
+                      }`}
+                    >
+                      🎓 AI-PM 4-Cert Pitch
+                    </button>
+                  </div>
+
+                  {scriptTab === 'workshop' && (
+                    <div className="space-y-1.5 text-[11px] text-gray-800 dark:text-gray-200 leading-relaxed bg-white/70 dark:bg-gray-900/60 p-2 rounded-lg border border-amber-200/60">
+                      <p><strong>Opening Hook:</strong> &quot;{WORKSHOP_DIRECT_SALE_SCRIPT.hook.replace('[Name]', lead.fullName.split(' ')[0])}&quot;</p>
+                      <p><strong>Value Pitch:</strong> &quot;{WORKSHOP_DIRECT_SALE_SCRIPT.valuePitch}&quot;</p>
+                      <p className="p-1.5 bg-emerald-50 dark:bg-emerald-950/50 rounded font-semibold text-emerald-900 dark:text-emerald-200 border border-emerald-200">
+                        <strong>In-Call Close:</strong> &quot;{WORKSHOP_DIRECT_SALE_SCRIPT.inCallClose}&quot;
+                      </p>
+                      <div className="text-[10px] text-gray-500 pt-0.5 space-y-0.5">
+                        <p>• <em>If &quot;No Time&quot;</em>: {WORKSHOP_DIRECT_SALE_SCRIPT.objectionNoTime}</p>
+                        <p>• <em>If &quot;Too Expensive&quot;</em>: {WORKSHOP_DIRECT_SALE_SCRIPT.objectionBudget}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {scriptTab === 'webinar' && (
+                    <div className="space-y-1.5 text-[11px] text-gray-800 dark:text-gray-200 leading-relaxed bg-white/70 dark:bg-gray-900/60 p-2 rounded-lg border border-amber-200/60">
+                      <p><strong>Transition when not buying on call:</strong> &quot;{FREE_WEBINAR_FALLBACK_SCRIPT.transition}&quot;</p>
+                      <p><strong>Masterclass Agenda:</strong> &quot;{FREE_WEBINAR_FALLBACK_SCRIPT.pitch}&quot;</p>
+                      <p className="p-1.5 bg-indigo-50 dark:bg-indigo-950/50 rounded font-semibold text-indigo-900 dark:text-indigo-200 border border-indigo-200">
+                        <strong>Webinar Pass Close:</strong> &quot;{FREE_WEBINAR_FALLBACK_SCRIPT.close}&quot;
+                      </p>
+                    </div>
+                  )}
+
+                  {scriptTab === 'aipm' && (
+                    <div className="space-y-1.5 text-[11px] text-gray-800 dark:text-gray-200 leading-relaxed bg-white/70 dark:bg-gray-900/60 p-2 rounded-lg border border-amber-200/60">
+                      <p><strong>Curriculum Value:</strong> &quot;{AI_PM_PROGRAM_SCRIPT.valuePitch}&quot;</p>
+                      <p className="p-1.5 bg-purple-50 dark:bg-purple-950/50 rounded font-semibold text-purple-900 dark:text-purple-200 border border-purple-200">
+                        <strong>Mentor Session Booking:</strong> &quot;{AI_PM_PROGRAM_SCRIPT.mentorPitch}&quot;
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Segmented Action Tabs */}
-            <div className="border border-gray-200 dark:border-gray-800 rounded-xl p-4 bg-white dark:bg-gray-850 space-y-3">
+            <div className="border border-gray-200 dark:border-gray-800 rounded-xl p-3.5 bg-white dark:bg-gray-850 space-y-3">
               <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
                 <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
                   Select Action / Next Step
@@ -505,43 +671,240 @@ export default function LeadDetailModal({
               <div className="grid grid-cols-4 gap-1.5 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg text-xs font-bold">
                 <button
                   type="button"
+                  onClick={() => setActiveActionTab('workshop-sale')}
+                  className={`py-1.5 rounded-md transition-colors cursor-pointer ${
+                    activeActionTab === 'workshop-sale' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-2xs' : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  ⚡ In-Call Buy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveActionTab('webinar-invite')}
+                  className={`py-1.5 rounded-md transition-colors cursor-pointer ${
+                    activeActionTab === 'webinar-invite' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-2xs' : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  🎟️ Free Webinar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveActionTab('aipm-track')}
+                  className={`py-1.5 rounded-md transition-colors cursor-pointer ${
+                    activeActionTab === 'aipm-track' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-2xs' : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  🎓 AI-PM (4 Certs)
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveActionTab('followup')}
-                  className={`py-1.5 rounded-md transition-colors ${
+                  className={`py-1.5 rounded-md transition-colors cursor-pointer ${
                     activeActionTab === 'followup' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-2xs' : 'text-gray-600 dark:text-gray-400'
                   }`}
                 >
                   📞 Follow-up
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveActionTab('mentor')}
-                  className={`py-1.5 rounded-md transition-colors ${
-                    activeActionTab === 'mentor' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-2xs' : 'text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  🎓 Mentor
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveActionTab('demo')}
-                  className={`py-1.5 rounded-md transition-colors ${
-                    activeActionTab === 'demo' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-2xs' : 'text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  🖥️ Demo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveActionTab('sale')}
-                  className={`py-1.5 rounded-md transition-colors ${
-                    activeActionTab === 'sale' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-2xs' : 'text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  💳 Sale
-                </button>
               </div>
 
-              {/* Tab 1 Content: Standard Follow-up */}
+              {/* Tab 1 Content: In-Call Buy (3-Day Workshop) */}
+              {activeActionTab === 'workshop-sale' && (
+                <div className="space-y-2.5 text-xs pt-1">
+                  <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
+                    <div>
+                      <strong className="text-emerald-900 dark:text-emerald-200 block text-xs">3-Day AI Builder Workshop (Weekend Sprint)</strong>
+                      <span className="text-[11px] text-gray-600 dark:text-gray-400">
+                        Friday Evening (7-10 PM) • Saturday Full Day (10-6 PM) • Sunday Full Day (10-6 PM)
+                      </span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 font-bold text-xs">
+                      Weekend Cohort
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">In-Call Special Fee</label>
+                      <select
+                        value={workshopFee}
+                        onChange={(e) => setWorkshopFee(Number(e.target.value))}
+                        className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg font-semibold"
+                      >
+                        <option value={2999}>₹2,999 (Direct-Call 50% Off Special)</option>
+                        <option value={3999}>₹3,999 (Standard Early Bird)</option>
+                        <option value={5999}>₹5,999 (Regular Full Tuition)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Batch Schedule</label>
+                      <input
+                        type="text"
+                        value={workshopBatch}
+                        onChange={(e) => setWorkshopBatch(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={handleConfirmWorkshopSale}
+                      className="px-4 py-2 bg-[#133926] hover:bg-[#1a4a33] text-white rounded-lg font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>💳</span> Confirm In-Call Sale & Send ₹{workshopFee.toLocaleString('en-IN')} Checkout on WhatsApp
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2 Content: Free Webinar Fallback & Dual Proposal */}
+              {activeActionTab === 'webinar-invite' && (
+                <div className="space-y-2.5 text-xs pt-1">
+                  <div className="p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800">
+                    <strong className="text-indigo-900 dark:text-indigo-200 block text-xs">Free Live AI Masterclass (Dual Program Proposal)</strong>
+                    <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
+                      Did not buy on call? Invite them to the live masterclass where both the <strong>3-Day AI Builder Workshop</strong> and <strong>AI-Native PM Program</strong> will be proposed.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Choose Upcoming Session</label>
+                      <select
+                        value={selectedDemoIdx}
+                        onChange={(e) => {
+                          const idx = Number(e.target.value);
+                          setSelectedDemoIdx(idx);
+                          setDemoLink(DEMO_SESSION_PRESETS[idx].link);
+                        }}
+                        className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg font-semibold"
+                      >
+                        {DEMO_SESSION_PRESETS.map((d, i) => (
+                          <option key={d.title} value={i}>
+                            {d.title} ({d.dayTiming})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Custom Date & Time</label>
+                      <div className="flex gap-1">
+                        <input
+                          type="date"
+                          value={demoDate}
+                          onChange={(e) => setDemoDate(e.target.value)}
+                          className="w-2/3 px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg"
+                        />
+                        <input
+                          type="time"
+                          value={demoTime}
+                          onChange={(e) => setDemoTime(e.target.value)}
+                          className="w-1/3 px-1.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSendDualProposal}
+                      className="text-xs text-indigo-700 dark:text-indigo-400 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <span>📢</span> Send Post-Webinar Dual Proposal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmWebinar}
+                      className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>🎟️</span> Send Free Webinar Guest Pass on WhatsApp
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 3 Content: AI-Native PM (4 Certifications in 3 Months) */}
+              {activeActionTab === 'aipm-track' && (
+                <div className="space-y-2.5 text-xs pt-1">
+                  <div className="p-2.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <strong className="text-purple-950 dark:text-purple-200 block text-xs">AI-Native Product Management (3 Months)</strong>
+                        <span className="text-[11px] text-gray-600 dark:text-gray-400">
+                          Includes 4 Industry Certifications • Weekend Interactive Masterclasses + Weekly 1-on-1 Mentorship
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900 text-purple-900 dark:text-purple-200 font-bold text-[10px]">
+                        ₹{aiPmFee.toLocaleString('en-IN')} (EMI ₹{aiPmEmi.toLocaleString('en-IN')}/mo)
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 pt-2 text-[10px] text-purple-900 dark:text-purple-300 font-medium">
+                      <span>• Cert 1: AI PRD Engineering</span>
+                      <span>• Cert 2: Multi-Agent PM Systems</span>
+                      <span>• Cert 3: Data-Driven AI Metrics</span>
+                      <span>• Cert 4: Production Capstone Defense</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Mentor for 1-on-1</label>
+                      <select
+                        value={mentorName}
+                        onChange={(e) => setMentorName(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg font-semibold"
+                      >
+                        {MENTOR_PRESETS.map((m) => (
+                          <option key={m.name} value={m.name}>
+                            {m.name} ({m.specialty.split('&')[0]})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Session Date & Time</label>
+                      <div className="flex gap-1">
+                        <input
+                          type="date"
+                          value={mentorDate}
+                          onChange={(e) => setMentorDate(e.target.value)}
+                          className="w-2/3 px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg"
+                        />
+                        <input
+                          type="time"
+                          value={mentorTime}
+                          onChange={(e) => setMentorTime(e.target.value)}
+                          className="w-1/3 px-1.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSendAiPmBrochure}
+                      className="text-xs text-purple-700 dark:text-purple-400 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <span>📄</span> Send 4-Cert Syllabus on WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmMentor}
+                      className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>🎓</span> Confirm Mentor Session & WhatsApp
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 4 Content: Standard Follow-up */}
               {activeActionTab === 'followup' && (
                 <div className="space-y-2.5 text-xs pt-1">
                   <div className="grid grid-cols-2 gap-2">
@@ -602,196 +965,6 @@ export default function LeadDetailModal({
                       className="px-4 py-1.5 bg-[#133926] hover:bg-[#1a4a33] text-white rounded-lg font-bold shadow-xs cursor-pointer"
                     >
                       Save Follow-Up
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Tab 2 Content: Pathway 1 (Mentor 1-on-1) */}
-              {activeActionTab === 'mentor' && (
-                <div className="space-y-2.5 text-xs pt-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Mentor</label>
-                      <select
-                        value={mentorName}
-                        onChange={(e) => setMentorName(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg font-semibold"
-                      >
-                        {MENTOR_PRESETS.map((m) => (
-                          <option key={m.name} value={m.name}>
-                            {m.name} ({m.specialty.split('&')[0]})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Date & Time</label>
-                      <div className="flex gap-1">
-                        <input
-                          type="date"
-                          value={mentorDate}
-                          onChange={(e) => setMentorDate(e.target.value)}
-                          className="w-2/3 px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg"
-                        />
-                        <input
-                          type="time"
-                          value={mentorTime}
-                          onChange={(e) => setMentorTime(e.target.value)}
-                          className="w-1/3 px-1.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Call Duration</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={60}
-                        value={mentorCallMinutes}
-                        onChange={(e) => setMentorCallMinutes(Number(e.target.value))}
-                        className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg font-semibold"
-                        placeholder="5 minutes talked"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Meeting Link</label>
-                      <input
-                        type="url"
-                        value={mentorLink}
-                        onChange={(e) => setMentorLink(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="button"
-                      onClick={handleConfirmMentor}
-                      className="px-4 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
-                    >
-                      <span>🎓</span> Confirm & Open WhatsApp
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Tab 3 Content: Pathway 2 (Demo Session) */}
-              {activeActionTab === 'demo' && (
-                <div className="space-y-2.5 text-xs pt-1">
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Choose Upcoming Demo</label>
-                    <select
-                      value={selectedDemoIdx}
-                      onChange={(e) => {
-                        const idx = Number(e.target.value);
-                        setSelectedDemoIdx(idx);
-                        setDemoLink(DEMO_SESSION_PRESETS[idx].link);
-                      }}
-                      className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg font-semibold"
-                    >
-                      {DEMO_SESSION_PRESETS.map((d, i) => (
-                        <option key={d.title} value={i}>
-                          {d.title} ({d.dayTiming})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Custom Date & Time</label>
-                      <div className="flex gap-1">
-                        <input
-                          type="date"
-                          value={demoDate}
-                          onChange={(e) => setDemoDate(e.target.value)}
-                          className="w-2/3 px-2 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg"
-                        />
-                        <input
-                          type="time"
-                          value={demoTime}
-                          onChange={(e) => setDemoTime(e.target.value)}
-                          className="w-1/3 px-1.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Webinar Link</label>
-                      <input
-                        type="url"
-                        value={demoLink}
-                        onChange={(e) => setDemoLink(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="button"
-                      onClick={handleConfirmDemo}
-                      className="px-4 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
-                    >
-                      <span>🖥️</span> Confirm & Open WhatsApp
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Tab 4 Content: Pathway 3 (Direct Sale) */}
-              {activeActionTab === 'sale' && (
-                <div className="space-y-2.5 text-xs pt-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Payment Plan</label>
-                      <select
-                        value={salePlan}
-                        onChange={(e) => setSalePlan(e.target.value as any)}
-                        className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg font-semibold"
-                      >
-                        <option value="Full Payment">Full Tuition (₹{baseProgramFee.toLocaleString('en-IN')})</option>
-                        <option value="Token Deposit (₹5,000)">Token Deposit (₹5,000)</option>
-                        <option value="3-Month No-Cost EMI">3-Month No-Cost EMI (₹{Math.round(baseProgramFee / 3).toLocaleString('en-IN')}/mo)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Payment Status</label>
-                      <select
-                        value={saleStatus}
-                        onChange={(e) => setSaleStatus(e.target.value as any)}
-                        className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg font-semibold"
-                      >
-                        <option value="Payment Link Sent">Payment Link Sent</option>
-                        <option value="Deposit Received">Deposit Received (₹5,000)</option>
-                        <option value="Paid in Full">Paid in Full (Enrolled)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Razorpay Checkout Link</label>
-                    <input
-                      type="url"
-                      value={saleLink}
-                      onChange={(e) => setSaleLink(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border rounded-lg font-mono text-[11px]"
-                    />
-                  </div>
-
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="button"
-                      onClick={handleConfirmSale}
-                      className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
-                    >
-                      <span>💳</span> Save Sale & Open WhatsApp
                     </button>
                   </div>
                 </div>

@@ -38,8 +38,10 @@ export default function MetaLeadSimulatorModal({ isOpen, onClose }: Props) {
 
     setTimeout(() => {
       const progName =
-        programId === 'ai-pm'
-          ? 'AI-Native Project Management'
+        programId === 'workshop-3day'
+          ? '3-Day AI Builder Workshop'
+          : programId === 'ai-pm'
+          ? 'AI-Native Product Management (4 Certs in 3 Months)'
           : programId === 'ai-gtm'
           ? 'AI-Native GTM'
           : 'AI Fellowship';
@@ -292,7 +294,8 @@ export default function MetaLeadSimulatorModal({ isOpen, onClose }: Props) {
                 onChange={(e) => setProgramId(e.target.value as any)}
                 className="mt-1 w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white font-bold"
               >
-                <option value="ai-pm">AI-Native Project Management</option>
+                <option value="workshop-3day">⚡ 3-Day AI Builder Workshop (Fri Eve - Sun)</option>
+                <option value="ai-pm">🎓 AI-Native PM (4 Certifications in 3 Months)</option>
                 <option value="ai-gtm">AI-Native GTM</option>
                 <option value="ai-fellowship">AI Fellowship</option>
               </select>
