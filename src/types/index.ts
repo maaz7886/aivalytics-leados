@@ -11,6 +11,8 @@ export interface Salesperson {
   title: string;
   status: 'Active' | 'Inactive';
   dailyCallTarget: number;
+  dailyLeadCapacity: number;
+  assignedCountToday?: number;
   avatarColor: string;
   joinedDate: string;
   bio?: string;
@@ -214,9 +216,13 @@ export interface Lead {
   // Acquisition & Form Metadata (Qualifying Questions)
   source: string;
   metaCampaign: string;
+  campaignName?: string;
   metaAdSet: string;
   metaAd: string;
   campaignId: string;
+  metaLeadId?: string;
+  formName?: string;
+  formAnswers?: Record<string, any>;
   dateCaptured: string;
   dateOfFillingForm?: string;
   createdTime?: string;
@@ -259,6 +265,9 @@ export interface Lead {
   
   // Sales & CRM (Decoupled 4-record Architecture)
   assignedSalesperson: string;
+  assignedAt?: string;
+  firstCallAt?: string;
+  timeToFirstCallSeconds?: number;
   crmStage: Stage;
   leadStage?: LeadLifecycleStage;
   lastActivityOutcome?: ActivityOutcome;
@@ -412,7 +421,40 @@ export interface CallActivity {
   timestamp: string;
   outcome: string;
   notes?: string;
+  nextAction?: string;
+  nextActionDue?: string;
   durationSeconds?: number;
   salesperson?: string;
+  salespersonId?: string;
+  provider?: string;
+  providerCallId?: string;
+  recordingUrl?: string;
 }
+
+export interface TimelineEvent {
+  id: string;
+  leadId: string;
+  eventType: 'created' | 'synced_from_sheet' | 'assigned' | 'reassigned' | 'call_logged' | 'stage_changed' | 'note_added' | 'task_created' | 'whatsapp_sent' | string;
+  title?: string;
+  description?: string;
+  performedBy?: string;
+  performedByName: string;
+  details?: Record<string, any>;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+export interface SyncLog {
+  id: string;
+  source: string;
+  leadsCount: number;
+  successCount: number;
+  errorCount: number;
+  status?: 'success' | 'error' | string;
+  rowsProcessed?: number;
+  errorMessage?: string;
+  errors?: any[];
+  createdAt: string;
+}
+
 

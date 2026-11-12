@@ -18,7 +18,9 @@ import type {
   MentorMeeting,
   DemoSession,
   DirectSale,
-  OutreachCadence
+  OutreachCadence,
+  TimelineEvent,
+  SyncLog
 } from '../types';
 import {
   supabase,
@@ -32,7 +34,11 @@ import {
   upsertProgramInSupabase,
   fetchTasksFromSupabase,
   upsertTaskInSupabase,
-  deleteTaskFromSupabase
+  deleteTaskFromSupabase,
+  insertTimelineEventToDb,
+  fetchTimelineForLead,
+  insertCallRecordToDb,
+  fetchSyncLogsFromDb
 } from '../lib/supabase';
 
 export function mapCrmStageToLifecycle(crmStage: Stage): {
@@ -790,6 +796,7 @@ export const adminUser: Salesperson = {
   title: 'Head of Sales & Admissions',
   status: 'Active',
   dailyCallTarget: 10,
+  dailyLeadCapacity: 50,
   avatarColor: 'bg-gray-900',
   joinedDate: '2025-11-01',
   bio: 'Full management access across all sales reps, lead pools, and automation.'
@@ -805,6 +812,7 @@ export const initialSalespeople: Salesperson[] = [
     title: 'Senior Account Executive',
     status: 'Active',
     dailyCallTarget: 30,
+    dailyLeadCapacity: 35,
     avatarColor: 'bg-emerald-600',
     joinedDate: '2026-01-15',
     bio: 'Specializes in high-intent AI-PM candidates & enterprise conversions.'
@@ -818,6 +826,7 @@ export const initialSalespeople: Salesperson[] = [
     title: 'Admissions & Growth Lead',
     status: 'Active',
     dailyCallTarget: 25,
+    dailyLeadCapacity: 30,
     avatarColor: 'bg-purple-600',
     joinedDate: '2026-02-01',
     bio: 'Expert in candidate qualification, AI-GTM admissions and budget handling.'
@@ -831,6 +840,7 @@ export const initialSalespeople: Salesperson[] = [
     title: 'Career Consultant & Advisor',
     status: 'Active',
     dailyCallTarget: 25,
+    dailyLeadCapacity: 30,
     avatarColor: 'bg-blue-600',
     joinedDate: '2026-02-15',
     bio: 'Focuses on working professionals with 5+ years experience and salary uplift counseling.'
@@ -844,6 +854,7 @@ export const initialSalespeople: Salesperson[] = [
     title: 'Lead Executive - PM Programs',
     status: 'Active',
     dailyCallTarget: 30,
+    dailyLeadCapacity: 35,
     avatarColor: 'bg-rose-600',
     joinedDate: '2026-03-01',
     bio: 'Dedicated to rapid WhatsApp follow-ups and evening callback batches.'
@@ -857,6 +868,7 @@ export const initialSalespeople: Salesperson[] = [
     title: 'Technical Program Advisor',
     status: 'Active',
     dailyCallTarget: 20,
+    dailyLeadCapacity: 25,
     avatarColor: 'bg-amber-600',
     joinedDate: '2026-03-10',
     bio: 'Handles technical objections, curriculum deep dives, and fellowship candidates.'
@@ -878,7 +890,26 @@ interface AppContextType {
   todayCallActivities: CallActivity[];
   dailyCallGoal: number;
   setDailyCallGoal: (goal: number) => void;
-  logCall: (leadId: string, outcome?: string, notes?: string) => void;
+  logCall: (
+    leadId: string,
+    outcome?: string,
+    notes?: string,
+    nextActionData?: {
+      action: string;
+      dueDateTime: string;
+      notes?: string;
+    },
+    telephony?: {
+      provider?: string;
+      durationSeconds?: number;
+      recordingUrl?: string;
+      providerCallId?: string;
+    }
+  ) => void;
+  logTimelineEvent: (leadId: string, eventType: string, title: string, description: string, details?: any) => Promise<void>;
+  fetchLeadTimeline: (leadId: string) => Promise<TimelineEvent[]>;
+  syncLogs: SyncLog[];
+  triggerManualSync: () => Promise<{ success: boolean; message: string; rowsProcessed?: number }>;
   addLead: (lead: Lead) => void;
   bulkAddLeads: (leads: Lead[]) => void;
   updateLeadStage: (id: string, stage: Stage) => void;
@@ -1018,6 +1049,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? Number(saved) : 40;
   });
 
+  const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
+
   // Sales Team & Role State
   const [salespeople, setSalespeople] = useState<Salesperson[]>(() => {
     const saved = localStorage.getItem('AIVALYTICS_SALESPEOPLE');
@@ -1126,11 +1159,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const assignLead = (leadId: string, salespersonName: string) => {
+    const now = new Date().toISOString();
+    const performer = currentUser?.name || 'Admin';
     setMasterLeads((prev) =>
       prev.map((l) => {
         if (l.id === leadId) {
-          const updated = { ...l, assignedSalesperson: salespersonName };
+          const updated = { ...l, assignedSalesperson: salespersonName, assignedAt: now };
           insertLeadToSupabase(updated);
+          insertTimelineEventToDb({
+            lead_id: leadId,
+            event_type: 'lead_assigned',
+            title: 'Lead Assigned',
+            description: `Assigned to ${salespersonName} by ${performer}`,
+            performed_by_name: performer
+          });
           return updated;
         }
         return l;
@@ -1139,12 +1181,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const bulkAssignLeads = (leadIds: string[], salespersonName: string) => {
+    const now = new Date().toISOString();
+    const performer = currentUser?.name || 'Admin';
     const toUpdate: Lead[] = [];
     setMasterLeads((prev) => {
       const nextLeads = prev.map((l) => {
         if (leadIds.includes(l.id)) {
-          const updated = { ...l, assignedSalesperson: salespersonName };
+          const updated = { ...l, assignedSalesperson: salespersonName, assignedAt: now };
           toUpdate.push(updated);
+          insertTimelineEventToDb({
+            lead_id: l.id,
+            event_type: 'lead_assigned',
+            title: 'Lead Bulk Assigned',
+            description: `Bulk assigned to ${salespersonName} by ${performer}`,
+            performed_by_name: performer
+          });
           return updated;
         }
         return l;
@@ -1160,7 +1211,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const activeReps = salespeople.filter((s) => s.status === 'Active');
     if (activeReps.length === 0) return;
 
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    // Count assignments made today per rep
+    const assignedTodayCount: Record<string, number> = {};
+    activeReps.forEach((r) => { assignedTodayCount[r.name] = 0; });
+
+    masterLeads.forEach((l) => {
+      if (l.assignedSalesperson && assignedTodayCount[l.assignedSalesperson] !== undefined) {
+        if (l.assignedAt && new Date(l.assignedAt) >= todayStart) {
+          assignedTodayCount[l.assignedSalesperson]++;
+        }
+      }
+    });
+
+    const now = new Date().toISOString();
+    const performer = currentUser?.name || 'System Auto-Assign';
     const toUpdate: Lead[] = [];
+
     setMasterLeads((prev) => {
       let repIdx = 0;
       const nextLeads = prev.map((l) => {
@@ -1168,10 +1237,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? leadIds.includes(l.id)
           : (!l.assignedSalesperson || l.assignedSalesperson === 'Unassigned' || l.assignedSalesperson === 'Alex Rivera');
         if (shouldAssign) {
-          const rep = activeReps[repIdx % activeReps.length];
+          // Find next active rep with capacity available
+          let chosenRep = activeReps[repIdx % activeReps.length];
+          for (let i = 0; i < activeReps.length; i++) {
+            const candidate = activeReps[(repIdx + i) % activeReps.length];
+            const cap = candidate.dailyLeadCapacity || 30;
+            const count = assignedTodayCount[candidate.name] || 0;
+            if (count < cap) {
+              chosenRep = candidate;
+              repIdx = repIdx + i;
+              break;
+            }
+          }
           repIdx++;
-          const updated = { ...l, assignedSalesperson: rep.name };
+          assignedTodayCount[chosenRep.name] = (assignedTodayCount[chosenRep.name] || 0) + 1;
+          const updated = { ...l, assignedSalesperson: chosenRep.name, assignedAt: now };
           toUpdate.push(updated);
+          insertTimelineEventToDb({
+            lead_id: l.id,
+            event_type: 'lead_assigned',
+            title: 'Auto-Assigned (Round Robin)',
+            description: `Auto-assigned to ${chosenRep.name} (Today's load: ${assignedTodayCount[chosenRep.name]}/${chosenRep.dailyLeadCapacity || 30})`,
+            performed_by_name: performer
+          });
           return updated;
         }
         return l;
@@ -1261,6 +1349,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (dbTasks && dbTasks.length > 0) {
         setTasks(dbTasks);
         localStorage.setItem('AIVALYTICS_TASKS', JSON.stringify(dbTasks));
+      }
+
+      const dbSyncLogs = await fetchSyncLogsFromDb();
+      if (dbSyncLogs && dbSyncLogs.length > 0) {
+        setSyncLogs(dbSyncLogs);
       }
     }
     syncSupabaseOnBoot();
@@ -1472,35 +1565,142 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const logCall = (leadId: string, outcome: string = 'Call Initiated', notes: string = '') => {
+  const logTimelineEvent = async (
+    leadId: string,
+    eventType: string,
+    title: string,
+    description: string,
+    details?: any
+  ) => {
+    const performer = currentUser?.name || 'System';
+    await insertTimelineEventToDb({
+      lead_id: leadId,
+      event_type: eventType,
+      title,
+      description,
+      performed_by_name: performer,
+      metadata: details || null
+    });
+  };
+
+  const fetchLeadTimeline = async (leadId: string) => {
+    return await fetchTimelineForLead(leadId);
+  };
+
+  const triggerManualSync = async () => {
+    try {
+      const fresh = await fetchLeadsFromSupabase();
+      if (fresh && fresh.length > 0) {
+        setMasterLeads(fresh);
+      }
+      const logs = await fetchSyncLogsFromDb();
+      if (logs) setSyncLogs(logs);
+      return { success: true, message: 'Leads & logs synchronized successfully', rowsProcessed: fresh?.length || 0 };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Sync failed' };
+    }
+  };
+
+  const logCall = (
+    leadId: string,
+    outcome: string = 'Call Initiated',
+    notes: string = '',
+    nextActionData?: {
+      action: string;
+      dueDateTime: string;
+      notes?: string;
+    },
+    telephony?: {
+      provider?: string;
+      durationSeconds?: number;
+      recordingUrl?: string;
+      providerCallId?: string;
+    }
+  ) => {
     const targetLead = masterLeads.find((l) => l.id === leadId);
     const callerName = currentUser?.name || 'Alex Rivera';
+    const now = new Date().toISOString();
+
+    let firstCallAt = targetLead?.firstCallAt;
+    let timeToFirstCallSeconds = targetLead?.timeToFirstCallSeconds;
+
+    if (!firstCallAt && targetLead) {
+      firstCallAt = now;
+      if (targetLead.assignedAt) {
+        const diffSec = Math.max(0, Math.round((new Date(now).getTime() - new Date(targetLead.assignedAt).getTime()) / 1000));
+        timeToFirstCallSeconds = diffSec;
+      }
+    }
+
     const newActivity: CallActivity = {
       id: `call-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       leadId,
       leadName: targetLead ? targetLead.fullName : 'Lead',
       leadPhone: targetLead ? targetLead.phone : '',
       programName: targetLead ? targetLead.programName : 'AI Program',
-      timestamp: new Date().toISOString(),
+      timestamp: now,
       outcome,
       notes: notes || (outcome === 'Call Initiated' ? 'Direct phone call placed' : `Call outcome marked as ${outcome}`),
-      salesperson: callerName
+      salesperson: callerName,
+      provider: telephony?.provider || 'manual',
+      recordingUrl: telephony?.recordingUrl,
+      nextAction: nextActionData?.action,
+      nextActionDue: nextActionData?.dueDateTime
     };
 
     setCallActivities((prev) => [newActivity, ...prev]);
 
+    // Insert into public.calls table
+    insertCallRecordToDb({
+      id: newActivity.id,
+      lead_id: leadId,
+      caller_name: callerName,
+      outcome,
+      notes: notes || 'Call logged',
+      duration_seconds: telephony?.durationSeconds || 0,
+      recording_url: telephony?.recordingUrl || null,
+      provider: telephony?.provider || 'manual',
+      provider_call_id: telephony?.providerCallId || null,
+      next_action: nextActionData?.action || null,
+      next_action_due: nextActionData?.dueDateTime || null
+    });
+
+    // Timeline event
+    insertTimelineEventToDb({
+      lead_id: leadId,
+      event_type: 'call_logged',
+      title: `Call: ${outcome}`,
+      description: `${callerName} called ${targetLead?.fullName || 'lead'}: ${notes || outcome}`,
+      performed_by_name: callerName,
+      metadata: { outcome, duration: telephony?.durationSeconds, nextAction: nextActionData }
+    });
+
     // Also persist call note, outcome, and timestamps to Supabase on the lead
     const newCallNote = {
       id: `note-${Date.now()}`,
-      date: new Date().toISOString(),
+      date: now,
       salesperson: callerName,
-      rawNotes: `[Outcome: ${outcome}] ${notes || 'Direct outreach call placed'}`,
+      rawNotes: `[Outcome: ${outcome}] ${notes || 'Direct outreach call placed'}${nextActionData ? ` | Next: ${nextActionData.action} (${nextActionData.dueDateTime})` : ''}`,
       aiAnalysis: {
         trueDesiredOutcome: outcome,
         primaryMotivation: 'Outreach engagement',
         purchaseIntent: outcome === 'Interested' || outcome === 'Qualified' ? 85 : 60
       }
     };
+
+    let nextTaskObj = targetLead?.nextTask;
+    if (nextActionData && nextActionData.action) {
+      nextTaskObj = {
+        id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        leadId,
+        owner: callerName,
+        taskType: (['Call', 'WhatsApp', 'Session', 'Payment Follow-Up', 'Review'].includes(nextActionData.action) ? nextActionData.action : 'Call') as any,
+        dueDateTime: nextActionData.dueDateTime,
+        priority: 'High',
+        completionStatus: 'Pending',
+        notes: nextActionData.notes || notes
+      };
+    }
 
     setMasterLeads((prev) =>
       prev.map((l) => {
@@ -1515,8 +1715,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const updated: Lead = {
             ...l,
             numberOfCalls: (l.numberOfCalls || 0) + 1,
-            lastContacted: new Date().toISOString(),
+            lastContacted: now,
+            firstCallAt: firstCallAt || l.firstCallAt,
+            timeToFirstCallSeconds: timeToFirstCallSeconds ?? l.timeToFirstCallSeconds,
             callNotesHistory: updatedHistory,
+            nextTask: nextTaskObj || l.nextTask,
+            nextFollowUp: nextActionData?.dueDateTime || l.nextFollowUp,
             ...(shouldUpdateStage ? { crmStage: outcome as Stage } : {})
           };
           insertLeadToSupabase(updated);
@@ -2079,6 +2283,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dailyCallGoal,
         setDailyCallGoal,
         logCall,
+        logTimelineEvent,
+        fetchLeadTimeline,
+        syncLogs,
+        triggerManualSync,
         addLead,
         bulkAddLeads,
         updateLeadStage,

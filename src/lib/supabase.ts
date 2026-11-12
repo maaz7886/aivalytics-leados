@@ -44,6 +44,12 @@ export function mapLeadToDb(lead: Partial<Lead>): any {
     meta_ad_set: lead.metaAdSet || '',
     meta_ad: lead.metaAd || '',
     campaign_id: lead.campaignId || '',
+    meta_lead_id: lead.metaLeadId || null,
+    form_name: lead.formName || '',
+    form_answers: lead.formAnswers || {},
+    assigned_at: lead.assignedAt || null,
+    first_call_at: lead.firstCallAt || null,
+    time_to_first_call_seconds: lead.timeToFirstCallSeconds || null,
     date_captured: lead.dateCaptured || lead.dateOfFillingForm || new Date().toISOString(),
     program_id: lead.programId || 'ai-pm',
     program_name: lead.programName || 'AI-Native Project Management',
@@ -115,6 +121,9 @@ export function mapDbToLead(d: any): Lead {
     metaAdSet: d.meta_ad_set || '',
     metaAd: d.meta_ad || '',
     campaignId: d.campaign_id || '',
+    metaLeadId: d.meta_lead_id || undefined,
+    formName: d.form_name || '',
+    formAnswers: d.form_answers || {},
     dateCaptured: d.date_captured || d.created_at,
     dateOfFillingForm: d.date_captured ? String(d.date_captured).split('T')[0] : '',
     createdTime: d.date_captured ? String(d.date_captured).replace('T', ' ').substring(0, 16) : (d.created_at ? String(d.created_at).replace('T', ' ').substring(0, 16) : ''),
@@ -149,6 +158,9 @@ export function mapDbToLead(d: any): Lead {
     paymentLink: d.payment_link || '',
     aiRecommendation: d.ai_recommendation || '',
     assignedSalesperson: d.assigned_salesperson || 'Alex Rivera',
+    assignedAt: d.assigned_at || undefined,
+    firstCallAt: d.first_call_at || undefined,
+    timeToFirstCallSeconds: d.time_to_first_call_seconds ? Number(d.time_to_first_call_seconds) : undefined,
     crmStage: (d.crm_stage || 'New Lead') as Stage,
     leadTemperature: d.lead_temperature || 'Cold',
     lastContacted: d.last_contacted || 'Not Contacted',
@@ -424,4 +436,120 @@ export async function deleteTaskFromSupabase(id: string): Promise<boolean> {
     return false;
   }
 }
+
+// 9. Insert Lead Timeline Event
+export async function insertTimelineEventToDb(event: {
+  id?: string;
+  leadId: string;
+  eventType: string;
+  performedBy?: string;
+  performedByName: string;
+  details?: Record<string, any>;
+}): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const payload = {
+      id: event.id || `evt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      lead_id: event.leadId,
+      event_type: event.eventType,
+      performed_by: event.performedBy || 'System',
+      performed_by_name: event.performedByName,
+      details: event.details || {},
+      created_at: new Date().toISOString()
+    };
+    const { error } = await supabase.from('lead_timeline').insert(payload);
+    if (error) {
+      // Table may not exist yet or fallback to lead_activities
+      await supabase.from('lead_activities').insert({
+        id: payload.id,
+        lead_id: payload.lead_id,
+        activity_type: payload.event_type,
+        description: `${payload.performed_by_name}: ${event.eventType}`,
+        metadata: payload.details
+      }).catch(() => {});
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 10. Fetch Timeline Events for a Lead
+export async function fetchTimelineForLead(leadId: string) {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const { data, error } = await supabase
+      .from('lead_timeline')
+      .select('*')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: false });
+    if (!error && data) return data;
+
+    // Fallback to lead_activities if lead_timeline is not yet populated
+    const fallback = await supabase
+      .from('lead_activities')
+      .select('*')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: false });
+    return fallback.data || [];
+  } catch {
+    return [];
+  }
+}
+
+// 11. Record Call Log in Calls Table
+export async function insertCallRecordToDb(call: {
+  id: string;
+  leadId: string;
+  salespersonName: string;
+  salespersonId?: string;
+  outcome: string;
+  notes?: string;
+  nextAction?: string;
+  nextActionDue?: string;
+  provider?: string;
+  providerCallId?: string;
+  durationSeconds?: number;
+  recordingUrl?: string;
+}): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+  try {
+    const payload = {
+      id: call.id,
+      lead_id: call.leadId,
+      salesperson_name: call.salespersonName,
+      salesperson_id: call.salespersonId || null,
+      outcome: call.outcome,
+      notes: call.notes || '',
+      next_action: call.nextAction || null,
+      next_action_due: call.nextActionDue || null,
+      provider: call.provider || null,
+      provider_call_id: call.providerCallId || null,
+      duration_seconds: call.durationSeconds || null,
+      recording_url: call.recordingUrl || null,
+      created_at: new Date().toISOString()
+    };
+    const { error } = await supabase.from('calls').insert(payload);
+    if (error) console.warn('Supabase Calls Insert Error:', error);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+// 12. Fetch Integration Sync Logs
+export async function fetchSyncLogsFromDb() {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const { data } = await supabase
+      .from('integration_sync_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
 

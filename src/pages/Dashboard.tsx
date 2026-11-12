@@ -28,7 +28,7 @@ export default function Dashboard() {
   const [selectedLeadForModal, setSelectedLeadForModal] = useState<Lead | null>(null);
 
   // Exception & Risk Center Drill-down State
-  const [selectedRiskCategory, setSelectedRiskCategory] = useState<'unassigned' | 'untouched' | 'overdue' | 'stalled_payments' | 'lagging_reps' | null>(null);
+  const [selectedRiskCategory, setSelectedRiskCategory] = useState<'unassigned' | 'untouched' | 'overdue' | 'no_next_action' | 'lagging_reps' | null>(null);
   const [dashboardToast, setDashboardToast] = useState<string | null>(null);
 
   const showDashboardToast = (msg: string) => {
@@ -38,24 +38,24 @@ export default function Dashboard() {
 
   const todayStr = new Date().toISOString().substring(0, 10);
   const leadsPool = allLeads || leads;
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
 
   // 1. Unassigned leads
   const unassignedLeads = leadsPool.filter(
     (l) => !l.assignedSalesperson || l.assignedSalesperson === 'Unassigned'
   );
 
-  // 2. Untouched leads (0 calls and not terminal)
-  const untouchedLeads = leadsPool.filter(
-    (l) =>
-      (l.numberOfCalls || 0) === 0 &&
-      l.crmStage !== 'Not Interested' &&
-      l.crmStage !== 'Unqualified' &&
-      l.crmStage !== 'Converted'
-  );
+  // 2. Uncontacted leads older than 30 min (0 calls & created/assigned >30m ago)
+  const untouchedLeads = leadsPool.filter((l) => {
+    if ((l.numberOfCalls || 0) > 0 || (l.lastContacted && l.lastContacted !== 'Not Contacted')) return false;
+    if (['Not Interested', 'Unqualified', 'Converted', 'Lost'].includes(l.crmStage)) return false;
+    const t = l.assignedAt || l.dateCaptured || l.createdTime;
+    return !t || new Date(t) <= thirtyMinutesAgo;
+  });
 
   // 3. Overdue follow-ups & tasks
   const overdueFollowUps = leadsPool.filter((l) => {
-    if (l.crmStage === 'Not Interested' || l.crmStage === 'Unqualified' || l.crmStage === 'Converted') return false;
+    if (['Not Interested', 'Unqualified', 'Converted', 'Lost'].includes(l.crmStage)) return false;
     const isOverdueFollowUp = l.nextFollowUp && l.nextFollowUp.substring(0, 10) < todayStr;
     const isOverdueTask =
       l.nextTask &&
@@ -64,18 +64,17 @@ export default function Dashboard() {
     return Boolean(isOverdueFollowUp || isOverdueTask);
   });
 
-  // 4. Stalled payments (payment pending or link sent, unpaid)
-  const stalledPayments = leadsPool.filter(
-    (l) =>
-      (l.crmStage === 'Payment Pending' ||
-        l.paymentState === 'Payment link sent' ||
-        l.paymentState === 'Deposit pending') &&
-      l.paymentStatus !== 'Paid' &&
-      l.paymentState !== 'Paid in full'
-  );
+  // 4. Active leads with NO next action or follow-up scheduled
+  const leadsNoNextAction = leadsPool.filter((l) => {
+    if (['Not Interested', 'Unqualified', 'Converted', 'Lost'].includes(l.crmStage)) return false;
+    const hasNextTask = l.nextTask && !l.nextTask.completionStatus?.toLowerCase().includes('complete');
+    const hasFollowUp = l.nextFollowUp && new Date(l.nextFollowUp) >= new Date();
+    return !hasNextTask && !hasFollowUp;
+  });
 
-  // 5. Sales reps lagging target
+  // 5. Sales reps with low activity today (< 50% target)
   const laggingSalesReps = salespeople.filter((s) => {
+    if (s.status !== 'Active') return false;
     const repCalls = todayCallActivities.filter((c) => c.salesperson === s.name).length;
     const target = s.dailyCallTarget || 25;
     return repCalls < Math.floor(target / 2);
@@ -318,7 +317,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold px-3 py-1 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-full">
-              {unassignedLeads.length + untouchedLeads.length + overdueFollowUps.length + stalledPayments.length + laggingSalesReps.length} Total Exceptions
+              {unassignedLeads.length + untouchedLeads.length + overdueFollowUps.length + leadsNoNextAction.length + laggingSalesReps.length} Total Exceptions
             </span>
           </div>
         </div>
@@ -351,7 +350,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          {/* 2. Untouched Leads */}
+          {/* 2. Uncontacted >30m Leads */}
           <div
             onClick={() => setSelectedRiskCategory(selectedRiskCategory === 'untouched' ? null : 'untouched')}
             className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
@@ -362,7 +361,7 @@ export default function Dashboard() {
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300">
-                Untouched &gt;24h
+                Uncontacted &gt;30m
               </span>
               <span className="text-xs">⏱️</span>
             </div>
@@ -403,29 +402,29 @@ export default function Dashboard() {
             </span>
           </div>
 
-          {/* 4. Stalled Payments */}
+          {/* 4. Leads with No Next Action */}
           <div
-            onClick={() => setSelectedRiskCategory(selectedRiskCategory === 'stalled_payments' ? null : 'stalled_payments')}
+            onClick={() => setSelectedRiskCategory(selectedRiskCategory === 'no_next_action' ? null : 'no_next_action')}
             className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
-              selectedRiskCategory === 'stalled_payments'
+              selectedRiskCategory === 'no_next_action'
                 ? 'bg-purple-100/80 dark:bg-purple-950/60 border-purple-500 ring-2 ring-purple-500/30 shadow-xs'
                 : 'bg-purple-50/40 dark:bg-purple-950/20 border-purple-200/80 dark:border-purple-900/40 hover:bg-purple-100/50'
             }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800 dark:text-purple-300">
-                Payment Stalled
+                No Next Action
               </span>
-              <span className="text-xs">💳</span>
+              <span className="text-xs">📌</span>
             </div>
             <div className="my-1.5">
               <span className="text-2xl font-black text-purple-900 dark:text-purple-200">
-                {stalledPayments.length}
+                {leadsNoNextAction.length}
               </span>
               <span className="text-xs font-bold text-gray-500 ml-1">leads</span>
             </div>
             <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-400">
-              Pending payment link →
+              Needs follow-up plan →
             </span>
           </div>
 
@@ -464,16 +463,16 @@ export default function Dashboard() {
                 <h3 className="text-xs font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
                   <span>🔎 Drill-Down:</span>
                   {selectedRiskCategory === 'unassigned' && `Unassigned Leads (${unassignedLeads.length})`}
-                  {selectedRiskCategory === 'untouched' && `Untouched Leads >24h (${untouchedLeads.length})`}
+                  {selectedRiskCategory === 'untouched' && `Uncontacted Leads >30m (${untouchedLeads.length})`}
                   {selectedRiskCategory === 'overdue' && `Overdue Follow-ups & Tasks (${overdueFollowUps.length})`}
-                  {selectedRiskCategory === 'stalled_payments' && `Stalled Payment Requests (${stalledPayments.length})`}
+                  {selectedRiskCategory === 'no_next_action' && `Leads with No Next Action (${leadsNoNextAction.length})`}
                   {selectedRiskCategory === 'lagging_reps' && `Sales Reps Lagging Daily Target (${laggingSalesReps.length})`}
                 </h3>
                 <p className="text-[11px] text-gray-500">
                   {selectedRiskCategory === 'unassigned' && 'Incoming candidates waiting to be assigned to a representative.'}
-                  {selectedRiskCategory === 'untouched' && 'Leads captured in CRM that have received 0 outreach calls.'}
-                  {selectedRiskCategory === 'overdue' && 'Leads whose scheduled follow-up or callback is in the past.'}
-                  {selectedRiskCategory === 'stalled_payments' && 'Candidates with sent payment links that have not converted to Paid.'}
+                  {selectedRiskCategory === 'untouched' && 'New leads captured in CRM that have received 0 outreach calls for >30 minutes.'}
+                  {selectedRiskCategory === 'overdue' && 'Leads whose scheduled follow-up or callback deadline has elapsed.'}
+                  {selectedRiskCategory === 'no_next_action' && 'Active leads without an open task or future follow-up scheduled.'}
                   {selectedRiskCategory === 'lagging_reps' && 'Sales reps pacing below 50% of their daily calling targets.'}
                 </p>
               </div>
@@ -555,7 +554,7 @@ export default function Dashboard() {
                           ? untouchedLeads
                           : selectedRiskCategory === 'overdue'
                           ? overdueFollowUps
-                          : stalledPayments;
+                          : leadsNoNextAction;
 
                       if (records.length === 0) {
                         return (

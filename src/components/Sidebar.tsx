@@ -30,11 +30,14 @@ export default function Sidebar() {
       ]
     : [
         { name: "Dashboard", to: "/dashboard", icon: "🏠" },
+        { name: "Lead Inbox", to: "/inbox", icon: "📥" },
         { name: "Pipeline", to: "/pipeline", icon: "⚡" },
         { name: "Sales Team", to: "/team", icon: "👥", hasChevron: true },
+        { name: "Rep Activity", to: "/rep-activity", icon: "📈" },
         { name: "Analytics", to: "/analytics", icon: "📊" },
+        { name: "Integrations", to: "/integrations", icon: "⚡" },
         { name: "Programs", to: "/programs", icon: "🏛️" },
-        { name: "Import Center", to: "/import", icon: "📥" },
+        { name: "Import Center", to: "/import", icon: "📁" },
         { name: "Settings", to: "/settings", icon: "⚙️" },
       ];
 

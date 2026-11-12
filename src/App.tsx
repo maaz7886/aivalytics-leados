@@ -19,6 +19,9 @@ import SignUp from "./pages/auth/SignUp";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SalesTeam from "./pages/SalesTeam";
 import SalespersonWorkspace from "./pages/SalespersonWorkspace";
+import LeadInbox from "./pages/LeadInbox";
+import RepActivity from "./pages/RepActivity";
+import Integrations from "./pages/Integrations";
 
 function App() {
   return (
@@ -32,6 +35,7 @@ function App() {
           <Route element={<AppLayout />}> {/* layout with sidebar/header */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/inbox" element={<LeadInbox />} />
             <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
             <Route path="/pipeline" element={<Pipeline />} />
             <Route path="/tasks" element={<Navigate to="/pipeline" replace />} />
@@ -45,8 +49,9 @@ function App() {
             <Route path="/team" element={<SalesTeam />} />
             <Route path="/team/:repId" element={<SalespersonWorkspace />} />
             <Route path="/workspace/:repId" element={<SalespersonWorkspace />} />
+            <Route path="/rep-activity" element={<RepActivity />} />
             <Route path="/analytics" element={<Analytics />} />
-            <Route path="/integrations" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/import" element={<ImportCenter />} />
             <Route path="/import-history" element={<ImportHistory />} />

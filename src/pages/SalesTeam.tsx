@@ -43,6 +43,8 @@ export default function SalesTeam() {
   const [newRepPhone, setNewRepPhone] = useState('');
   const [newRepTitle, setNewRepTitle] = useState('Sales Representative');
   const [newRepTarget, setNewRepTarget] = useState(25);
+  const [newRepCapacity, setNewRepCapacity] = useState(30);
+  const [newRepStatus, setNewRepStatus] = useState<'Active' | 'Inactive'>('Active');
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -62,6 +64,9 @@ export default function SalesTeam() {
   // Individual rep stats generator
   const getRepStats = (repName: string) => {
     const repLeads = teamLeadsPool.filter((l) => l.assignedSalesperson === repName);
+    const repLeadsToday = repLeads.filter(
+      (l) => l.assignedAt && l.assignedAt.startsWith(todayStr)
+    ).length;
     const repCallsToday = callActivities.filter(
       (c) => c.salesperson === repName && c.timestamp.startsWith(todayStr)
     ).length;
@@ -75,6 +80,7 @@ export default function SalesTeam() {
 
     return {
       totalLeads: repLeads.length,
+      assignedToday: repLeadsToday,
       callsToday: repCallsToday,
       interested: repInterested,
       qualified: repQualified,
@@ -146,8 +152,9 @@ export default function SalesTeam() {
       phone: newRepPhone.trim() || '+91 98765 00000',
       role: 'Salesperson',
       title: newRepTitle.trim(),
-      status: 'Active',
+      status: newRepStatus,
       dailyCallTarget: Number(newRepTarget) || 25,
+      dailyLeadCapacity: Number(newRepCapacity) || 30,
       avatarColor: randomColor,
       joinedDate: new Date().toISOString().substring(0, 10),
       bio: 'Admissions & sales representative.'
@@ -157,6 +164,8 @@ export default function SalesTeam() {
     setNewRepName('');
     setNewRepEmail('');
     setNewRepPhone('');
+    setNewRepCapacity(30);
+    setNewRepStatus('Active');
     showToast(`Added ${newRepName} to the sales team!`);
   };
 
@@ -312,32 +321,62 @@ export default function SalesTeam() {
                       </div>
                     </div>
 
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      rep.status === 'Active'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
-                        : 'bg-gray-100 text-gray-600 border-gray-300'
-                    }`}>
-                      {rep.status}
-                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const nextStatus = rep.status === 'Active' ? 'Inactive' : 'Active';
+                        updateSalesperson(rep.id, { status: nextStatus });
+                        showToast(`${rep.name} is now ${nextStatus}`);
+                      }}
+                      className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border cursor-pointer transition-all ${
+                        rep.status === 'Active'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100'
+                          : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 hover:bg-rose-100'
+                      }`}
+                      title="Click to toggle Active / Inactive status"
+                    >
+                      {rep.status === 'Active' ? '● Active' : '○ Inactive'}
+                    </button>
                   </div>
 
-                  {/* Daily Target Progress Bar */}
-                  <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-750 rounded-xl border border-gray-100 dark:border-gray-700">
-                    <div className="flex items-center justify-between text-[11px] font-bold mb-1.5">
-                      <span className="text-gray-600 dark:text-gray-300 flex items-center gap-1">
-                        <span>📞</span> Daily Calls: <strong>{stats.callsToday}</strong>/{rep.dailyCallTarget || 25}
-                      </span>
-                      <span className={`${callPct >= 100 ? 'text-emerald-600' : 'text-gray-500'}`}>
-                        {callPct}% Target
-                      </span>
+                  {/* Daily Target & Lead Capacity Bar */}
+                  <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-750 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2">
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+                        <span className="text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                          <span>📞</span> Daily Calls: <strong>{stats.callsToday}</strong>/{rep.dailyCallTarget || 25}
+                        </span>
+                        <span className={`${callPct >= 100 ? 'text-emerald-600' : 'text-gray-500'}`}>
+                          {callPct}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            callPct >= 100 ? 'bg-emerald-500' : 'bg-emerald-600'
+                          }`}
+                          style={{ width: `${callPct}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          callPct >= 100 ? 'bg-emerald-500' : 'bg-emerald-600'
-                        }`}
-                        style={{ width: `${callPct}%` }}
-                      ></div>
+
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+                        <span className="text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                          <span>📥</span> Today's Leads: <strong>{stats.assignedToday}</strong>/{rep.dailyLeadCapacity || 30}
+                        </span>
+                        <span className={`${stats.assignedToday >= (rep.dailyLeadCapacity || 30) ? 'text-amber-600 font-bold' : 'text-gray-500'}`}>
+                          {Math.round((stats.assignedToday / (rep.dailyLeadCapacity || 30)) * 100)}% Cap
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            stats.assignedToday >= (rep.dailyLeadCapacity || 30) ? 'bg-amber-500' : 'bg-blue-600'
+                          }`}
+                          style={{ width: `${Math.min(100, Math.round((stats.assignedToday / (rep.dailyLeadCapacity || 30)) * 100))}%` }}
+                        ></div>
+                      </div>
                     </div>
                   </div>
 
@@ -644,6 +683,16 @@ export default function SalesTeam() {
               </div>
 
               <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Daily Lead Capacity</label>
+                <input
+                  type="number"
+                  value={selectedRepForEdit.dailyLeadCapacity || 30}
+                  onChange={(e) => setSelectedRepForEdit({ ...selectedRepForEdit, dailyLeadCapacity: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
+
+              <div>
                 <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Status</label>
                 <select
                   value={selectedRepForEdit.status}
@@ -748,6 +797,28 @@ export default function SalesTeam() {
                   onChange={(e) => setNewRepTarget(Number(e.target.value))}
                   className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
                 />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Daily Lead Capacity (Max leads/day)</label>
+                <input
+                  type="number"
+                  value={newRepCapacity}
+                  onChange={(e) => setNewRepCapacity(Number(e.target.value))}
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Status</label>
+                <select
+                  value={newRepStatus}
+                  onChange={(e) => setNewRepStatus(e.target.value as 'Active' | 'Inactive')}
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                >
+                  <option value="Active">Active (Receives incoming leads)</option>
+                  <option value="Inactive">Inactive (Paused)</option>
+                </select>
               </div>
             </div>
 
