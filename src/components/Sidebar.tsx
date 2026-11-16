@@ -1,172 +1,439 @@
 // src/components/Sidebar.tsx
-import { Link, useLocation } from "react-router-dom";
-import { useApp } from "../context/AppContext";
+import React, { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
+import { getSavedViewCounts } from '../utils/savedViews';
+import { Avatar } from './ui/Avatar';
 import {
-  Calendar,
+  CalendarCheck,
+  Compass,
+  LayoutGrid,
   Inbox,
-  Layers,
-  Kanban,
-  UploadCloud,
-  Users as UsersIcon,
-  TrendingUp,
+  Clock,
+  AlertCircle,
+  Flame,
+  CreditCard,
+  CheckCircle2,
+  XCircle,
+  Users,
+  Activity,
   DollarSign,
-  BarChart3,
+  BarChart2,
   BookOpen,
   GraduationCap,
   Zap,
   UserCheck,
+  Upload,
+  LogOut,
+  Search,
+  PanelLeftClose,
+  PanelLeft,
   ChevronRight
-} from "lucide-react";
+} from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
-export default function Sidebar() {
+interface SidebarProps {
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  onOpenSearch?: () => void;
+}
+
+export default function Sidebar({
+  collapsed = false,
+  onToggleCollapse,
+  onOpenSearch
+}: SidebarProps) {
   const location = useLocation();
-  const { currentUser, allLeads, leads } = useApp();
+  const navigate = useNavigate();
+  const { currentUser, allLeads, leads, setCurrentUser } = useApp();
+
   const isSalesperson = currentUser?.role === 'Salesperson';
+  const leadsPool = allLeads || leads || [];
+  const viewCounts = getSavedViewCounts(leadsPool, currentUser?.id, currentUser?.name);
 
-  const leadsPool = allLeads || leads;
-  const unassignedCount = leadsPool.filter(
-    (l) => !l.assignedSalesperson || l.assignedSalesperson === 'Unassigned'
-  ).length;
+  const searchParams = new URLSearchParams(location.search);
+  const currentView = searchParams.get('view');
 
-  // 4 Grouped Sections for Admin
-  const adminSections = [
-    {
-      title: "Today",
-      items: [
-        { name: "Today's Exceptions", to: "/today", icon: Calendar }
-      ]
-    },
-    {
-      title: "Leads",
-      items: [
-        { name: "Lead Inbox", to: "/inbox", icon: Inbox, badge: unassignedCount > 0 ? String(unassignedCount) : undefined },
-        { name: "All Leads", to: "/leads", icon: Layers },
-        { name: "Pipeline Kanban", to: "/pipeline", icon: Kanban },
-        { name: "Import Center", to: "/import", icon: UploadCloud }
-      ]
-    },
-    {
-      title: "Team",
-      items: [
-        { name: "Sales Team", to: "/team", icon: UsersIcon },
-        { name: "Rep Activity", to: "/rep-activity", icon: TrendingUp },
-        { name: "Payouts & Commissions", to: "/payouts", icon: DollarSign },
-        { name: "Reports & Analytics", to: "/analytics", icon: BarChart3 }
-      ]
-    },
-    {
-      title: "Settings",
-      items: [
-        { name: "Programs", to: "/programs", icon: BookOpen },
-        { name: "Faculty Mentors", to: "/settings/mentors", icon: GraduationCap },
-        { name: "Integrations & Sync", to: "/integrations", icon: Zap },
-        { name: "Users & Permissions", to: "/settings/users", icon: UserCheck }
-      ]
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    localStorage.removeItem('aivalytics_demo_user');
+    localStorage.removeItem('aivalytics_active_user');
+    navigate('/auth/signin');
+  };
+
+  const isActive = (path: string, view?: string) => {
+    if (view) {
+      return location.pathname === '/leads' && currentView === view;
     }
-  ];
-
-  // Restricted 3 Sections for Sales Reps:
-  // "Reps see only Today, My Leads and Programs (scripts/FAQs)."
-  const repSections = [
-    {
-      title: "Today",
-      items: [
-        { name: "Calling Mode", to: "/today", icon: Calendar }
-      ]
-    },
-    {
-      title: "My Leads",
-      items: [
-        { name: "My Pipeline", to: "/pipeline", icon: Kanban }
-      ]
-    },
-    {
-      title: "Offerings & Enablement",
-      items: [
-        { name: "Programs & Scripts", to: "/programs", icon: BookOpen }
-      ]
+    if (path === '/leads' && location.pathname === '/leads' && !currentView) {
+      return true;
     }
-  ];
-
-  const sections = isSalesperson ? repSections : adminSections;
+    if (path === '/today') {
+      return location.pathname === '/today' || (isSalesperson && location.pathname === '/');
+    }
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard' || (!isSalesperson && location.pathname === '/');
+    }
+    return location.pathname === path;
+  };
 
   return (
-    <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200/80 dark:border-gray-800 flex flex-col h-full shrink-0 select-none">
-      {/* Brand Header */}
-      <div className="p-5 border-b border-gray-100 dark:border-gray-800">
-        <Link to="/today" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-[#133926] text-white flex items-center justify-center font-black text-xl shadow-md group-hover:scale-105 transition-transform shrink-0">
-            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-              <path d="M12 2L3 22h4.5l2-5h5l2 5H21L12 2zm-1.2 12L12 8.5 13.2 14h-2.4z"/>
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-base font-black text-gray-900 dark:text-gray-100 tracking-tight leading-none">
+    <aside
+      className={`hidden md:flex flex-col bg-[#F7F7F5] border-r border-[#E6E6E3] transition-all duration-200 select-none shrink-0 ${
+        collapsed ? 'w-16' : 'w-60'
+      } h-screen sticky top-0`}
+    >
+      {/* 1. Header Wordmark */}
+      <div className="h-14 px-3.5 flex items-center justify-between border-b border-[#E6E6E3]">
+        {!collapsed && (
+          <Link to={isSalesperson ? '/today' : '/dashboard'} className="flex flex-col min-w-0">
+            <span className="text-[13px] font-semibold text-[#1F1F1D] tracking-tight truncate leading-none">
               AIValytics LeadOS
-            </h1>
-            <span className="text-[9px] font-extrabold tracking-widest text-emerald-800 dark:text-emerald-400 uppercase mt-1 block">
+            </span>
+            <span className="text-[9px] font-semibold tracking-wider text-[#6B6B66] uppercase mt-1 leading-none">
               BUILD · LEARN · DEPLOY
             </span>
-          </div>
-        </Link>
+          </Link>
+        )}
+        <button
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={`text-[#6B6B66] hover:text-[#1F1F1D] p-1.5 rounded-[6px] hover:bg-[#EEF0FD]/60 cursor-pointer ${
+            collapsed ? 'mx-auto' : ''
+          }`}
+        >
+          {collapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+        </button>
       </div>
 
-      {/* Navigation Grouped Sections */}
-      <nav className="flex-1 overflow-y-auto px-3.5 py-4 space-y-5">
-        {sections.map((section) => (
-          <div key={section.title} className="space-y-1">
-            <h3 className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">
-              {section.title}
-            </h3>
+      {/* 2. Global Search Pill */}
+      <div className="p-2 border-b border-[#E6E6E3]">
+        <button
+          onClick={onOpenSearch}
+          className={`w-full flex items-center gap-2 px-2.5 py-1.5 bg-white border border-[#E6E6E3] rounded-[6px] text-[#6B6B66] hover:text-[#1F1F1D] hover:border-[#D4D4D0] transition-colors cursor-pointer text-xs ${
+            collapsed ? 'justify-center px-0' : 'justify-between'
+          }`}
+          title="Search leads (Ctrl K)"
+        >
+          <div className="flex items-center gap-2">
+            <Search className="w-3.5 h-3.5 shrink-0" />
+            {!collapsed && <span className="text-[12px] truncate">Search leads...</span>}
+          </div>
+          {!collapsed && (
+            <kbd className="text-[10px] text-[#6B6B66] bg-[#F7F7F5] border border-[#E6E6E3] px-1 rounded">
+              Ctrl K
+            </kbd>
+          )}
+        </button>
+      </div>
 
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const isActive =
-                  location.pathname === item.to ||
-                  (item.to === "/today" && (location.pathname === "/" || location.pathname === "/dashboard"));
+      {/* 3. Navigation List */}
+      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+        {/* SECTION 1: TODAY */}
+        <div>
+          {!collapsed && (
+            <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[#6B6B66] mb-1">
+              Today
+            </div>
+          )}
+          {isSalesperson ? (
+            <Link
+              to="/today"
+              title="My Day"
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                isActive('/today')
+                  ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                  : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <CalendarCheck className={`w-4 h-4 shrink-0 ${isActive('/today') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                {!collapsed && <span className="truncate">My Day</span>}
+              </div>
+            </Link>
+          ) : (
+            <Link
+              to="/dashboard"
+              title="Control Room"
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                isActive('/dashboard')
+                  ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                  : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Compass className={`w-4 h-4 shrink-0 ${isActive('/dashboard') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                {!collapsed && <span className="truncate">Control Room</span>}
+              </div>
+            </Link>
+          )}
+        </div>
 
+        {/* SECTION 2: LEADS & SAVED VIEWS */}
+        <div className="space-y-0.5">
+          {!collapsed && (
+            <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[#6B6B66] mb-1">
+              Leads
+            </div>
+          )}
+
+          {/* All Leads primary link */}
+          <Link
+            to="/leads"
+            title="All Leads"
+            className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+              isActive('/leads')
+                ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <LayoutGrid className={`w-4 h-4 shrink-0 ${isActive('/leads') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+              {!collapsed && <span className="truncate">All leads</span>}
+            </div>
+            {!collapsed && (
+              <span className="text-[11px] tabular-nums text-[#6B6B66] font-medium">
+                {viewCounts.all}
+              </span>
+            )}
+          </Link>
+
+          {/* Saved Views (Airtable-style nested items) */}
+          {!collapsed && (
+            <div className="pl-4 pt-1 space-y-0.5 border-l border-[#E6E6E3] ml-3 mt-1">
+              {[
+                { id: 'unassigned', label: 'Unassigned', icon: Inbox, count: viewCounts.unassigned },
+                { id: 'today', label: 'My follow-ups today', icon: Clock, count: viewCounts.todayFollowups },
+                { id: 'overdue', label: 'Overdue', icon: AlertCircle, count: viewCounts.overdue, isAlert: viewCounts.overdue > 0 },
+                { id: 'hot', label: 'Hot leads', icon: Flame, count: viewCounts.hot },
+                { id: 'payment_pending', label: 'Payment pending', icon: CreditCard, count: viewCounts.paymentPending },
+                { id: 'enrolled', label: 'Enrolled', icon: CheckCircle2, count: viewCounts.enrolled },
+                { id: 'lost', label: 'Lost', icon: XCircle, count: viewCounts.lost }
+              ].map((view) => {
+                const isViewActive = isActive('/leads', view.id);
+                const Icon = view.icon;
                 return (
                   <Link
-                    key={item.to}
-                    to={item.to}
-                    className={`flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-all ${
-                      isActive
-                        ? "bg-[#133926] text-white shadow-xs font-bold"
-                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    key={view.id}
+                    to={`/leads?view=${view.id}`}
+                    className={`flex items-center justify-between px-2 py-1 rounded-[4px] text-[12px] transition-colors ${
+                      isViewActive
+                        ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                        : 'text-[#6B6B66] hover:text-[#1F1F1D] hover:bg-[#F3F4F6]'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-300' : 'text-gray-400'}`} />
-                      <span className="truncate">{item.name}</span>
+                    <div className="flex items-center gap-2 truncate">
+                      <Icon className={`w-3.5 h-3.5 shrink-0 ${view.isAlert ? 'text-[#B42318]' : ''}`} />
+                      <span className="truncate">{view.label}</span>
                     </div>
-
-                    {(item as any).badge ? (
-                      <span className="px-2 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-gray-950 shadow-2xs">
-                        {(item as any).badge}
-                      </span>
-                    ) : isActive ? (
-                      <ChevronRight className="w-3.5 h-3.5 opacity-80" />
-                    ) : null}
+                    <span
+                      className={`text-[10px] tabular-nums font-medium ${
+                        view.isAlert ? 'text-[#B42318] font-bold' : 'text-[#6B6B66]'
+                      }`}
+                    >
+                      {view.count}
+                    </span>
                   </Link>
                 );
               })}
             </div>
+          )}
+        </div>
+
+        {/* SECTION 3: TEAM (Admin Only) */}
+        {!isSalesperson && (
+          <div className="space-y-0.5">
+            {!collapsed && (
+              <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[#6B6B66] mb-1">
+                Team
+              </div>
+            )}
+            <Link
+              to="/team"
+              title="Team"
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                isActive('/team')
+                  ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                  : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Users className={`w-4 h-4 shrink-0 ${isActive('/team') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                {!collapsed && <span className="truncate">Team</span>}
+              </div>
+            </Link>
+
+            <Link
+              to="/rep-activity"
+              title="Rep Activity"
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                isActive('/rep-activity')
+                  ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                  : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Activity className={`w-4 h-4 shrink-0 ${isActive('/rep-activity') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                {!collapsed && <span className="truncate">Rep activity</span>}
+              </div>
+            </Link>
+
+            <Link
+              to="/payouts"
+              title="Payouts"
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                isActive('/payouts')
+                  ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                  : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <DollarSign className={`w-4 h-4 shrink-0 ${isActive('/payouts') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                {!collapsed && <span className="truncate">Payouts</span>}
+              </div>
+            </Link>
           </div>
-        ))}
+        )}
+
+        {/* SECTION 4: REPORTS (Admin Only) */}
+        {!isSalesperson && (
+          <div className="space-y-0.5">
+            {!collapsed && (
+              <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[#6B6B66] mb-1">
+                Reports
+              </div>
+            )}
+            <Link
+              to="/reports"
+              title="Sources & Ads"
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                isActive('/reports')
+                  ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                  : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <BarChart2 className={`w-4 h-4 shrink-0 ${isActive('/reports') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                {!collapsed && <span className="truncate">Sources & ads</span>}
+              </div>
+            </Link>
+          </div>
+        )}
+
+        {/* SECTION 5: SETTINGS & PROGRAMS */}
+        <div className="space-y-0.5">
+          {!collapsed && (
+            <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[#6B6B66] mb-1">
+              {isSalesperson ? 'Enablement' : 'Settings'}
+            </div>
+          )}
+          <Link
+            to="/programs"
+            title="Programs & Scripts"
+            className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+              isActive('/programs')
+                ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <BookOpen className={`w-4 h-4 shrink-0 ${isActive('/programs') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+              {!collapsed && <span className="truncate">Programs & scripts</span>}
+            </div>
+          </Link>
+
+          {!isSalesperson && (
+            <>
+              <Link
+                to="/settings/mentors"
+                title="Mentors"
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                  isActive('/settings/mentors')
+                    ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                    : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <GraduationCap className={`w-4 h-4 shrink-0 ${isActive('/settings/mentors') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                  {!collapsed && <span className="truncate">Mentors</span>}
+                </div>
+              </Link>
+
+              <Link
+                to="/integrations"
+                title="Integrations"
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                  isActive('/integrations')
+                    ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                    : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Zap className={`w-4 h-4 shrink-0 ${isActive('/integrations') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                  {!collapsed && <span className="truncate">Integrations</span>}
+                </div>
+              </Link>
+
+              <Link
+                to="/settings/users"
+                title="Users"
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                  isActive('/settings/users')
+                    ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                    : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <UserCheck className={`w-4 h-4 shrink-0 ${isActive('/settings/users') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                  {!collapsed && <span className="truncate">Users</span>}
+                </div>
+              </Link>
+
+              <Link
+                to="/import"
+                title="Import"
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                  isActive('/import')
+                    ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                    : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Upload className={`w-4 h-4 shrink-0 ${isActive('/import') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                  {!collapsed && <span className="truncate">Import</span>}
+                </div>
+              </Link>
+            </>
+          )}
+        </div>
       </nav>
 
-      {/* Bottom Status Tag */}
-      <div className="p-3.5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-850">
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="text-gray-400 font-medium">Logged in as:</span>
-          <span className="font-bold text-gray-800 dark:text-gray-200 truncate max-w-[120px]">
-            {currentUser?.name || 'Admin'}
-          </span>
+      {/* 4. Bottom User Profile & Logout */}
+      <div className="p-2 border-t border-[#E6E6E3] bg-[#F7F7F5] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Avatar name={currentUser?.name || 'Admin'} size={24} />
+          {!collapsed && (
+            <div className="min-w-0">
+              <div className="text-[12px] font-medium text-[#1F1F1D] truncate leading-none">
+                {currentUser?.name || 'Administrator'}
+              </div>
+              <div className="text-[10px] text-[#6B6B66] truncate mt-0.5 leading-none">
+                {currentUser?.role || 'Admin'}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
-          {isSalesperson ? '● Calling Mode Active' : '👑 Master Admin Mode'}
-        </div>
+
+        <button
+          onClick={handleLogout}
+          aria-label="Sign out"
+          title="Sign out"
+          className="text-[#6B6B66] hover:text-[#B42318] p-1.5 rounded-[4px] hover:bg-white cursor-pointer transition-colors shrink-0"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+        </button>
       </div>
     </aside>
   );

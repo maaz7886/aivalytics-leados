@@ -1,263 +1,124 @@
 // src/components/Header.tsx
-import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
-import { useNavigate } from "react-router-dom";
-import { useApp, adminUser } from "../context/AppContext";
-import {
-  Search,
-  Phone,
-  Sun,
-  Moon,
-  Bell,
-  LogOut,
-  User,
-  Eye
-} from "lucide-react";
+import React from 'react';
+import { useLocation } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
+import { Search, Eye, X } from 'lucide-react';
+import { Avatar } from './ui/Avatar';
 
-export default function Header() {
+interface HeaderProps {
+  onOpenSearch?: () => void;
+}
+
+export default function Header({ onOpenSearch }: HeaderProps) {
+  const location = useLocation();
   const {
-    todayCallsCount,
-    dailyCallGoal,
     currentUser,
-    setCurrentUser,
     salespeople,
-    setSalespersonFilter,
+    setCurrentUser,
     adminWitnessRep,
     setAdminWitnessRep
   } = useApp();
-  const [user, setUser] = useState<any>(null);
-  const [dbConnected, setDbConnected] = useState<boolean>(true);
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    return document.documentElement.classList.contains("dark");
-  });
-  const [searchQuery, setSearchQuery] = useState("");
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    const checkDbHealth = async () => {
-      try {
-        const { error } = await supabase.from('leads').select('id', { count: 'exact', head: true });
-        setDbConnected(!error);
-      } catch {
-        setDbConnected(false);
+  // Simple breadcrumb generator
+  const getBreadcrumb = () => {
+    const path = location.pathname;
+    if (path === '/today') return currentUser?.role === 'Salesperson' ? 'My Day' : "Today's Exceptions";
+    if (path === '/dashboard') return 'Control Room';
+    if (path.startsWith('/leads')) {
+      const searchParams = new URLSearchParams(location.search);
+      const view = searchParams.get('view');
+      if (view) {
+        const viewNames: Record<string, string> = {
+          unassigned: 'Unassigned Leads',
+          today: 'Follow-ups Due Today',
+          overdue: 'Overdue Follow-ups',
+          hot: 'Hot Leads',
+          payment_pending: 'Payment Pending',
+          enrolled: 'Enrolled Students',
+          lost: 'Lost / Closed Leads'
+        };
+        return `Leads / ${viewNames[view] || view}`;
       }
-    };
-    checkDbHealth();
-
-    const fetchUser = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUser(user);
-        } else {
-          const demoUser = localStorage.getItem("aivalytics_demo_user");
-          if (demoUser) setUser(JSON.parse(demoUser));
-          else setUser({ email: "alex.rivera@aivalytics.io" });
-        }
-      } catch {
-        const demoUser = localStorage.getItem("aivalytics_demo_user");
-        if (demoUser) setUser(JSON.parse(demoUser));
-        else setUser({ email: "alex.rivera@aivalytics.io" });
-      }
-    };
-    fetchUser();
-  }, []);
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch {}
-    localStorage.removeItem("aivalytics_demo_user");
-    localStorage.removeItem("aivalytics_active_user");
-    setUser(null);
-    navigate("/auth/signin");
-  };
-
-  const toggleDark = () => {
-    if (isDark) {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-      setIsDark(false);
-    } else {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-      setIsDark(true);
+      return 'Leads / All Leads';
     }
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/leads`);
-    }
+    if (path === '/pipeline') return 'Leads / Pipeline';
+    if (path === '/inbox') return 'Leads / Inbox';
+    if (path === '/team') return 'Team / Sales Representatives';
+    if (path === '/rep-activity') return 'Team / Rep Activity';
+    if (path === '/payouts') return 'Team / Payouts';
+    if (path === '/reports' || path === '/analytics') return 'Reports / Source & Performance';
+    if (path === '/programs') return 'Offerings / Curriculum & Scripts';
+    if (path === '/settings/mentors') return 'Settings / Mentors';
+    if (path === '/settings/users') return 'Settings / Users';
+    if (path === '/integrations') return 'Settings / Google Sheet Sync';
+    if (path === '/import') return 'Settings / CSV Import';
+    return 'LeadOS';
   };
 
   return (
-    <header className="flex items-center justify-between px-6 py-2.5 border-b border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xs gap-4 shrink-0">
-      {/* Left: Brand Wordmark with Tagline */}
-      <div className="flex items-center gap-2.5 shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-[#133926] text-white flex items-center justify-center font-black text-sm shadow-xs shrink-0">
-          AI
-        </div>
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5">
-            <span className="font-black text-gray-900 dark:text-gray-100 text-sm tracking-tight">
-              AIValytics LeadOS
-            </span>
-            <span 
-              className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} 
-              title={dbConnected ? 'Cloud Sync Active' : 'Connecting to database...'}
-            />
-          </div>
-          <span className="text-[9px] font-extrabold tracking-widest text-emerald-800 dark:text-emerald-400 uppercase leading-none mt-0.5">
-            BUILD · LEARN · DEPLOY
-          </span>
-        </div>
+    <header className="h-11 px-4 bg-white border-b border-[#E6E6E3] flex items-center justify-between gap-3 shrink-0 select-none z-10">
+      {/* Left: Breadcrumb / Section Name */}
+      <div className="flex items-center gap-2 min-w-0">
+        <h1 className="text-[13px] font-semibold text-[#1F1F1D] truncate">
+          {getBreadcrumb()}
+        </h1>
       </div>
 
-      {/* Center: Search Bar */}
-      <div className="flex-1 max-w-md mx-auto hidden md:block">
-        <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search leads, name, email, or notes..."
-            className="w-full pl-9 pr-8 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-600 focus:bg-white dark:focus:bg-gray-900 transition-all"
-          />
-          <kbd className="absolute right-3 px-1.5 py-0.2 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 text-[10px] font-bold rounded border border-gray-300 dark:border-gray-600">
-            /
+      {/* Center: Admin Witness Mode Banner (if active) */}
+      {currentUser?.role === 'Admin' && adminWitnessRep && (
+        <div className="flex items-center gap-2 px-2.5 py-1 bg-[#FFF0D6] border border-[#FEE4E2] rounded-[4px] text-xs text-[#8A4B00]">
+          <Eye className="w-3.5 h-3.5 text-[#8A4B00]" />
+          <span>Viewing as rep: <strong>{adminWitnessRep}</strong></span>
+          <button
+            onClick={() => setAdminWitnessRep(null)}
+            className="text-[#8A4B00] hover:text-[#1F1F1D] ml-1 p-0.5"
+            title="Exit witness mode"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
+      {/* Right: Search Pill & Rep Switcher */}
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={onOpenSearch}
+          className="hidden sm:flex items-center gap-2 px-2.5 py-1 h-7 bg-[#F7F7F5] hover:bg-[#F3F4F6] border border-[#E6E6E3] rounded-[6px] text-xs text-[#6B6B66] cursor-pointer"
+        >
+          <Search className="w-3 h-3" />
+          <span>Quick find</span>
+          <kbd className="text-[10px] text-[#6B6B66] bg-white border border-[#E6E6E3] px-1 rounded">
+            Ctrl K
           </kbd>
-        </form>
-      </div>
+        </button>
 
-      {/* Right: Actions, Calling Goal & User Switcher */}
-      <div className="flex items-center gap-3 shrink-0">
-        {/* Role & Salesperson Switcher */}
-        {currentUser?.role === 'Salesperson' ? (
-          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50/90 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 rounded-full text-xs shadow-2xs">
-            <span className="text-emerald-800 dark:text-emerald-300 font-extrabold flex items-center gap-1.5">
-              <User className="w-3 h-3" />
-              <span>{currentUser.name}</span>
-              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">({currentUser.title?.split(' ')[0] || 'Sales Rep'})</span>
-            </span>
-            <button
-              onClick={() => {
-                setCurrentUser(adminUser);
-                setAdminWitnessRep(null);
-                setSalespersonFilter('All');
-                localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email: adminUser.email, role: "Admin" }));
-                localStorage.setItem("aivalytics_active_user", JSON.stringify(adminUser));
-              }}
-              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 dark:hover:text-emerald-100 underline ml-1 cursor-pointer"
-              title="Switch back to Admin Manager"
-            >
-              Switch to Admin
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs shadow-2xs">
-            <Eye className="w-3 h-3 text-gray-400" />
+        {/* Admin preview persona switcher */}
+        {currentUser?.role === 'Admin' && (
+          <div className="flex items-center gap-1.5 pl-2 border-l border-[#E6E6E3]">
+            <span className="text-[11px] text-[#6B6B66] hidden md:inline">View as:</span>
             <select
-              value={adminWitnessRep ? `witness-${adminWitnessRep}` : 'admin-master'}
+              value={currentUser.id}
               onChange={(e) => {
-                const val = e.target.value;
-                if (val === 'admin-master') {
-                  setAdminWitnessRep(null);
-                  setSalespersonFilter('All');
-                } else if (val.startsWith('witness-')) {
-                  const repName = val.replace('witness-', '');
-                  setAdminWitnessRep(repName);
-                } else if (val.startsWith('login-')) {
-                  const repId = val.replace('login-', '');
-                  const rep = salespeople.find((s) => s.id === repId);
-                  if (rep) {
-                    setAdminWitnessRep(null);
-                    setCurrentUser(rep);
-                    localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email: rep.email, role: "Salesperson" }));
-                    localStorage.setItem("aivalytics_active_user", JSON.stringify(rep));
-                  }
+                const rep = salespeople.find((s) => s.id === e.target.value);
+                if (rep) {
+                  setCurrentUser(rep);
                 }
               }}
-              className="bg-transparent font-black text-gray-800 dark:text-gray-200 text-xs focus:outline-hidden cursor-pointer"
+              className="text-xs bg-transparent border border-[#E6E6E3] rounded-[4px] px-2 py-0.5 text-[#1F1F1D] cursor-pointer outline-none hover:bg-[#F7F7F5]"
             >
-              <option value="admin-master">Master Admin (All Leads)</option>
-              <optgroup label="Witness Rep Portal:">
-                {salespeople.map((s) => (
-                  <option key={`witness-${s.id}`} value={`witness-${s.name}`}>
-                    Witness {s.name}'s Portal
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Direct Sign-In:">
-                {salespeople.map((s) => (
-                  <option key={`login-${s.id}`} value={`login-${s.id}`}>
-                    Sign in as {s.name}
-                  </option>
-                ))}
-              </optgroup>
+              <option value="admin-1">Admin (Me)</option>
+              {salespeople.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.role})
+                </option>
+              ))}
             </select>
           </div>
         )}
 
-        {/* Today's Calls Live Counter Pill */}
-        <button
-          onClick={() => {
-            navigate("/today");
-          }}
-          title={`${todayCallsCount} calls logged today (Target: ${dailyCallGoal}).`}
-          className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/80 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 rounded-full text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all shadow-2xs cursor-pointer group"
-        >
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <Phone className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-          <span>
-            <strong className="font-black text-gray-900 dark:text-gray-100">{todayCallsCount}</strong>
-            <span className="text-gray-500 dark:text-gray-400 font-semibold">/{dailyCallGoal}</span> Calls
-          </span>
-        </button>
-
-        {/* Theme Toggle Button */}
-        <button
-          onClick={toggleDark}
-          title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          className="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center transition-all cursor-pointer text-sm"
-        >
-          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-gray-600" />}
-        </button>
-
-        {/* Notifications Bell */}
-        <button
-          title="Notifications"
-          className="relative w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center transition-all cursor-pointer"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-gray-900"></span>
-        </button>
-
-        {/* User Profile Pill */}
-        <div className="flex items-center gap-2 pl-1 border-l border-gray-200 dark:border-gray-700">
-          <div className={`w-8 h-8 rounded-full ${currentUser?.avatarColor || 'bg-[#133926]'} text-white font-black text-xs flex items-center justify-center shadow-xs`}>
-            {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'A')}
-          </div>
-          <div className="hidden lg:block text-left">
-            <span className="text-xs font-bold text-gray-800 dark:text-gray-200 block leading-tight max-w-[140px] truncate">
-              {currentUser?.name || user?.email || 'Alex Rivera'}
-            </span>
-            <span className="text-[10px] text-gray-400 font-semibold block leading-none">
-              {currentUser?.role || 'Admin'}
-            </span>
-          </div>
-          <button
-            onClick={handleLogout}
-            title="Sign Out"
-            className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer ml-1"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
+        {/* Current user avatar pill */}
+        <div className="flex items-center gap-1.5 pl-1">
+          <Avatar name={currentUser?.name || 'Admin'} size={24} />
         </div>
       </div>
     </header>

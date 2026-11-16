@@ -1,46 +1,68 @@
 // src/layout/AppLayout.tsx
-import { Outlet } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
-import Header from "../components/Header";
-import ErrorBoundary from "../components/ErrorBoundary";
-import { useApp } from "../context/AppContext";
+import { useState, useEffect } from 'react';
+import { Outlet } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import Header from '../components/Header';
+import { MobileBottomBar } from '../components/MobileBottomBar';
+import { CommandPalette } from '../components/ui/CommandPalette';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function AppLayout() {
-  const { adminWitnessRep, setAdminWitnessRep, currentUser, leads } = useApp();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('leados_sidebar_collapsed') === 'true';
+  });
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('leados_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
+  // Global Ctrl+K / Cmd+K shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-auto">
-        <Header />
-        {currentUser?.role === 'Admin' && adminWitnessRep && (
-          <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-gray-950 text-white px-6 py-2.5 flex items-center justify-between text-xs font-semibold shadow-md border-b border-emerald-500/40 shrink-0">
-            <div className="flex items-center gap-3">
-              <span className="flex h-2.5 w-2.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-              </span>
-              <span className="text-emerald-100">
-                <strong className="text-white font-extrabold uppercase tracking-wider text-[11px] bg-emerald-700/80 px-2 py-0.5 rounded mr-2 border border-emerald-400/50">
-                  👁️ Admin Witness Mode
-                </strong>
-                Viewing portal as salesperson <span className="font-bold text-emerald-300 underline underline-offset-2">{adminWitnessRep}</span> ({leads.length} assigned leads).
-              </span>
-            </div>
-            <button
-              onClick={() => setAdminWitnessRep(null)}
-              className="px-3 py-1 bg-white text-emerald-950 hover:bg-emerald-50 font-black rounded-lg transition-all text-xs cursor-pointer shadow-xs shrink-0 flex items-center gap-1.5"
-            >
-              <span>✕</span> Exit to Master Overview
-            </button>
-          </div>
-        )}
-        <main className="flex-1 p-6 overflow-y-auto">
+    <div className="flex h-screen w-screen overflow-hidden bg-white text-[#1F1F1D]">
+      {/* 1. Desktop Left Sidebar */}
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapse}
+        onOpenSearch={() => setIsSearchOpen(true)}
+      />
+
+      {/* 2. Main Work Area */}
+      <div className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden bg-white">
+        {/* Header */}
+        <Header onOpenSearch={() => setIsSearchOpen(true)} />
+
+        {/* Page Content Viewport */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-white pb-16 md:pb-0">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
         </main>
       </div>
+
+      {/* 3. Mobile Bottom Tab Bar */}
+      <MobileBottomBar onOpenSearch={() => setIsSearchOpen(true)} />
+
+      {/* 4. Global Command Palette Modal */}
+      <CommandPalette
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+      />
     </div>
   );
 }
