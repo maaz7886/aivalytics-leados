@@ -1,28 +1,50 @@
 // src/pages/AllLeads.tsx
-import { useState, useMemo, Fragment } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import type { Lead, Stage } from '../types';
-import { LeadSidePanel } from '../components/LeadSidePanel';
-import { Avatar } from '../components/ui/Avatar';
-import { Button } from '../components/ui/Button';
+import { DataTable, ALL_COLUMNS } from '../components/ui/DataTable';
+import { SidePanel } from '../components/ui/SidePanel';
+import { LeadPanel } from '../components/LeadPanel';
+import { LostReasonModal } from '../components/LostReasonModal';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
-import { EmptyState } from '../components/EmptyState';
+import { Button } from '../components/ui/Button';
 import {
-  LayoutGrid,
-  Columns,
-  Calendar,
   Filter,
+  ArrowUpDown,
+  FolderTree,
+  EyeOff,
+  Rows,
   Plus,
   Search,
-  Phone,
-  MessageSquare,
-  ChevronDown,
-  ChevronRight,
   X,
-  FileSpreadsheet
+  Check,
+  Download,
+  Compass
 } from 'lucide-react';
-import { calculate48HourWorkingSla } from '../utils/cadenceUtils';
+import {
+  getUserViewPrefs,
+  setUserViewPrefs
+} from '../utils/tableFormatters';
+import type { UserViewPreferences } from '../utils/tableFormatters';
+
+const VIEW_NAMES: Record<string, string> = {
+  all: 'All leads',
+  unassigned: 'Unassigned',
+  today: 'My follow-ups today',
+  overdue: 'Overdue leads',
+  hot: 'Hot leads',
+  payment_pending: 'Payment pending',
+  enrolled: 'Enrolled',
+  lost: 'Lost leads'
+};
+
+interface FilterCondition {
+  id: string;
+  field: 'stage' | 'owner' | 'program' | 'temperature' | 'source' | 'campaign';
+  operator: 'is' | 'is_not' | 'contains' | 'is_empty';
+  value: string;
+}
 
 export default function AllLeads() {
   const {
@@ -30,7 +52,9 @@ export default function AllLeads() {
     leads,
     salespeople,
     assignLead,
+    bulkAssignLeads,
     updateLeadStage,
+    bulkUpdateStage,
     updateLead,
     addLead,
     currentUser
@@ -42,798 +66,938 @@ export default function AllLeads() {
 
   const searchParams = new URLSearchParams(location.search);
   const activeSavedView = searchParams.get('view') || 'all';
+  const urlLeadId = searchParams.get('lead');
 
-  // Local state for interactive table
-  const [viewType, setViewType] = useState<'grid' | 'kanban' | 'calendar'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
+  const isAdmin = currentUser?.role === 'Admin';
+  const currentUserId = currentUser?.id || 'default_user';
+
+  // Stored preferences per view
+  const [viewPrefs, setViewPrefs] = useState<UserViewPreferences>(() => {
+    return (
+      getUserViewPrefs(activeSavedView, currentUserId) || {
+        visibleColumns: ALL_COLUMNS.map((c) => c.id),
+        columnOrder: ALL_COLUMNS.map((c) => c.id),
+        columnWidths: {},
+        sortBy: [{ field: 'created', direction: 'desc' }],
+        groupBy: 'stage',
+        rowHeight: 'default'
+      }
+    );
+  });
+
+  // Re-load preferences when active view changes
+  useEffect(() => {
+    const loaded = getUserViewPrefs(activeSavedView, currentUserId);
+    if (loaded) {
+      setViewPrefs(loaded);
+    } else {
+      setViewPrefs({
+        visibleColumns: ALL_COLUMNS.map((c) => c.id),
+        columnOrder: ALL_COLUMNS.map((c) => c.id),
+        columnWidths: {},
+        sortBy: [{ field: 'created', direction: 'desc' }],
+        groupBy: 'stage',
+        rowHeight: 'default'
+      });
+    }
+  }, [activeSavedView, currentUserId]);
+
+  const updateAndSavePrefs = (partial: Partial<UserViewPreferences>) => {
+    setViewPrefs((prev) => {
+      const next = { ...prev, ...partial };
+      setUserViewPrefs(activeSavedView, currentUserId, next);
+      return next;
+    });
+  };
+
+  // Top Bar Segmented Control: Grid | Kanban | Calendar
+  const [viewMode, setViewMode] = useState<'grid' | 'kanban' | 'calendar'>('grid');
+
+  // Search query with 300ms debounce
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
+  // Toolbar Popover Open States
+  const [activePopover, setActivePopover] = useState<'filter' | 'sort' | 'group' | 'hide' | 'rowHeight' | null>(null);
+
+  // Filter conditions state
+  const [customFilters, setCustomFilters] = useState<FilterCondition[]>([]);
+
+  // Selection & Bulk Actions
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [groupBy, setGroupBy] = useState<'stage' | 'owner' | 'none'>('stage');
-  const [sortBy, setSortBy] = useState<'created_desc' | 'due_asc' | 'name_asc'>('created_desc');
-  const [rowHeight, setRowHeight] = useState<'compact' | 'normal' | 'relaxed'>('normal');
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [bulkActionTarget, setBulkActionTarget] = useState<'stage' | 'assign' | 'temp' | null>(null);
 
-  // Quick filter bar toggle
-  const [showFilters, setShowFilters] = useState(false);
-  const [filterStage, setFilterStage] = useState('All');
-  const [filterRep, setFilterRep] = useState('All');
-  const [filterProgram, setFilterProgram] = useState('All');
+  // Lost Reason Modal State
+  const [lostTargetLead, setLostTargetLead] = useState<Lead | null>(null);
+  const [isLostModalOpen, setIsLostModalOpen] = useState(false);
 
-  // Add lead modal state
-  const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+  // Add Lead Modal State
+  const [isAddLeadModalOpen, setIsAddLeadModalOpen] = useState(false);
   const [newLeadName, setNewLeadName] = useState('');
   const [newLeadPhone, setNewLeadPhone] = useState('');
   const [newLeadEmail, setNewLeadEmail] = useState('');
-  const [newLeadProgram, setNewLeadProgram] = useState('AI-Native PM');
+  const [newLeadProgram, setNewLeadProgram] = useState('AI-Native Project Management');
 
-  // View Names lookup
-  const viewNames: Record<string, string> = {
-    all: 'All leads',
-    unassigned: 'Unassigned',
-    today: 'My follow-ups today',
-    overdue: 'Overdue',
-    hot: 'Hot leads',
-    payment_pending: 'Payment pending',
-    enrolled: 'Enrolled',
-    lost: 'Lost'
-  };
+  // Close Popovers on Outside Click
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+        setActivePopover(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
-  // 1. Filter Leads by Saved View and Search
+  // Filtered Leads based on Saved View, Custom Filters, and Search
   const filteredLeads = useMemo(() => {
     const now = new Date();
     const todayStr = now.toISOString().substring(0, 10);
 
     return leadsPool.filter((l) => {
-      // Saved View Filter
+      // 1. Saved View Preset Criteria
       if (activeSavedView === 'unassigned') {
-        if (l.assignedSalesperson && l.assignedSalesperson !== 'Unassigned') return false;
+        if (l.assignedSalesperson && l.assignedSalesperson !== 'Unassigned' && l.assignedSalesperson.trim() !== '') {
+          return false;
+        }
       } else if (activeSavedView === 'today') {
         const due = l.nextTask?.dueDateTime || l.nextFollowUp || '';
-        if (!due.startsWith(todayStr)) return false;
+        const isAssignedToMe = l.assignedSalesperson === currentUser.name;
+        if (!due.startsWith(todayStr) || (!isAdmin && !isAssignedToMe)) return false;
       } else if (activeSavedView === 'overdue') {
         const due = l.nextTask?.dueDateTime || l.nextFollowUp || '';
-        const isClosed = l.crmStage === 'Lost' || l.crmStage === 'Unqualified' || l.crmStage === 'Converted' || l.enrollmentStatus === 'Enrolled';
+        const isClosed = l.crmStage === 'Lost' || l.crmStage === 'Unqualified' || l.crmStage === 'Converted';
         if (isClosed || !due || new Date(due).getTime() >= now.getTime()) return false;
       } else if (activeSavedView === 'hot') {
         const temp = (l as any).temperature || (l as any).leadTemperature || 'Warm';
         if (temp !== 'Hot' && l.crmStage !== 'Interested' && l.crmStage !== 'Qualified') return false;
       } else if (activeSavedView === 'payment_pending') {
-        if (l.crmStage !== 'Payment Pending' && l.crmStage !== 'Payment Discussion' && l.paymentState !== 'Payment link sent') return false;
+        if (
+          l.crmStage !== 'Payment Pending' &&
+          l.crmStage !== 'Payment Discussion' &&
+          l.paymentState !== 'Payment link sent'
+        ) {
+          return false;
+        }
       } else if (activeSavedView === 'enrolled') {
         if (l.crmStage !== 'Converted' && l.enrollmentStatus !== 'Enrolled' && l.paymentStatus !== 'Paid') return false;
       } else if (activeSavedView === 'lost') {
         if (l.crmStage !== 'Lost' && l.crmStage !== 'Unqualified' && l.crmStage !== 'Not Interested') return false;
       }
 
-      // Toolbar Filters
-      if (filterStage !== 'All' && l.crmStage !== filterStage) return false;
-      if (filterRep !== 'All' && l.assignedSalesperson !== filterRep) return false;
-      if (filterProgram !== 'All' && l.programName !== filterProgram) return false;
+      // 2. Custom Filter Conditions (AND combined)
+      for (const cond of customFilters) {
+        let fieldVal = '';
+        if (cond.field === 'stage') fieldVal = l.crmStage || '';
+        else if (cond.field === 'owner') fieldVal = l.assignedSalesperson || '';
+        else if (cond.field === 'program') fieldVal = l.programName || '';
+        else if (cond.field === 'temperature') fieldVal = (l as any).temperature || (l as any).leadTemperature || 'Warm';
+        else if (cond.field === 'source') fieldVal = l.source || '';
+        else if (cond.field === 'campaign') fieldVal = l.metaCampaign || '';
 
-      // Search Query Filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+        const valLower = fieldVal.toLowerCase();
+        const condValLower = cond.value.toLowerCase();
+
+        if (cond.operator === 'is' && valLower !== condValLower) return false;
+        if (cond.operator === 'is_not' && valLower === condValLower) return false;
+        if (cond.operator === 'contains' && !valLower.includes(condValLower)) return false;
+        if (cond.operator === 'is_empty' && fieldVal.trim() !== '') return false;
+      }
+
+      // 3. Search input (name / phone / email)
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
         const matchName = l.fullName?.toLowerCase().includes(q);
-        const matchPhone = l.phone?.includes(q);
+        const matchPhone = l.phone?.replace(/\D/g, '').includes(q.replace(/\D/g, ''));
         const matchEmail = l.email?.toLowerCase().includes(q);
-        const matchSource = l.source?.toLowerCase().includes(q) || l.metaCampaign?.toLowerCase().includes(q);
-        if (!matchName && !matchPhone && !matchEmail && !matchSource) return false;
+        if (!matchName && !matchPhone && !matchEmail) return false;
       }
 
       return true;
     });
-  }, [leadsPool, activeSavedView, filterStage, filterRep, filterProgram, searchQuery]);
+  }, [leadsPool, activeSavedView, customFilters, debouncedSearch, currentUser, isAdmin]);
 
-  // 2. Sort Leads
-  const sortedLeads = useMemo(() => {
-    return [...filteredLeads].sort((a, b) => {
-      if (sortBy === 'created_desc') {
-        return (
-          new Date(b.dateCaptured || b.createdTime || 0).getTime() -
-          new Date(a.dateCaptured || a.createdTime || 0).getTime()
-        );
-      }
-      if (sortBy === 'due_asc') {
-        const dueA = a.nextTask?.dueDateTime || a.nextFollowUp || '9999';
-        const dueB = b.nextTask?.dueDateTime || b.nextFollowUp || '9999';
-        return dueA.localeCompare(dueB);
-      }
-      if (sortBy === 'name_asc') {
-        return (a.fullName || '').localeCompare(b.fullName || '');
-      }
-      return 0;
-    });
-  }, [filteredLeads, sortBy]);
-
-  // 3. Group Leads
-  const groupedData = useMemo(() => {
-    if (groupBy === 'none') {
-      return [{ key: 'All', title: 'All Records', items: sortedLeads }];
-    }
-
-    const map: Record<string, Lead[]> = {};
-    sortedLeads.forEach((lead) => {
-      const groupKey =
-        groupBy === 'stage'
-          ? lead.crmStage || 'New Lead'
-          : lead.assignedSalesperson || 'Unassigned';
-      if (!map[groupKey]) map[groupKey] = [];
-      map[groupKey].push(lead);
-    });
-
-    return Object.entries(map).map(([key, items]) => ({
-      key,
-      title: key,
-      items
-    }));
-  }, [sortedLeads, groupBy]);
-
-  // Toggle selection
-  const handleToggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      setSelectedLeadIds(sortedLeads.map((l) => l.id));
-    } else {
-      setSelectedLeadIds([]);
-    }
+  // Lead Panel Navigation
+  const handleOpenLead = (lead: Lead) => {
+    const params = new URLSearchParams(location.search);
+    params.set('lead', lead.id);
+    navigate(`?${params.toString()}`);
   };
 
-  const handleToggleLead = (id: string) => {
-    setSelectedLeadIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+  const handleCloseLead = () => {
+    const params = new URLSearchParams(location.search);
+    params.delete('lead');
+    navigate(`?${params.toString()}`);
   };
 
-  // Side panel navigation
-  const currentLeadIndex = selectedLead
-    ? sortedLeads.findIndex((l) => l.id === selectedLead.id)
-    : -1;
-  const hasNextLead = currentLeadIndex >= 0 && currentLeadIndex < sortedLeads.length - 1;
+  const currentLeadIndex = filteredLeads.findIndex((l) => l.id === urlLeadId);
+  const hasNextLead = currentLeadIndex >= 0 && currentLeadIndex < filteredLeads.length - 1;
   const hasPrevLead = currentLeadIndex > 0;
 
   const handleNextLead = () => {
-    if (hasNextLead) setSelectedLead(sortedLeads[currentLeadIndex + 1]);
-  };
-  const handlePrevLead = () => {
-    if (hasPrevLead) setSelectedLead(sortedLeads[currentLeadIndex - 1]);
+    if (hasNextLead) {
+      handleOpenLead(filteredLeads[currentLeadIndex + 1]);
+    }
   };
 
-  // Add lead handler
+  const handlePrevLead = () => {
+    if (hasPrevLead) {
+      handleOpenLead(filteredLeads[currentLeadIndex - 1]);
+    }
+  };
+
+  // Selection handlers
+  const handleToggleSelectLead = (id: string) => {
+    setSelectedLeadIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllVisible = () => {
+    if (selectedLeadIds.length === filteredLeads.length) {
+      setSelectedLeadIds([]);
+    } else {
+      setSelectedLeadIds(filteredLeads.map((l) => l.id));
+    }
+  };
+
+  // Bulk Actions
+  const handleBulkStageChange = (newStage: Stage) => {
+    if (selectedLeadIds.length > 20) {
+      if (!window.confirm(`Are you sure you want to change the stage of ${selectedLeadIds.length} leads?`)) {
+        return;
+      }
+    }
+    bulkUpdateStage(selectedLeadIds, newStage);
+    setSelectedLeadIds([]);
+    setBulkActionTarget(null);
+  };
+
+  const handleBulkAssign = (salespersonName: string) => {
+    if (!isAdmin) return;
+    if (selectedLeadIds.length > 20) {
+      if (!window.confirm(`Are you sure you want to reassign ${selectedLeadIds.length} leads?`)) {
+        return;
+      }
+    }
+    bulkAssignLeads(selectedLeadIds, salespersonName);
+    setSelectedLeadIds([]);
+    setBulkActionTarget(null);
+  };
+
+  const handleBulkTemperature = (temp: 'Hot' | 'Warm' | 'Cold') => {
+    selectedLeadIds.forEach((id) => {
+      updateLead(id, { temperature: temp } as any);
+    });
+    setSelectedLeadIds([]);
+    setBulkActionTarget(null);
+  };
+
+  const handleExportCSV = () => {
+    if (!isAdmin) return;
+    const leadsToExport = filteredLeads.filter((l) => selectedLeadIds.includes(l.id));
+    const rows = [
+      ['Name', 'Phone', 'Email', 'Program', 'Stage', 'Owner', 'City', 'Created'].join(','),
+      ...leadsToExport.map((l) =>
+        [
+          `"${l.fullName}"`,
+          `"${l.phone}"`,
+          `"${l.email}"`,
+          `"${l.programName}"`,
+          `"${l.crmStage}"`,
+          `"${l.assignedSalesperson}"`,
+          `"${l.city}"`,
+          `"${l.dateCaptured}"`
+        ].join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leads_export_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Add Lead
   const handleCreateLead = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLeadName.trim() || !newLeadPhone.trim()) return;
 
     addLead({
-      fullName: newLeadName.trim(),
-      phone: newLeadPhone.trim(),
-      email: newLeadEmail.trim() || `${newLeadName.toLowerCase().replace(/\s+/g, '')}@example.com`,
+      id: `lead-manual-${Date.now()}`,
+      fullName: newLeadName,
+      phone: newLeadPhone,
+      email: newLeadEmail,
       programName: newLeadProgram,
-      source: 'Direct Entry',
       crmStage: 'New Lead',
-      assignedSalesperson: currentUser?.role === 'Salesperson' ? currentUser.name : 'Unassigned',
+      assignedSalesperson: isAdmin ? '' : currentUser.name,
+      source: 'Direct Manual Entry',
       dateCaptured: new Date().toISOString()
     } as any);
 
     setNewLeadName('');
     setNewLeadPhone('');
     setNewLeadEmail('');
-    setIsAddLeadOpen(false);
+    setIsAddLeadModalOpen(false);
   };
 
-  const rowHeightClasses = {
-    compact: 'h-8 py-1',
-    normal: 'h-9 py-1.5',
-    relaxed: 'h-11 py-2'
-  }[rowHeight];
+  // Lost Reason Callback
+  const handleConfirmLostReason = (reason: string, notes?: string) => {
+    if (!lostTargetLead) return;
+    updateLead(lostTargetLead.id, {
+      crmStage: 'Lost',
+      objection: reason,
+      comments: (lostTargetLead.comments ? `${lostTargetLead.comments}\n` : '') + `[Lost Reason: ${reason}] ${notes || ''}`
+    });
+    setLostTargetLead(null);
+    setIsLostModalOpen(false);
+  };
 
   return (
-    <div className="flex flex-col h-full bg-white select-none">
-      {/* 1. TOP AIRTABLE TOOLBAR */}
-      <div className="h-11 px-4 border-b border-[#E6E6E3] flex items-center justify-between gap-3 bg-white shrink-0 overflow-x-auto">
-        {/* Left: View title & count */}
-        <div className="flex items-center gap-3 shrink-0">
+    <div className="flex flex-col h-full bg-white select-none overflow-hidden relative text-[#1F1F1D]">
+      {/* =====================================================
+          A. TOP BAR (One row, wraps on small screens)
+         ===================================================== */}
+      <div
+        ref={toolbarRef}
+        className="px-4 py-2.5 border-b border-[#E6E6E3] bg-white flex flex-wrap items-center justify-between gap-3 shrink-0 relative z-20"
+      >
+        {/* Left: View title + count */}
+        <div className="flex items-center gap-3">
           <div className="flex items-baseline gap-2">
-            <span className="text-[14px] font-semibold text-[#1F1F1D]">
-              {viewNames[activeSavedView] || 'All leads'}
-            </span>
-            <span className="text-[11px] tabular-nums text-[#6B6B66] font-medium">
-              {filteredLeads.length} records
+            <h1 className="text-[20px] font-semibold text-[#1F1F1D]">
+              {VIEW_NAMES[activeSavedView] || 'Leads'}
+            </h1>
+            <span className="text-[13px] text-[#6B6B66] tabular-nums font-normal">
+              {filteredLeads.length} leads
             </span>
           </div>
 
-          {/* View-type segmented switcher */}
+          {/* SegmentedControl: Grid | Kanban | Calendar */}
           <SegmentedControl
             options={[
-              { value: 'grid', label: 'Grid', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
-              { value: 'kanban', label: 'Kanban', icon: <Columns className="w-3.5 h-3.5" /> },
-              { value: 'calendar', label: 'Calendar', icon: <Calendar className="w-3.5 h-3.5" /> }
+              { value: 'grid', label: 'Grid' },
+              { value: 'kanban', label: 'Kanban' },
+              { value: 'calendar', label: 'Calendar' }
             ]}
-            value={viewType}
-            onChange={(val) => {
-              if (val === 'kanban') navigate('/pipeline');
-              else setViewType(val);
-            }}
+            value={viewMode}
+            onChange={(val) => setViewMode(val as any)}
           />
         </div>
 
-        {/* Center/Right Toolbar Actions */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Button
-            variant={showFilters ? 'primary' : 'ghost'}
-            size="sm"
-            icon={<Filter className="w-3.5 h-3.5" />}
-            onClick={() => setShowFilters((prev) => !prev)}
+        {/* Middle Toolbar: Ghost buttons (32px tall) */}
+        <div className="flex items-center gap-1">
+          {/* Filter Popover Toggle */}
+          <button
+            type="button"
+            onClick={() => setActivePopover(activePopover === 'filter' ? null : 'filter')}
+            className={`h-8 px-2.5 text-xs font-medium rounded-[6px] flex items-center gap-1.5 transition-colors ${
+              customFilters.length > 0 || activePopover === 'filter'
+                ? 'bg-[#EEF0FD] text-[#3B4BDB]'
+                : 'text-[#6B6B66] hover:text-[#1F1F1D] hover:bg-[#F3F4F6]'
+            }`}
           >
-            Filter
-          </Button>
+            <Filter className="w-3.5 h-3.5" />
+            <span>Filter</span>
+            {customFilters.length > 0 && (
+              <span className="w-4 h-4 rounded-full bg-[#3B4BDB] text-white text-[10px] flex items-center justify-center tabular-nums">
+                {customFilters.length}
+              </span>
+            )}
+          </button>
 
-          {/* Sort dropdown */}
+          {/* Sort Popover Toggle */}
+          <button
+            type="button"
+            onClick={() => setActivePopover(activePopover === 'sort' ? null : 'sort')}
+            className={`h-8 px-2.5 text-xs font-medium rounded-[6px] flex items-center gap-1.5 transition-colors ${
+              activePopover === 'sort'
+                ? 'bg-[#EEF0FD] text-[#3B4BDB]'
+                : 'text-[#6B6B66] hover:text-[#1F1F1D] hover:bg-[#F3F4F6]'
+            }`}
+          >
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            <span>Sort</span>
+          </button>
+
+          {/* Group Popover Toggle */}
+          <button
+            type="button"
+            onClick={() => setActivePopover(activePopover === 'group' ? null : 'group')}
+            className={`h-8 px-2.5 text-xs font-medium rounded-[6px] flex items-center gap-1.5 transition-colors ${
+              viewPrefs.groupBy !== 'none' || activePopover === 'group'
+                ? 'bg-[#EEF0FD] text-[#3B4BDB]'
+                : 'text-[#6B6B66] hover:text-[#1F1F1D] hover:bg-[#F3F4F6]'
+            }`}
+          >
+            <FolderTree className="w-3.5 h-3.5" />
+            <span>Group</span>
+          </button>
+
+          {/* Hide fields Popover Toggle */}
+          <button
+            type="button"
+            onClick={() => setActivePopover(activePopover === 'hide' ? null : 'hide')}
+            className={`h-8 px-2.5 text-xs font-medium rounded-[6px] flex items-center gap-1.5 transition-colors ${
+              activePopover === 'hide'
+                ? 'bg-[#EEF0FD] text-[#3B4BDB]'
+                : 'text-[#6B6B66] hover:text-[#1F1F1D] hover:bg-[#F3F4F6]'
+            }`}
+          >
+            <EyeOff className="w-3.5 h-3.5" />
+            <span>Hide fields</span>
+          </button>
+
+          {/* Row height Toggle */}
+          <button
+            type="button"
+            onClick={() => setActivePopover(activePopover === 'rowHeight' ? null : 'rowHeight')}
+            className={`h-8 px-2.5 text-xs font-medium rounded-[6px] flex items-center gap-1.5 transition-colors ${
+              activePopover === 'rowHeight'
+                ? 'bg-[#EEF0FD] text-[#3B4BDB]'
+                : 'text-[#6B6B66] hover:text-[#1F1F1D] hover:bg-[#F3F4F6]'
+            }`}
+          >
+            <Rows className="w-3.5 h-3.5" />
+            <span>Row height</span>
+          </button>
+        </div>
+
+        {/* Right: Search box (300ms debounce) + Add lead */}
+        <div className="flex items-center gap-2">
           <div className="relative">
-            <select
-              aria-label="Sort leads by"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="h-7 px-2 bg-transparent hover:bg-[#F3F4F6] border border-transparent hover:border-[#E6E6E3] rounded-[6px] text-xs text-[#1F1F1D] font-medium cursor-pointer outline-none"
-            >
-              <option value="created_desc">Sort: Newest first</option>
-              <option value="due_asc">Sort: Next action due</option>
-              <option value="name_asc">Sort: Name (A-Z)</option>
-            </select>
-          </div>
-
-          {/* Group dropdown */}
-          <div className="relative">
-            <select
-              aria-label="Group records by"
-              value={groupBy}
-              onChange={(e) => setGroupBy(e.target.value as any)}
-              className="h-7 px-2 bg-transparent hover:bg-[#F3F4F6] border border-transparent hover:border-[#E6E6E3] rounded-[6px] text-xs text-[#1F1F1D] font-medium cursor-pointer outline-none"
-            >
-              <option value="stage">Group: Stage</option>
-              <option value="owner">Group: Owner</option>
-              <option value="none">Group: None</option>
-            </select>
-          </div>
-
-          {/* Row Height switcher */}
-          <div className="relative">
-            <select
-              aria-label="Table row density"
-              value={rowHeight}
-              onChange={(e) => setRowHeight(e.target.value as any)}
-              className="h-7 px-2 bg-transparent hover:bg-[#F3F4F6] border border-transparent hover:border-[#E6E6E3] rounded-[6px] text-xs text-[#1F1F1D] font-medium cursor-pointer outline-none"
-            >
-              <option value="compact">Row: Compact</option>
-              <option value="normal">Row: Normal</option>
-              <option value="relaxed">Row: Relaxed</option>
-            </select>
-          </div>
-
-          {/* In-view search box */}
-          <div className="relative w-44">
-            <Search className="w-3 h-3 text-[#6B6B66] absolute left-2 top-2 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-[#6B6B66] absolute left-2.5 top-2.5 pointer-events-none" />
             <input
               type="text"
-              placeholder="Filter records..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-7 pl-6 pr-2 bg-[#F7F7F5] border border-[#E6E6E3] rounded-[6px] text-xs text-[#1F1F1D] placeholder-[#9CA3AF] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#3B4BDB]"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search view..."
+              className="w-44 h-8 pl-8 pr-2.5 bg-[#F7F7F5] border border-[#E6E6E3] focus:border-[#3B4BDB] rounded-[6px] text-xs text-[#1F1F1D] outline-none"
             />
           </div>
 
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus className="w-3.5 h-3.5" />}
-            onClick={() => setIsAddLeadOpen(true)}
-          >
-            Add lead
+          <Button variant="primary" size="sm" onClick={() => setIsAddLeadModalOpen(true)}>
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            <span>Add lead</span>
           </Button>
         </div>
+
+        {/* ================= POPOVERS ================= */}
+        {/* 1. Filter Popover */}
+        {activePopover === 'filter' && (
+          <div className="absolute top-14 left-44 z-50 w-80 bg-white border border-[#E6E6E3] rounded-[8px] shadow-lg p-3 space-y-3 text-xs animate-in fade-in duration-150">
+            <div className="font-semibold text-[#1F1F1D] flex items-center justify-between">
+              <span>Filter records</span>
+              <button onClick={() => setActivePopover(null)} className="text-[#6B6B66] hover:text-[#1F1F1D]">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Filter Conditions List */}
+            <div className="space-y-2">
+              {customFilters.map((cond, idx) => (
+                <div key={cond.id} className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-[#6B6B66] w-6">{idx === 0 ? 'Where' : 'And'}</span>
+                  <select
+                    value={cond.field}
+                    onChange={(e) => {
+                      const updated = [...customFilters];
+                      updated[idx].field = e.target.value as any;
+                      setCustomFilters(updated);
+                    }}
+                    className="h-7 px-1.5 bg-white border border-[#E6E6E3] rounded text-[11px] outline-none"
+                  >
+                    <option value="stage">Stage</option>
+                    <option value="owner">Owner</option>
+                    <option value="program">Program</option>
+                    <option value="temperature">Temperature</option>
+                    <option value="source">Source</option>
+                    <option value="campaign">Campaign</option>
+                  </select>
+
+                  <select
+                    value={cond.operator}
+                    onChange={(e) => {
+                      const updated = [...customFilters];
+                      updated[idx].operator = e.target.value as any;
+                      setCustomFilters(updated);
+                    }}
+                    className="h-7 px-1.5 bg-white border border-[#E6E6E3] rounded text-[11px] outline-none"
+                  >
+                    <option value="is">is</option>
+                    <option value="is_not">is not</option>
+                    <option value="contains">contains</option>
+                    <option value="is_empty">is empty</option>
+                  </select>
+
+                  <input
+                    type="text"
+                    value={cond.value}
+                    placeholder="value..."
+                    onChange={(e) => {
+                      const updated = [...customFilters];
+                      updated[idx].value = e.target.value;
+                      setCustomFilters(updated);
+                    }}
+                    className="h-7 px-1.5 w-24 bg-white border border-[#E6E6E3] rounded text-[11px] outline-none"
+                  />
+
+                  <button
+                    onClick={() => setCustomFilters(customFilters.filter((_, i) => i !== idx))}
+                    className="text-[#6B6B66] hover:text-[#B42318] p-1"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between pt-1 border-t border-[#E6E6E3]">
+              <button
+                type="button"
+                onClick={() =>
+                  setCustomFilters([
+                    ...customFilters,
+                    { id: `c-${Date.now()}`, field: 'stage', operator: 'is', value: 'Interested' }
+                  ])
+                }
+                className="text-[#3B4BDB] hover:underline font-medium text-xs"
+              >
+                + Add condition
+              </button>
+
+              {customFilters.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCustomFilters([])}
+                  className="text-[#B42318] hover:underline text-xs"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 2. Group Popover */}
+        {activePopover === 'group' && (
+          <div className="absolute top-14 left-72 z-50 w-52 bg-white border border-[#E6E6E3] rounded-[8px] shadow-lg p-2 text-xs space-y-1 animate-in fade-in duration-150">
+            <div className="px-2 py-1 text-[11px] font-semibold text-[#6B6B66] uppercase">Group by</div>
+            {[
+              { id: 'stage', label: 'Stage' },
+              { id: 'owner', label: 'Owner' },
+              { id: 'program', label: 'Program' },
+              { id: 'temperature', label: 'Temperature' },
+              { id: 'source', label: 'Source' },
+              { id: 'none', label: 'None (flat list)' }
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  updateAndSavePrefs({ groupBy: opt.id as any });
+                  setActivePopover(null);
+                }}
+                className={`w-full text-left px-2 py-1.5 rounded-[4px] flex items-center justify-between ${
+                  viewPrefs.groupBy === opt.id
+                    ? 'bg-[#EEF0FD] text-[#3B4BDB] font-medium'
+                    : 'hover:bg-[#F3F4F6] text-[#1F1F1D]'
+                }`}
+              >
+                <span>{opt.label}</span>
+                {viewPrefs.groupBy === opt.id && <Check className="w-3.5 h-3.5" />}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 3. Hide fields Popover */}
+        {activePopover === 'hide' && (
+          <div className="absolute top-14 left-80 z-50 w-56 bg-white border border-[#E6E6E3] rounded-[8px] shadow-lg p-2.5 text-xs space-y-2 animate-in fade-in duration-150">
+            <div className="font-semibold text-[#1F1F1D] px-1">Column Visibility</div>
+            <div className="max-h-60 overflow-y-auto space-y-1">
+              {ALL_COLUMNS.filter((c) => c.id !== 'select' && c.id !== 'name').map((col) => {
+                const isChecked = viewPrefs.visibleColumns.includes(col.id);
+                return (
+                  <label
+                    key={col.id}
+                    className="flex items-center gap-2 px-1 py-1 hover:bg-[#F3F4F6] rounded cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {
+                        const nextCols = isChecked
+                          ? viewPrefs.visibleColumns.filter((id) => id !== col.id)
+                          : [...viewPrefs.visibleColumns, col.id];
+                        updateAndSavePrefs({ visibleColumns: nextCols });
+                      }}
+                      className="rounded text-[#3B4BDB]"
+                    />
+                    <span>{col.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 4. Row Height Popover */}
+        {activePopover === 'rowHeight' && (
+          <div className="absolute top-14 left-96 z-50 w-44 bg-white border border-[#E6E6E3] rounded-[8px] shadow-lg p-1.5 text-xs space-y-0.5 animate-in fade-in duration-150">
+            {[
+              { id: 'compact', label: 'Compact (32px)' },
+              { id: 'default', label: 'Default (40px)' },
+              { id: 'tall', label: 'Tall (56px)' }
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  updateAndSavePrefs({ rowHeight: opt.id as any });
+                  setActivePopover(null);
+                }}
+                className={`w-full text-left px-2 py-1.5 rounded-[4px] flex items-center justify-between ${
+                  viewPrefs.rowHeight === opt.id
+                    ? 'bg-[#EEF0FD] text-[#3B4BDB] font-medium'
+                    : 'hover:bg-[#F3F4F6] text-[#1F1F1D]'
+                }`}
+              >
+                <span>{opt.label}</span>
+                {viewPrefs.rowHeight === opt.id && <Check className="w-3.5 h-3.5" />}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 5. Sort Popover */}
+        {activePopover === 'sort' && (
+          <div className="absolute top-14 left-60 z-50 w-64 bg-white border border-[#E6E6E3] rounded-[8px] shadow-lg p-3 text-xs space-y-2 animate-in fade-in duration-150">
+            <div className="font-semibold text-[#1F1F1D]">Sort records</div>
+            <div className="space-y-1.5">
+              <div className="text-[11px] text-[#6B6B66]">Sort by Due date or Created</div>
+              <button
+                onClick={() => {
+                  updateAndSavePrefs({ sortBy: [{ field: 'due', direction: 'asc' }] });
+                  setActivePopover(null);
+                }}
+                className="w-full text-left px-2 py-1 rounded hover:bg-[#F3F4F6]"
+              >
+                Due date (earliest first)
+              </button>
+              <button
+                onClick={() => {
+                  updateAndSavePrefs({ sortBy: [{ field: 'created', direction: 'desc' }] });
+                  setActivePopover(null);
+                }}
+                className="w-full text-left px-2 py-1 rounded hover:bg-[#F3F4F6]"
+              >
+                Created date (newest first)
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Optional Filter Row */}
-      {showFilters && (
-        <div className="px-4 py-2 bg-[#F7F7F5] border-b border-[#E6E6E3] flex items-center gap-3 flex-wrap text-xs animate-in fade-in">
-          <span className="text-[#6B6B66] font-medium">Filter by:</span>
-          <select
-            aria-label="Filter by lifecycle stage"
-            value={filterStage}
-            onChange={(e) => setFilterStage(e.target.value)}
-            className="h-6 px-2 bg-white border border-[#E6E6E3] rounded-[4px] text-xs text-[#1F1F1D]"
-          >
-            <option value="All">All Stages</option>
-            <option value="New Lead">New Lead</option>
-            <option value="Interested">Interested</option>
-            <option value="Qualified">Qualified</option>
-            <option value="Follow-Up 1">Follow-Up 1</option>
-            <option value="Details Sent on WhatsApp">Details Sent on WhatsApp</option>
-            <option value="Payment pending">Payment pending</option>
-            <option value="Enrolled">Enrolled</option>
-            <option value="Lost">Lost</option>
-          </select>
-
-          <select
-            aria-label="Filter by salesperson owner"
-            value={filterRep}
-            onChange={(e) => setFilterRep(e.target.value)}
-            className="h-6 px-2 bg-white border border-[#E6E6E3] rounded-[4px] text-xs text-[#1F1F1D]"
-          >
-            <option value="All">All Owners</option>
-            <option value="Unassigned">Unassigned</option>
-            {salespeople.map((s) => (
-              <option key={s.id} value={s.name}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            aria-label="Filter by program offering"
-            value={filterProgram}
-            onChange={(e) => setFilterProgram(e.target.value)}
-            className="h-6 px-2 bg-white border border-[#E6E6E3] rounded-[4px] text-xs text-[#1F1F1D]"
-          >
-            <option value="All">All Programs</option>
-            <option value="AI-Native PM">AI-Native PM Program</option>
-            <option value="3-Day Workshop">3-Day AI Builder Workshop</option>
-          </select>
-
-          {(filterStage !== 'All' || filterRep !== 'All' || filterProgram !== 'All') && (
-            <button
-              onClick={() => {
-                setFilterStage('All');
-                setFilterRep('All');
-                setFilterProgram('All');
-              }}
-              className="text-xs text-[#3B4BDB] hover:underline font-medium cursor-pointer"
+      {/* =====================================================
+          ACTIVE FILTERS PILL BAR (Removable pills)
+         ===================================================== */}
+      {customFilters.length > 0 && (
+        <div className="px-4 py-1.5 bg-[#F7F7F5] border-b border-[#E6E6E3] flex items-center gap-2 overflow-x-auto shrink-0 text-xs">
+          <span className="text-[#6B6B66] text-[11px] font-medium">Active filters:</span>
+          {customFilters.map((cond, idx) => (
+            <span
+              key={cond.id}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-white border border-[#E6E6E3] text-[#1F1F1D] text-xs"
             >
-              Reset filters
-            </button>
-          )}
+              <span className="font-medium capitalize">{cond.field}</span>
+              <span className="text-[#6B6B66]">{cond.operator.replace('_', ' ')}</span>
+              <span className="font-semibold">{cond.value || '""'}</span>
+              <button
+                onClick={() => setCustomFilters(customFilters.filter((_, i) => i !== idx))}
+                className="text-[#6B6B66] hover:text-[#B42318] ml-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+
+          <button
+            onClick={() => setCustomFilters([])}
+            className="text-[#3B4BDB] hover:underline text-xs font-medium ml-2"
+          >
+            Clear all
+          </button>
         </div>
       )}
 
-      {/* 2. GRID TABLE WORK AREA */}
-      <div className="flex-1 overflow-auto relative">
-        <table className="w-full border-collapse text-left text-[13px] border-b border-[#E6E6E3]">
-          {/* Sticky Header Row */}
-          <thead>
-            <tr className="bg-[#F7F7F5] border-b border-[#E6E6E3] text-[11px] font-semibold text-[#6B6B66] uppercase tracking-wider sticky top-0 z-20">
-              <th className="w-8 px-3 py-2 text-center sticky left-0 bg-[#F7F7F5] z-30 border-r border-[#E6E6E3]">
-                <input
-                  type="checkbox"
-                  aria-label="Select all leads"
-                  checked={sortedLeads.length > 0 && selectedLeadIds.length === sortedLeads.length}
-                  onChange={handleToggleSelectAll}
-                  className="rounded-[3px] border-[#E6E6E3] text-[#3B4BDB] focus:ring-0 cursor-pointer"
-                />
-              </th>
-              <th className="px-3 py-2 sticky left-8 bg-[#F7F7F5] z-30 border-r border-[#E6E6E3] min-w-[180px]">
-                Lead name
-              </th>
-              <th className="px-3 py-2 min-w-[120px] border-r border-[#E6E6E3]/60">Phone</th>
-              <th className="px-3 py-2 min-w-[130px] border-r border-[#E6E6E3]/60">Program</th>
-              <th className="px-3 py-2 min-w-[120px] border-r border-[#E6E6E3]/60">Stage</th>
-              <th className="px-3 py-2 min-w-[130px] border-r border-[#E6E6E3]/60">Owner</th>
-              <th className="px-3 py-2 min-w-[90px] border-r border-[#E6E6E3]/60">Temp</th>
-              <th className="px-3 py-2 min-w-[160px] border-r border-[#E6E6E3]/60">Next action</th>
-              <th className="px-3 py-2 min-w-[120px] border-r border-[#E6E6E3]/60">Due</th>
-              <th className="px-3 py-2 min-w-[130px] border-r border-[#E6E6E3]/60">Source / Ad</th>
-              <th className="px-3 py-2 min-w-[90px] border-r border-[#E6E6E3]/60">Last touch</th>
-              <th className="px-3 py-2 min-w-[100px]">Created</th>
-            </tr>
-          </thead>
-
-          {/* Table Body with Collapsible Groups */}
-          <tbody>
-            {sortedLeads.length === 0 ? (
-              <tr>
-                <td colSpan={12} className="py-16 text-center">
-                  <EmptyState
-                    icon={FileSpreadsheet}
-                    title="No records found in this view."
-                    description="Adjust your filters or add a new lead using the button above."
-                  />
-                </td>
-              </tr>
-            ) : (
-              groupedData.map((group) => {
-                const isCollapsed = collapsedGroups[group.key];
-                return (
-                  <Fragment key={group.key}>
-                    {/* Collapsible Group Header Row */}
-                    {groupBy !== 'none' && (
-                      <tr className="bg-[#F7F7F5]/80 border-y border-[#E6E6E3] text-xs font-semibold text-[#1F1F1D]">
-                        <td
-                          colSpan={12}
-                          className="px-3 py-1.5 cursor-pointer hover:bg-[#F3F4F6] transition-colors"
-                          onClick={() =>
-                            setCollapsedGroups((prev) => ({
-                              ...prev,
-                              [group.key]: !prev[group.key]
-                            }))
-                          }
-                        >
-                          <div className="flex items-center gap-2">
-                            {isCollapsed ? (
-                              <ChevronRight className="w-3.5 h-3.5 text-[#6B6B66]" />
-                            ) : (
-                              <ChevronDown className="w-3.5 h-3.5 text-[#6B6B66]" />
-                            )}
-                            <span className="font-semibold">{group.title}</span>
-                            <span className="text-[11px] font-normal text-[#6B6B66] tabular-nums">
-                              • {group.items.length} {group.items.length === 1 ? 'record' : 'records'}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-
-                    {/* Group Items Rows */}
-                    {!isCollapsed &&
-                      group.items.map((lead) => {
-                        const isSelected = selectedLeadIds.includes(lead.id);
-                        const sla = calculate48HourWorkingSla(lead.dateCaptured);
-                        const isOverdue = !sla.isWithin48Hours;
-
-                        return (
-                          <tr
-                            key={lead.id}
-                            className={`group border-b border-[#E6E6E3]/60 transition-colors ${rowHeightClasses} ${
-                              isSelected
-                                ? 'bg-[#EEF0FD]'
-                                : 'hover:bg-[#F3F4F6] bg-white'
-                            }`}
-                          >
-                            {/* Checkbox Cell */}
-                            <td className="px-3 text-center sticky left-0 z-10 bg-inherit border-r border-[#E6E6E3]">
-                              <input
-                                type="checkbox"
-                                aria-label={`Select lead ${lead.fullName}`}
-                                checked={isSelected}
-                                onChange={() => handleToggleLead(lead.id)}
-                                className="rounded-[3px] border-[#E6E6E3] text-[#3B4BDB] focus:ring-0 cursor-pointer"
-                              />
-                            </td>
-
-                            {/* Sticky Name Cell */}
-                            <td className="px-3 sticky left-8 z-10 bg-inherit border-r border-[#E6E6E3] font-medium text-[#1F1F1D] min-w-[180px]">
-                              <div className="flex items-center justify-between gap-2">
-                                <span
-                                  onClick={() => setSelectedLead(lead)}
-                                  className="cursor-pointer hover:text-[#3B4BDB] truncate font-medium text-[13px]"
-                                  title={lead.fullName}
-                                >
-                                  {lead.fullName}
-                                </span>
-
-                                {/* Quick hover action icons */}
-                                <div className="hidden group-hover:flex items-center gap-1 shrink-0">
-                                  <a
-                                    href={`tel:${lead.phone}`}
-                                    aria-label={`Call ${lead.fullName}`}
-                                    className="p-1 rounded-[3px] text-[#6B6B66] hover:text-[#3B4BDB] hover:bg-white"
-                                    title="Call lead"
-                                  >
-                                    <Phone className="w-3 h-3" />
-                                  </a>
-                                  <a
-                                    href={`https://wa.me/${(lead.phone || '').replace(/\D/g, '')}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    aria-label={`WhatsApp ${lead.fullName}`}
-                                    className="p-1 rounded-[3px] text-[#6B6B66] hover:text-[#059669] hover:bg-white"
-                                    title="Open WhatsApp"
-                                  >
-                                    <MessageSquare className="w-3 h-3" />
-                                  </a>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Phone */}
-                            <td className="px-3 border-r border-[#E6E6E3]/60 text-xs text-[#1F1F1D] tabular-nums">
-                              {lead.phone || '—'}
-                            </td>
-
-                            {/* Program */}
-                            <td className="px-3 border-r border-[#E6E6E3]/60 text-xs truncate max-w-[140px]">
-                              {lead.programName || 'AI Program'}
-                            </td>
-
-                            {/* Stage (Interactive Dropdown Inline Edit) */}
-                            <td className="px-3 border-r border-[#E6E6E3]/60">
-                              <select
-                                aria-label="Lead Stage"
-                                value={lead.crmStage}
-                                onChange={(e) => updateLeadStage(lead.id, e.target.value as Stage)}
-                                className="text-xs bg-transparent border-0 font-medium cursor-pointer outline-none hover:bg-[#F3F4F6] rounded py-0.5"
-                              >
-                                {[
-                                  'New Lead',
-                                  'Interested',
-                                  'Follow-Up 1',
-                                  'Follow-Up 2',
-                                  'Details Sent on WhatsApp',
-                                  'Qualified',
-                                  'Meeting booked',
-                                  'Payment pending',
-                                  'Enrolled',
-                                  'Lost'
-                                ].map((s) => (
-                                  <option key={s} value={s}>
-                                    {s}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-
-                            {/* Owner (Interactive Inline Edit) */}
-                            <td className="px-3 border-r border-[#E6E6E3]/60">
-                              <div className="flex items-center gap-1.5">
-                                <Avatar name={lead.assignedSalesperson || 'Unassigned'} size={20} />
-                                <select
-                                  aria-label="Lead Owner"
-                                  value={lead.assignedSalesperson || 'Unassigned'}
-                                  onChange={(e) => assignLead(lead.id, e.target.value)}
-                                  className="text-xs bg-transparent border-0 font-medium text-[#1F1F1D] cursor-pointer outline-none hover:bg-[#F3F4F6] rounded py-0.5 truncate max-w-[95px]"
-                                >
-                                  <option value="Unassigned">Unassigned</option>
-                                  {salespeople.map((s) => (
-                                    <option key={s.id} value={s.name}>
-                                      {s.name.split(' ')[0]}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </td>
-
-                            {/* Temperature (Inline Edit) */}
-                            <td className="px-3 border-r border-[#E6E6E3]/60">
-                              <select
-                                aria-label="Lead Temperature"
-                                value={(lead as any).temperature || 'Warm'}
-                                onChange={(e) => updateLead(lead.id, { temperature: e.target.value } as any)}
-                                className="text-xs bg-transparent border-0 font-medium cursor-pointer outline-none hover:bg-[#F3F4F6] rounded py-0.5"
-                              >
-                                <option value="Hot">Hot</option>
-                                <option value="Warm">Warm</option>
-                                <option value="Cold">Cold</option>
-                              </select>
-                            </td>
-
-                            {/* Next Action */}
-                            <td className="px-3 border-r border-[#E6E6E3]/60 text-xs truncate max-w-[160px]" title={lead.nextTask?.notes || lead.nextFollowUp}>
-                              {lead.nextTask?.notes || lead.nextFollowUp || 'No action scheduled'}
-                            </td>
-
-                            {/* Due Date (Relative, Red if Overdue) */}
-                            <td
-                              className={`px-3 border-r border-[#E6E6E3]/60 text-xs tabular-nums ${
-                                isOverdue ? 'text-[#B42318] font-bold' : 'text-[#6B6B66]'
-                              }`}
-                            >
-                              {lead.nextTask?.dueDateTime ? (
-                                isOverdue ? (
-                                  <span className="flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#B42318]" />
-                                    Overdue
-                                  </span>
-                                ) : (
-                                  lead.nextTask.dueDateTime.split('T')[0]
-                                )
-                              ) : (
-                                '—'
-                              )}
-                            </td>
-
-                            {/* Source / Ad */}
-                            <td className="px-3 border-r border-[#E6E6E3]/60 text-xs text-[#6B6B66] truncate max-w-[130px]">
-                              {lead.metaCampaign || lead.source || 'Meta Ads'}
-                            </td>
-
-                            {/* Last Touch */}
-                            <td className="px-3 border-r border-[#E6E6E3]/60 text-xs text-[#6B6B66] tabular-nums">
-                              {lead.numberOfCalls ? `${lead.numberOfCalls} touches` : 'Recent'}
-                            </td>
-
-                            {/* Created */}
-                            <td className="px-3 text-xs text-[#6B6B66] tabular-nums whitespace-nowrap">
-                              {lead.dateCaptured ? new Date(lead.dateCaptured).toLocaleDateString() : '—'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </Fragment>
-                );
-              })
-            )}
-          </tbody>
-
-          {/* Footer Total Row */}
-          <tfoot>
-            <tr className="bg-[#F7F7F5] border-t border-[#E6E6E3] text-xs font-semibold text-[#6B6B66]">
-              <td className="px-3 py-2 text-center sticky left-0 bg-[#F7F7F5] border-r border-[#E6E6E3]">
-                Σ
-              </td>
-              <td className="px-3 py-2 sticky left-8 bg-[#F7F7F5] border-r border-[#E6E6E3]">
-                Total: {filteredLeads.length} leads
-              </td>
-              <td colSpan={10} className="px-3 py-2 text-right">
-                Active View: <strong>{viewNames[activeSavedView] || 'All leads'}</strong>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+      {/* =====================================================
+          B. MAIN VIEW CONTENT (Grid view or placeholders)
+         ===================================================== */}
+      <div className="flex-1 min-h-0 relative">
+        {viewMode === 'grid' ? (
+          <DataTable
+            leads={filteredLeads}
+            selectedLeadIds={selectedLeadIds}
+            onToggleSelectLead={handleToggleSelectLead}
+            onSelectAllVisible={handleSelectAllVisible}
+            isAllVisibleSelected={selectedLeadIds.length === filteredLeads.length && filteredLeads.length > 0}
+            selectedLeadId={urlLeadId}
+            onOpenLead={handleOpenLead}
+            onUpdateStage={(id, stage) => updateLeadStage(id, stage)}
+            onUpdateOwner={(id, owner) => assignLead(id, owner)}
+            onUpdateTemperature={(id, temp) => updateLead(id, { temperature: temp } as any)}
+            onRequestLostReason={(lead) => {
+              setLostTargetLead(lead);
+              setIsLostModalOpen(true);
+            }}
+            visibleColumns={viewPrefs.visibleColumns}
+            columnWidths={viewPrefs.columnWidths}
+            onColumnWidthChange={(colId, w) => {
+              updateAndSavePrefs({
+                columnWidths: { ...viewPrefs.columnWidths, [colId]: w }
+              });
+            }}
+            rowHeight={viewPrefs.rowHeight}
+            groupBy={viewPrefs.groupBy}
+            isFiltered={customFilters.length > 0 || debouncedSearch.trim() !== ''}
+            onClearFilters={() => {
+              setCustomFilters([]);
+              setSearchInput('');
+            }}
+            isAdmin={isAdmin}
+            salespeople={salespeople}
+          />
+        ) : (
+          // Coming in next step placeholder
+          <div className="w-full h-full flex items-center justify-center bg-white p-8">
+            <div className="text-center space-y-2">
+              <Compass className="w-8 h-8 text-[#6B6B66] mx-auto" />
+              <h3 className="text-sm font-semibold text-[#1F1F1D]">Coming in next step</h3>
+              <p className="text-xs text-[#6B6B66]">
+                {viewMode === 'kanban' ? 'Kanban view' : 'Calendar view'} is scheduled for Step 3.
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => setViewMode('grid')}>
+                Switch back to Grid
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 3. FLOATING BULK ACTIONS BAR */}
+      {/* =====================================================
+          E. BULK ACTIONS FLOATING BAR (Appears when 1+ rows checked)
+         ===================================================== */}
       {selectedLeadIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#1F1F1D] text-white px-4 py-2.5 rounded-[8px] shadow-2xl flex items-center gap-3.5 text-xs animate-in slide-in-from-bottom duration-150">
-          <span className="font-semibold text-white">
-            {selectedLeadIds.length} {selectedLeadIds.length === 1 ? 'lead' : 'leads'} selected
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 bg-[#1F1F1D] text-white px-4 py-2.5 rounded-[8px] shadow-2xl flex items-center gap-3 text-xs animate-in slide-in-from-bottom duration-200">
+          <span className="font-semibold tabular-nums text-white">
+            {selectedLeadIds.length} selected
           </span>
 
-          <div className="h-3.5 w-px bg-white/20" />
+          <span className="text-[#6B6B66]">|</span>
 
-          {/* Bulk Assign */}
-          <select
-            aria-label="Bulk assign selected leads to salesperson"
-            onChange={(e) => {
-              if (!e.target.value) return;
-              selectedLeadIds.forEach((id) => assignLead(id, e.target.value));
-              setSelectedLeadIds([]);
-            }}
-            className="bg-[#2D2D2A] text-white text-xs border border-white/20 rounded-[4px] px-2 py-1 cursor-pointer outline-none"
-            defaultValue=""
-          >
-            <option value="" disabled>
-              Assign to...
-            </option>
-            {salespeople.map((s) => (
-              <option key={s.id} value={s.name}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          {/* Assign to... (Admin only) */}
+          {isAdmin && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setBulkActionTarget(bulkActionTarget === 'assign' ? null : 'assign')}
+                className="hover:text-white/80 font-medium"
+              >
+                Assign to…
+              </button>
+              {bulkActionTarget === 'assign' && (
+                <div className="absolute bottom-8 left-0 w-44 bg-white text-[#1F1F1D] border border-[#E6E6E3] rounded-[6px] shadow-lg p-1.5 space-y-1">
+                  {salespeople.map((rep) => (
+                    <button
+                      key={rep.id}
+                      onClick={() => handleBulkAssign(rep.name)}
+                      className="w-full text-left px-2 py-1 text-xs hover:bg-[#F3F4F6] rounded"
+                    >
+                      {rep.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Bulk Stage Change */}
-          <select
-            aria-label="Bulk change stage for selected leads"
-            onChange={(e) => {
-              if (!e.target.value) return;
-              selectedLeadIds.forEach((id) => updateLeadStage(id, e.target.value as Stage));
-              setSelectedLeadIds([]);
-            }}
-            className="bg-[#2D2D2A] text-white text-xs border border-white/20 rounded-[4px] px-2 py-1 cursor-pointer outline-none"
-            defaultValue=""
-          >
-            <option value="" disabled>
-              Change stage...
-            </option>
-            {[
-              'New Lead',
-              'Interested',
-              'Follow-Up 1',
-              'Qualified',
-              'Payment pending',
-              'Enrolled',
-              'Lost'
-            ].map((st) => (
-              <option key={st} value={st}>
-                {st}
-              </option>
-            ))}
-          </select>
+          {/* Change stage */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setBulkActionTarget(bulkActionTarget === 'stage' ? null : 'stage')}
+              className="hover:text-white/80 font-medium"
+            >
+              Change stage…
+            </button>
+            {bulkActionTarget === 'stage' && (
+              <div className="absolute bottom-8 left-0 w-44 bg-white text-[#1F1F1D] border border-[#E6E6E3] rounded-[6px] shadow-lg p-1.5 space-y-1">
+                {['Interested', 'Qualified', 'Payment Pending', 'Lost'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => handleBulkStageChange(st as Stage)}
+                    className="w-full text-left px-2 py-1 text-xs hover:bg-[#F3F4F6] rounded"
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
+          {/* Change temperature */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setBulkActionTarget(bulkActionTarget === 'temp' ? null : 'temp')}
+              className="hover:text-white/80 font-medium"
+            >
+              Change temperature…
+            </button>
+            {bulkActionTarget === 'temp' && (
+              <div className="absolute bottom-8 left-0 w-32 bg-white text-[#1F1F1D] border border-[#E6E6E3] rounded-[6px] shadow-lg p-1.5 space-y-1">
+                {(['Hot', 'Warm', 'Cold'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => handleBulkTemperature(t)}
+                    className="w-full text-left px-2 py-1 text-xs hover:bg-[#F3F4F6] rounded"
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Export CSV (Admin only) */}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="hover:text-white/80 font-medium flex items-center gap-1"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+          )}
+
+          {/* Deselect All */}
           <button
+            type="button"
             onClick={() => setSelectedLeadIds([])}
-            className="text-white/60 hover:text-white p-1 ml-1 cursor-pointer"
-            title="Clear selection"
-            aria-label="Clear selection"
+            className="text-white/60 hover:text-white p-1 ml-1"
+            title="Deselect all"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* 4. 480PX LEAD SIDE PANEL */}
-      <LeadSidePanel
-        lead={selectedLead}
-        isOpen={!!selectedLead}
-        onClose={() => setSelectedLead(null)}
-        onNext={handleNextLead}
-        onPrev={handlePrevLead}
-        hasNext={hasNextLead}
-        hasPrev={hasPrevLead}
+      {/* =====================================================
+          F. 480PX LEAD SIDE PANEL (Grid stays visible & usable behind it)
+         ===================================================== */}
+      <SidePanel isOpen={Boolean(urlLeadId)} onClose={handleCloseLead}>
+        <LeadPanel
+          leadId={urlLeadId}
+          onClose={handleCloseLead}
+          onNext={handleNextLead}
+          onPrev={handlePrevLead}
+          hasNext={hasNextLead}
+          hasPrev={hasPrevLead}
+        />
+      </SidePanel>
+
+      {/* LOST REASON MODAL */}
+      <LostReasonModal
+        isOpen={isLostModalOpen}
+        leadName={lostTargetLead?.fullName}
+        onClose={() => {
+          setIsLostModalOpen(false);
+          setLostTargetLead(null);
+        }}
+        onConfirm={handleConfirmLostReason}
       />
 
-      {/* 5. ADD LEAD MODAL */}
-      {isAddLeadOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[1px] flex items-center justify-center p-4 animate-in fade-in"
-          onClick={() => setIsAddLeadOpen(false)}
-        >
-          <form
-            onSubmit={handleCreateLead}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white border border-[#E6E6E3] rounded-[8px] p-5 shadow-xl space-y-4"
-          >
-            <div className="flex items-center justify-between border-b border-[#E6E6E3] pb-2.5">
-              <h3 className="font-semibold text-sm text-[#1F1F1D]">Add New Lead</h3>
-              <button
-                type="button"
-                onClick={() => setIsAddLeadOpen(false)}
-                className="text-[#6B6B66] hover:text-[#1F1F1D]"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
+      {/* ADD LEAD MODAL */}
+      {isAddLeadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-[420px] bg-white border border-[#E6E6E3] rounded-[8px] shadow-xl p-5 text-[#1F1F1D] space-y-4">
+            <div className="flex items-center justify-between border-b border-[#E6E6E3] pb-3">
+              <span className="font-semibold text-sm">Add New Lead</span>
+              <button onClick={() => setIsAddLeadModalOpen(false)}>
+                <X className="w-4 h-4 text-[#6B6B66]" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <form onSubmit={handleCreateLead} className="space-y-3 text-xs">
               <div>
-                <label className="block font-medium text-[#1F1F1D] mb-1">Full name *</label>
+                <label className="text-[11px] font-medium text-[#1F1F1D] block mb-1">Full Name *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Rohan Mehta"
+                  placeholder="e.g. Vikram Seth"
                   value={newLeadName}
                   onChange={(e) => setNewLeadName(e.target.value)}
-                  className="w-full h-8 px-2.5 bg-white border border-[#E6E6E3] rounded-[6px] text-xs focus:ring-1 focus:ring-[#3B4BDB]"
+                  className="w-full h-8 px-2 bg-white border border-[#E6E6E3] rounded-[6px] text-xs outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-[#1F1F1D] mb-1">Phone number *</label>
+                <label className="text-[11px] font-medium text-[#1F1F1D] block mb-1">Phone *</label>
                 <input
-                  type="tel"
+                  type="text"
                   required
                   placeholder="+91 98765 43210"
                   value={newLeadPhone}
                   onChange={(e) => setNewLeadPhone(e.target.value)}
-                  className="w-full h-8 px-2.5 bg-white border border-[#E6E6E3] rounded-[6px] text-xs focus:ring-1 focus:ring-[#3B4BDB]"
+                  className="w-full h-8 px-2 bg-white border border-[#E6E6E3] rounded-[6px] text-xs outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-[#1F1F1D] mb-1">Email address</label>
+                <label className="text-[11px] font-medium text-[#1F1F1D] block mb-1">Email</label>
                 <input
                   type="email"
-                  placeholder="rohan@example.com"
+                  placeholder="vikram@example.com"
                   value={newLeadEmail}
                   onChange={(e) => setNewLeadEmail(e.target.value)}
-                  className="w-full h-8 px-2.5 bg-white border border-[#E6E6E3] rounded-[6px] text-xs focus:ring-1 focus:ring-[#3B4BDB]"
+                  className="w-full h-8 px-2 bg-white border border-[#E6E6E3] rounded-[6px] text-xs outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-[#1F1F1D] mb-1">Program interested in</label>
+                <label className="text-[11px] font-medium text-[#1F1F1D] block mb-1">Program</label>
                 <select
                   value={newLeadProgram}
                   onChange={(e) => setNewLeadProgram(e.target.value)}
-                  className="w-full h-8 px-2 bg-white border border-[#E6E6E3] rounded-[6px] text-xs font-medium"
+                  className="w-full h-8 px-2 bg-white border border-[#E6E6E3] rounded-[6px] text-xs outline-none"
                 >
-                  <option value="AI-Native PM">AI-Native PM Program (4 Certifications)</option>
-                  <option value="3-Day Workshop">3-Day AI Builder Workshop</option>
+                  <option value="AI-Native Project Management">AI-Native Project Management</option>
+                  <option value="3-Day AI Builder Workshop">3-Day AI Builder Workshop</option>
                 </select>
               </div>
-            </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#E6E6E3]">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsAddLeadOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary" size="sm">
-                Create record
-              </Button>
-            </div>
-          </form>
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E6E6E3]">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setIsAddLeadModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" size="sm">
+                  Create Lead
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
