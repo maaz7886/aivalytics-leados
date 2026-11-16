@@ -4,376 +4,428 @@ import { useApp } from '../context/AppContext';
 import {
   CORE_OFFERINGS,
   WORKSHOP_DIRECT_SALE_SCRIPT,
-  FREE_WEBINAR_FALLBACK_SCRIPT,
+  WEBINAR_INVITATION_SCRIPT,
   getWorkshopDirectSaleWhatsApp,
-  getFreeWebinarWhatsApp,
-  getAiPmProgramWhatsApp,
-  getPostWebinarDualProposalWhatsApp
+  getWebinarInviteWhatsApp,
+  getMentorMeetingWithMaazWhatsApp,
+  getAiPmFallbackToBuilderWhatsApp
 } from '../utils/offeringTemplates';
+import { Button } from '../components/ui/Button';
+import {
+  BookOpen,
+  Copy,
+  Check,
+  Phone,
+  Zap
+} from 'lucide-react';
 
 export default function Programs() {
   const { allLeads, leads } = useApp();
-  const leadsPool = allLeads || leads;
+  const leadsPool = allLeads && allLeads.length > 0 ? allLeads : leads;
 
-  const [activeTab, setActiveTab] = useState<'workshop-3day' | 'ai-pm' | 'templates'>('workshop-3day');
-  const [copiedTemplate, setCopiedTemplate] = useState<string | null>(null);
-
-  // Compute live pipeline numbers for each offering
-  const workshopLeads = leadsPool.filter(
-    (l) => l.programId === 'workshop-3day' || l.programName?.toLowerCase().includes('workshop') || l.programName?.toLowerCase().includes('3-day') || l.programName?.toLowerCase().includes('builder')
-  );
-  const aiPmLeads = leadsPool.filter(
-    (l) => l.programId === 'ai-pm' || (!l.programId?.includes('workshop') && !l.programName?.toLowerCase().includes('workshop'))
-  );
+  const [activeTab, setActiveTab] = useState<'ai-builder' | 'ai-pm' | 'scripts'>('ai-builder');
+  const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedTemplate(label);
-    setTimeout(() => setCopiedTemplate(null), 2500);
+    setCopiedLabel(label);
+    setTimeout(() => setCopiedLabel(null), 2500);
   };
 
   const workshopDef = CORE_OFFERINGS['workshop-3day'];
   const aiPmDef = CORE_OFFERINGS['ai-pm'];
 
+  const workshopFullScript = `HOOK:\n${WORKSHOP_DIRECT_SALE_SCRIPT.hook}\n\nPITCH:\n${WORKSHOP_DIRECT_SALE_SCRIPT.valuePitch}\n\nCLOSE:\n${WORKSHOP_DIRECT_SALE_SCRIPT.inCallClose}\n\nOBJECTION (TIME):\n${WORKSHOP_DIRECT_SALE_SCRIPT.objectionNoTime}\n\nOBJECTION (BUDGET):\n${WORKSHOP_DIRECT_SALE_SCRIPT.objectionBudget}`;
+
+  const webinarFullScript = `TRANSITION:\n${WEBINAR_INVITATION_SCRIPT.transition}\n\nPITCH:\n${WEBINAR_INVITATION_SCRIPT.pitch}\n\nCLOSE:\n${WEBINAR_INVITATION_SCRIPT.close}`;
+
+  const workshopLeads = leadsPool.filter(
+    (l) =>
+      l.programId === 'ai-builder' ||
+      l.programId === 'workshop-3day' ||
+      (l.programName || '').toLowerCase().includes('builder') ||
+      (l.programName || '').toLowerCase().includes('workshop')
+  );
+
+  const aiPmLeads = leadsPool.filter(
+    (l) =>
+      l.programId === 'ai-pm' ||
+      (l.programName || '').toLowerCase().includes('pm') ||
+      (l.programName || '').toLowerCase().includes('project')
+  );
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 pb-12">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">Programs & Offerings Engine</h1>
-          <p className="text-xs text-gray-500">
-            Official operational curricula, sales motion templates, and lead tracking for our two core offerings.
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-[20px] font-semibold text-[#1F1F1D] tracking-tight">
+              Programs & Enablement Scripts
+            </h1>
+            <span className="text-[12px] font-medium px-2 py-0.5 rounded-full bg-[#F7F7F5] border border-[#E6E6E3] text-[#6B6B66]">
+              2 Core Offerings
+            </span>
+          </div>
+          <p className="text-[13px] text-[#6B6B66] mt-0.5">
+            Official admissions curriculum, pitch tracks, objection handling scripts, and WhatsApp dispatch templates.
           </p>
         </div>
       </div>
 
-      {/* Main Offering Switcher */}
+      {/* Program Selector Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Card 1: AI Native Builder */}
         <button
           type="button"
-          onClick={() => setActiveTab('workshop-3day')}
-          className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
-            activeTab === 'workshop-3day'
-              ? 'bg-[#133926] text-white border-[#133926] shadow-sm'
-              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-gray-300'
+          onClick={() => setActiveTab('ai-builder')}
+          className={`p-4 rounded-lg border text-left transition-all cursor-pointer ${
+            activeTab === 'ai-builder'
+              ? 'bg-[#EEF0FD] border-[#3B4BDB]'
+              : 'bg-white border-[#E6E6E3] hover:border-[#3B4BDB]/40'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${activeTab === 'workshop-3day' ? 'bg-emerald-800 text-emerald-100' : 'bg-emerald-50 text-emerald-800'}`}>
-              Weekend Intensive
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-[#DDF4E4] text-[#17673A]">
+              Weekend Sprint
             </span>
-            <span className="text-xs font-mono font-bold">₹{workshopDef.price.toLocaleString('en-IN')}</span>
+            <span className="text-[14px] font-semibold text-[#1F1F1D] tabular-nums font-mono">
+              ₹{workshopDef.price.toLocaleString('en-IN')}
+            </span>
           </div>
-          <h3 className="font-bold text-sm mt-2">1. 3-Day AI Builder Workshop</h3>
-          <p className={`text-xs mt-1 line-clamp-2 ${activeTab === 'workshop-3day' ? 'text-gray-200' : 'text-gray-500'}`}>
-            Fri Evening (7-10 PM) • Sat Full Day (10-6 PM) • Sun Full Day (10-6 PM)
+          <h3 className="font-semibold text-[14px] text-[#1F1F1D] mt-2">
+            1. AI Native Builder Program
+          </h3>
+          <p className="text-[12px] text-[#6B6B66] mt-1 line-clamp-2">
+            Weekend intensive hands-on sprint. Build practical autonomous agents with live guidance.
           </p>
-          <div className="mt-3 pt-2 border-t border-white/20 dark:border-gray-700 flex justify-between text-[11px]">
+          <div className="mt-3 pt-2 border-t border-[#E6E6E3] flex justify-between text-[11px] text-[#6B6B66]">
             <span>Active Pipeline:</span>
-            <strong className="font-bold">{workshopLeads.length} Leads</strong>
+            <strong className="text-[#1F1F1D] tabular-nums font-mono font-semibold">
+              {workshopLeads.length} leads
+            </strong>
           </div>
         </button>
 
+        {/* Card 2: AI Native PM */}
         <button
           type="button"
           onClick={() => setActiveTab('ai-pm')}
-          className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+          className={`p-4 rounded-lg border text-left transition-all cursor-pointer ${
             activeTab === 'ai-pm'
-              ? 'bg-[#133926] text-white border-[#133926] shadow-sm'
-              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-gray-300'
+              ? 'bg-[#EEF0FD] border-[#3B4BDB]'
+              : 'bg-white border-[#E6E6E3] hover:border-[#3B4BDB]/40'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${activeTab === 'ai-pm' ? 'bg-purple-800 text-purple-100' : 'bg-purple-50 text-purple-800'}`}>
-              Flagship 3 Months
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-[#E3EBFF] text-[#1E3FA8]">
+              Flagship Cohort
             </span>
-            <span className="text-xs font-mono font-bold">₹{aiPmDef.price.toLocaleString('en-IN')}</span>
+            <span className="text-[14px] font-semibold text-[#1F1F1D] tabular-nums font-mono">
+              ₹{aiPmDef.price.toLocaleString('en-IN')}
+            </span>
           </div>
-          <h3 className="font-bold text-sm mt-2">2. AI-Native PM Program</h3>
-          <p className={`text-xs mt-1 line-clamp-2 ${activeTab === 'ai-pm' ? 'text-gray-200' : 'text-gray-500'}`}>
-            4 Industry Certifications in 3 Months • Weekend Masterclasses + Weekly Mentorship
+          <h3 className="font-semibold text-[14px] text-[#1F1F1D] mt-2">
+            2. AI Native Project Management
+          </h3>
+          <p className="text-[12px] text-[#6B6B66] mt-1 line-clamp-2">
+            Comprehensive multi-agent career transformation with No-Cost EMI from ₹8,333/month.
           </p>
-          <div className="mt-3 pt-2 border-t border-white/20 dark:border-gray-700 flex justify-between text-[11px]">
+          <div className="mt-3 pt-2 border-t border-[#E6E6E3] flex justify-between text-[11px] text-[#6B6B66]">
             <span>Active Pipeline:</span>
-            <strong className="font-bold">{aiPmLeads.length} Leads</strong>
+            <strong className="text-[#1F1F1D] tabular-nums font-mono font-semibold">
+              {aiPmLeads.length} leads
+            </strong>
           </div>
         </button>
 
+        {/* Card 3: Pitch & WhatsApp Templates */}
         <button
           type="button"
-          onClick={() => setActiveTab('templates')}
-          className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
-            activeTab === 'templates'
-              ? 'bg-[#133926] text-white border-[#133926] shadow-sm'
-              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:border-gray-300'
+          onClick={() => setActiveTab('scripts')}
+          className={`p-4 rounded-lg border text-left transition-all cursor-pointer ${
+            activeTab === 'scripts'
+              ? 'bg-[#EEF0FD] border-[#3B4BDB]'
+              : 'bg-white border-[#E6E6E3] hover:border-[#3B4BDB]/40'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${activeTab === 'templates' ? 'bg-amber-800 text-amber-100' : 'bg-amber-50 text-amber-800'}`}>
-              Sales Rep Hub
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-[#F7F7F5] border border-[#E6E6E3] text-[#6B6B66]">
+              Enablement Library
             </span>
-            <span className="text-xs font-mono font-bold">5 Templates</span>
+            <span className="text-[12px] text-[#3B4BDB] font-medium">1-Click Dispatch</span>
           </div>
-          <h3 className="font-bold text-sm mt-2">3. Sales Scripts & Pitch Library</h3>
-          <p className={`text-xs mt-1 line-clamp-2 ${activeTab === 'templates' ? 'text-gray-200' : 'text-gray-500'}`}>
-            In-Call Direct Selling, Webinar Fallback, 4-Cert AI PM, and Dual Proposals.
+          <h3 className="font-semibold text-[14px] text-[#1F1F1D] mt-2">
+            3. WhatsApp & Call Scripts
+          </h3>
+          <p className="text-[12px] text-[#6B6B66] mt-1 line-clamp-2">
+            Objection handling, mentor session invites, webinar replays, and downsell scripts.
           </p>
-          <div className="mt-3 pt-2 border-t border-white/20 dark:border-gray-700 flex justify-between text-[11px]">
-            <span>WhatsApp Ready:</span>
-            <strong className="font-bold text-emerald-400">1-Click Actions</strong>
+          <div className="mt-3 pt-2 border-t border-[#E6E6E3] flex justify-between text-[11px] text-[#6B6B66]">
+            <span>Templates Available:</span>
+            <strong className="text-[#1F1F1D] font-semibold">6 Official Scripts</strong>
           </div>
         </button>
       </div>
 
-      {/* Tab 1: 3-Day AI Builder Workshop */}
-      {activeTab === 'workshop-3day' && (
-        <div className="space-y-5">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-5">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-gray-100 dark:border-gray-700">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{workshopDef.name}</h2>
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                    Weekend Intensive
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">{workshopDef.description}</p>
-              </div>
-              <div className="text-right">
-                <span className="text-xs text-gray-500 line-through mr-2">₹{workshopDef.regularPrice.toLocaleString('en-IN')}</span>
-                <span className="text-xl font-black text-[#133926] dark:text-emerald-400">
-                  ₹{workshopDef.price.toLocaleString('en-IN')}
-                </span>
-                <span className="text-[10px] text-gray-500 block">Direct In-Call Enrollment Fee</span>
-              </div>
-            </div>
-
-            {/* Weekend Schedule Breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-1.5">
-                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Day 1 • Friday Evening</span>
-                <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100">7:00 PM – 10:00 PM IST</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  AI Foundations, LLM Context Engineering, System Prompt Architectures, and Framework Environment Setup.
-                </p>
-              </div>
-
-              <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-1.5">
-                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Day 2 • Saturday Full Day</span>
-                <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100">10:00 AM – 6:00 PM IST</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  Building Autonomous Market Research Agent & n8n Multi-Step Workflow Automation Engine with live debugging.
-                </p>
-              </div>
-
-              <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-1.5">
-                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Day 3 • Sunday Full Day</span>
-                <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100">10:00 AM – 6:00 PM IST</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  Building Production Multi-Modal AI Assistant, Webhook Integration, Cloud Deployment & Capstone Showcase.
-                </p>
-              </div>
-            </div>
-
-            {/* The 2-Way Sales Motion Explained */}
-            <div className="p-4 bg-gray-50 dark:bg-gray-750 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
-              <h4 className="text-xs font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                Two-Way Sales Enrollment Motion
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
-                    <span>⚡ Pathway A:</span>
-                    <span>Direct In-Call Sale (Primary Goal)</span>
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    The rep calls the candidate directly, pitches the intensive Friday-Sunday hands-on build, and asks them to buy on the call for ₹2,999 with instant WhatsApp checkout link.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-indigo-700 font-bold">
-                    <span>🎟️ Pathway B:</span>
-                    <span>Free Webinar Invitation (Fallback)</span>
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    If the candidate is hesitant to buy directly on the call, the rep immediately transitions to giving them a free guest pass to the upcoming Live AI Masterclass where both programs are proposed.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: AI-Native PM Program (4 Certifications) */}
-      {activeTab === 'ai-pm' && (
-        <div className="space-y-5">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 space-y-5">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-gray-100 dark:border-gray-700">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{aiPmDef.name}</h2>
-                  <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-xs font-bold">
-                    4 Certifications in 3 Months
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">{aiPmDef.description}</p>
-              </div>
-              <div className="text-right">
-                <span className="text-xs text-gray-500 line-through mr-2">₹{aiPmDef.regularPrice.toLocaleString('en-IN')}</span>
-                <span className="text-xl font-black text-purple-700 dark:text-purple-400">
-                  ₹{aiPmDef.price.toLocaleString('en-IN')}
-                </span>
-                <span className="text-[10px] text-gray-500 block">No-Cost EMI starting ₹4,500/mo</span>
-              </div>
-            </div>
-
-            {/* The 4 Industry Certifications */}
+      {/* TAB 1: AI BUILDER WORKSHOP */}
+      {activeTab === 'ai-builder' && (
+        <div className="bg-white border border-[#E6E6E3] rounded-lg p-5 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E6E6E3] pb-3">
             <div>
-              <h4 className="text-xs font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide mb-3">
-                The 4 Industry Certifications Included
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {aiPmDef.certifications?.map((cert, idx) => (
-                  <div key={idx} className="p-4 bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-xl space-y-1">
-                    <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300">Module & Certificate #{idx + 1}</span>
-                    <h5 className="font-bold text-sm text-gray-900 dark:text-gray-100">{cert}</h5>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 pt-1">
-                      {idx === 0 && 'Mastering custom GPTs, Claude 3.5 Sonnet context architectures, and engineering comprehensive AI PRDs.'}
-                      {idx === 1 && 'Architecting multi-agent systems, automated backlog risk audits, and n8n orchestration for agile squads.'}
-                      {idx === 2 && 'Evaluating LLM hallucination rates, RAG latency & cost metrics, and continuous deployment analytics.'}
-                      {idx === 3 && 'Deploying a live production portfolio AI agent and defending architecture before senior industry tech leaders.'}
-                    </p>
-                  </div>
-                ))}
+              <h2 className="text-[16px] font-semibold text-[#1F1F1D]">
+                AI Native Builder Program (₹{workshopDef.price.toLocaleString('en-IN')})
+              </h2>
+              <p className="text-[12px] text-[#6B6B66]">
+                Weekend intensive hands-on sprint · Fri Evening (7-10 PM), Sat Full Day (10-6 PM), Sun Full Day (10-6 PM)
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-medium px-2.5 py-1 rounded-md bg-[#DDF4E4] text-[#17673A] border border-[#C3ECD0]">
+                Commission: ₹500 / enrollment
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Left: What Students Build */}
+            <div className="space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1F1F1D] flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[#3B4BDB]" />
+                <span>Hands-on Deliverables</span>
+              </h3>
+              <div className="space-y-2 text-[12px] text-[#1F1F1D]">
+                <div className="p-3 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md space-y-1">
+                  <div className="font-medium text-[#1F1F1D]">Day 1: Autonomous AI Researcher Agent</div>
+                  <p className="text-[#6B6B66] text-[11px]">Build a web-crawling agent that extracts competitive intelligence and summarizes key insights.</p>
+                </div>
+                <div className="p-3 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md space-y-1">
+                  <div className="font-medium text-[#1F1F1D]">Day 2: Full-Stack Multi-Agent System</div>
+                  <p className="text-[#6B6B66] text-[11px]">Connect agents with tool calling, memory state, and automated reasoning pipelines.</p>
+                </div>
+                <div className="p-3 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md space-y-1">
+                  <div className="font-medium text-[#1F1F1D]">Day 3: Production Deployment & Showcase</div>
+                  <p className="text-[#6B6B66] text-[11px]">Deploy on cloud endpoints with authentication and real-time dashboard UI.</p>
+                </div>
               </div>
             </div>
 
-            {/* Program Logistics & Mentorship */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-2">
-              <div className="p-3 bg-gray-50 dark:bg-gray-750 rounded-xl space-y-1">
-                <span className="text-gray-500 font-semibold">Cohort Duration:</span>
-                <p className="font-bold text-sm text-gray-900 dark:text-gray-100">3 Months (12 Weeks)</p>
+            {/* Right: Direct Pitch Script */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[13px] font-semibold text-[#1F1F1D] flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-[#3B4BDB]" />
+                  <span>Direct Sale Phone Script</span>
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(workshopFullScript, 'workshop_script')}
+                  className="h-7 text-[11px] gap-1"
+                >
+                  {copiedLabel === 'workshop_script' ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                  <span>{copiedLabel === 'workshop_script' ? 'Copied' : 'Copy Script'}</span>
+                </Button>
               </div>
-              <div className="p-3 bg-gray-50 dark:bg-gray-750 rounded-xl space-y-1">
-                <span className="text-gray-500 font-semibold">Live Timing:</span>
-                <p className="font-bold text-sm text-gray-900 dark:text-gray-100">Sat & Sun (10 AM - 1 PM IST)</p>
-              </div>
-              <div className="p-3 bg-gray-50 dark:bg-gray-750 rounded-xl space-y-1">
-                <span className="text-gray-500 font-semibold">Mentorship:</span>
-                <p className="font-bold text-sm text-gray-900 dark:text-gray-100">Weekly 1-on-1 Coaching</p>
+              <div className="p-3.5 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md font-mono text-[11px] leading-relaxed text-[#1F1F1D] max-h-56 overflow-y-auto whitespace-pre-wrap">
+                {workshopFullScript}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Tab 3: Sales Scripts & Templates Library */}
-      {activeTab === 'templates' && (
-        <div className="space-y-4">
-          {/* Template 1: 3-Day Workshop In-Call Close */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                  Offering 1: 3-Day Workshop
-                </span>
-                <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 mt-1">
-                  Direct In-Call Close Script & WhatsApp Checkout
-                </h4>
-              </div>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(getWorkshopDirectSaleWhatsApp('Alex Candidate'), 'workshop-wa')}
-                className="px-3 py-1.5 bg-[#133926] text-white text-xs font-bold rounded-lg cursor-pointer hover:bg-[#1a4a33]"
-              >
-                {copiedTemplate === 'workshop-wa' ? '✓ Copied WhatsApp!' : '📋 Copy WhatsApp Template'}
-              </button>
-            </div>
-            <div className="p-3 bg-gray-50 dark:bg-gray-750 rounded-lg text-xs space-y-1.5 text-gray-700 dark:text-gray-300">
-              <p><strong>Opening Hook:</strong> &quot;{WORKSHOP_DIRECT_SALE_SCRIPT.hook.replace('[Name]', 'John')}&quot;</p>
-              <p><strong>Value Pitch:</strong> &quot;{WORKSHOP_DIRECT_SALE_SCRIPT.valuePitch}&quot;</p>
-              <p className="font-semibold text-emerald-800 dark:text-emerald-300">
-                <strong>In-Call Close:</strong> &quot;{WORKSHOP_DIRECT_SALE_SCRIPT.inCallClose}&quot;
+      {/* TAB 2: AI NATIVE PM FLAGSHIP */}
+      {activeTab === 'ai-pm' && (
+        <div className="bg-white border border-[#E6E6E3] rounded-lg p-5 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E6E6E3] pb-3">
+            <div>
+              <h2 className="text-[16px] font-semibold text-[#1F1F1D]">
+                AI-Native Project Management Program (₹{aiPmDef.price.toLocaleString('en-IN')})
+              </h2>
+              <p className="text-[12px] text-[#6B6B66]">
+                Comprehensive 10-week career transformation · 1-on-1 mentor guidance · No-Cost EMI from ₹8,333/mo
               </p>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-medium px-2.5 py-1 rounded-md bg-[#DDF4E4] text-[#17673A] border border-[#C3ECD0]">
+                Commission: ₹5,000 / enrollment (10%)
+              </span>
+            </div>
           </div>
 
-          {/* Template 2: Fallback Free Webinar Invitation */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">
-                  Fallback: Did Not Buy on Call
-                </span>
-                <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 mt-1">
-                  Free Live Masterclass Invitation (Where Both Offerings Are Proposed)
-                </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Left: 4-Attempt Sales Motion */}
+            <div className="space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1F1F1D] flex items-center gap-2">
+                <Zap className="w-4 h-4 text-[#3B4BDB]" />
+                <span>Official 4-Attempt Sales Track</span>
+              </h3>
+              <div className="space-y-2 text-[12px]">
+                <div className="p-3 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md space-y-1">
+                  <div className="font-semibold text-[#1F1F1D]">Attempt 1: Sell on the Call (₹49,999)</div>
+                  <p className="text-[#6B6B66] text-[11px]">Position salary uplift and offer 3-month or 6-month No-Cost EMI from ₹8,333/month.</p>
+                </div>
+                <div className="p-3 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md space-y-1">
+                  <div className="font-semibold text-[#1F1F1D]">Attempt 2: 1-on-1 Mentor Session with Maaz</div>
+                  <p className="text-[#6B6B66] text-[11px]">Book a 15-minute diagnostic call with Maaz to resolve curriculum and career trajectory questions.</p>
+                </div>
+                <div className="p-3 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md space-y-1">
+                  <div className="font-semibold text-[#1F1F1D]">Attempt 3: 90-min Zoom Masterclass Pass</div>
+                  <p className="text-[#6B6B66] text-[11px]">Invite candidate to the upcoming live Saturday demo masterclass to observe live agent building.</p>
+                </div>
+                <div className="p-3 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md space-y-1">
+                  <div className="font-semibold text-[#1F1F1D]">Attempt 4: Downsell to AI Builder (₹6,999)</div>
+                  <p className="text-[#6B6B66] text-[11px]">100% of the ₹6,999 paid is credited toward AI-PM if they upgrade within 30 days.</p>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(getFreeWebinarWhatsApp('Alex Candidate'), 'webinar-wa')}
-                className="px-3 py-1.5 bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer hover:bg-indigo-800"
-              >
-                {copiedTemplate === 'webinar-wa' ? '✓ Copied WhatsApp!' : '📋 Copy WhatsApp Pass'}
-              </button>
             </div>
-            <div className="p-3 bg-gray-50 dark:bg-gray-750 rounded-lg text-xs space-y-1.5 text-gray-700 dark:text-gray-300">
-              <p><strong>Transition:</strong> &quot;{FREE_WEBINAR_FALLBACK_SCRIPT.transition}&quot;</p>
-              <p><strong>Webinar Value:</strong> &quot;{FREE_WEBINAR_FALLBACK_SCRIPT.pitch}&quot;</p>
-              <p className="font-semibold text-indigo-800 dark:text-indigo-300">
-                <strong>Invitation Close:</strong> &quot;{FREE_WEBINAR_FALLBACK_SCRIPT.close}&quot;
+
+            {/* Right: Pitch Script & Objection Handling */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[13px] font-semibold text-[#1F1F1D] flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-[#3B4BDB]" />
+                  <span>Webinar & Discovery Pitch Script</span>
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(webinarFullScript, 'aipm_script')}
+                  className="h-7 text-[11px] gap-1"
+                >
+                  {copiedLabel === 'aipm_script' ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                  <span>{copiedLabel === 'aipm_script' ? 'Copied' : 'Copy Script'}</span>
+                </Button>
+              </div>
+              <div className="p-3.5 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md font-mono text-[11px] leading-relaxed text-[#1F1F1D] max-h-56 overflow-y-auto whitespace-pre-wrap">
+                {webinarFullScript}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: WHATSAPP TEMPLATES LIBRARY */}
+      {activeTab === 'scripts' && (
+        <div className="bg-white border border-[#E6E6E3] rounded-lg p-5 space-y-4">
+          <div className="border-b border-[#E6E6E3] pb-3">
+            <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
+              Official WhatsApp Outreach & Nurture Templates
+            </h3>
+            <p className="text-[12px] text-[#6B6B66]">
+              Copy and dispatch directly to prospective students via WhatsApp Web
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Template 1 */}
+            <div className="p-4 bg-[#F7F7F5] border border-[#E6E6E3] rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[13px] text-[#1F1F1D]">
+                  1. AI Builder Direct Sale Pitch
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    copyToClipboard(
+                      getWorkshopDirectSaleWhatsApp('Candidate', 'Admissions'),
+                      'wa_builder'
+                    )
+                  }
+                  className="h-6 text-[11px] px-2"
+                >
+                  {copiedLabel === 'wa_builder' ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <p className="text-[11px] font-mono text-[#6B6B66] bg-white p-2.5 rounded border border-[#E6E6E3] whitespace-pre-wrap">
+                {getWorkshopDirectSaleWhatsApp('Candidate', 'Admissions')}
               </p>
             </div>
-          </div>
 
-          {/* Template 3: Post-Webinar Dual Program Proposal */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
-                  Post-Webinar Follow-Up
+            {/* Template 2 */}
+            <div className="p-4 bg-[#F7F7F5] border border-[#E6E6E3] rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[13px] text-[#1F1F1D]">
+                  2. 1-on-1 Mentor Meeting with Maaz
                 </span>
-                <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 mt-1">
-                  Dual Program Proposal (Proposing 3-Day Workshop + AI-Native PM Program)
-                </h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    copyToClipboard(
+                      getMentorMeetingWithMaazWhatsApp('Candidate', 'Admissions'),
+                      'wa_maaz'
+                    )
+                  }
+                  className="h-6 text-[11px] px-2"
+                >
+                  {copiedLabel === 'wa_maaz' ? 'Copied' : 'Copy'}
+                </Button>
               </div>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(getPostWebinarDualProposalWhatsApp('Alex Candidate'), 'dual-wa')}
-                className="px-3 py-1.5 bg-amber-700 text-white text-xs font-bold rounded-lg cursor-pointer hover:bg-amber-800"
-              >
-                {copiedTemplate === 'dual-wa' ? '✓ Copied WhatsApp!' : '📋 Copy Dual Proposal'}
-              </button>
+              <p className="text-[11px] font-mono text-[#6B6B66] bg-white p-2.5 rounded border border-[#E6E6E3] whitespace-pre-wrap">
+                {getMentorMeetingWithMaazWhatsApp('Candidate', 'Admissions')}
+              </p>
             </div>
-            <pre className="p-3 bg-gray-50 dark:bg-gray-750 rounded-lg text-[11px] font-sans whitespace-pre-wrap text-gray-700 dark:text-gray-300">
-              {getPostWebinarDualProposalWhatsApp('Alex Candidate')}
-            </pre>
-          </div>
 
-          {/* Template 4: AI-Native PM 4-Certifications Syllabus */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
-                  Offering 2: AI-Native PM (3 Months)
+            {/* Template 3 */}
+            <div className="p-4 bg-[#F7F7F5] border border-[#E6E6E3] rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[13px] text-[#1F1F1D]">
+                  3. 90-min Live Webinar Masterclass Pass
                 </span>
-                <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 mt-1">
-                  Full 4-Certifications Syllabus & Mentorship Brochure
-                </h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    copyToClipboard(
+                      getWebinarInviteWhatsApp('Candidate', 'Admissions'),
+                      'wa_webinar'
+                    )
+                  }
+                  className="h-6 text-[11px] px-2"
+                >
+                  {copiedLabel === 'wa_webinar' ? 'Copied' : 'Copy'}
+                </Button>
               </div>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(getAiPmProgramWhatsApp('Alex Candidate'), 'aipm-wa')}
-                className="px-3 py-1.5 bg-purple-700 text-white text-xs font-bold rounded-lg cursor-pointer hover:bg-purple-800"
-              >
-                {copiedTemplate === 'aipm-wa' ? '✓ Copied WhatsApp!' : '📋 Copy 4-Cert Syllabus'}
-              </button>
+              <p className="text-[11px] font-mono text-[#6B6B66] bg-white p-2.5 rounded border border-[#E6E6E3] whitespace-pre-wrap">
+                {getWebinarInviteWhatsApp('Candidate', 'Admissions')}
+              </p>
             </div>
-            <pre className="p-3 bg-gray-50 dark:bg-gray-750 rounded-lg text-[11px] font-sans whitespace-pre-wrap text-gray-700 dark:text-gray-300">
-              {getAiPmProgramWhatsApp('Alex Candidate')}
-            </pre>
+
+            {/* Template 4 */}
+            <div className="p-4 bg-[#F7F7F5] border border-[#E6E6E3] rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[13px] text-[#1F1F1D]">
+                  4. Downsell to AI Builder with 100% Credit
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    copyToClipboard(
+                      getAiPmFallbackToBuilderWhatsApp('Candidate'),
+                      'wa_downsell'
+                    )
+                  }
+                  className="h-6 text-[11px] px-2"
+                >
+                  {copiedLabel === 'wa_downsell' ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <p className="text-[11px] font-mono text-[#6B6B66] bg-white p-2.5 rounded border border-[#E6E6E3] whitespace-pre-wrap">
+                {getAiPmFallbackToBuilderWhatsApp('Candidate')}
+              </p>
+            </div>
           </div>
         </div>
       )}

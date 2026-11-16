@@ -1,7 +1,12 @@
 // src/pages/Users.tsx
 import { useState } from 'react';
 import { useApp, adminUser } from '../context/AppContext';
-import { Shield, Mail, Phone, Plus, Check } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import {
+  Plus,
+  CheckCircle2,
+  X
+} from 'lucide-react';
 
 export default function Users() {
   const { salespeople, updateSalesperson, addSalesperson } = useApp();
@@ -13,6 +18,11 @@ export default function Users() {
 
   const allUsers = [adminUser, ...salespeople];
 
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteName.trim() || !inviteEmail.trim()) return;
@@ -22,11 +32,11 @@ export default function Users() {
       email: inviteEmail.trim().toLowerCase(),
       phone: '+91 98765 00000',
       role: inviteRole,
-      title: inviteRole === 'Admin' ? 'Admissions Manager' : 'Sales Representative',
+      title: inviteRole === 'Admin' ? 'Admissions Manager' : 'Senior Admissions Specialist',
       status: 'Active',
-      dailyCallTarget: 25,
-      dailyLeadCapacity: 30,
-      avatarColor: 'bg-[#133926]',
+      dailyCallTarget: 30,
+      dailyLeadCapacity: 35,
+      avatarColor: 'bg-[#3B4BDB]',
       joinedDate: new Date().toISOString().substring(0, 10),
       bio: 'Authorized sales team member.'
     });
@@ -34,124 +44,128 @@ export default function Users() {
     setIsInviteModalOpen(false);
     setInviteName('');
     setInviteEmail('');
-    setToastMsg(`✓ Access invitation registered for ${inviteEmail}!`);
-    setTimeout(() => setToastMsg(null), 3500);
+    showToast(`Access invitation registered for ${inviteEmail}`);
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
+      {/* Toast Alert */}
       {toastMsg && (
-        <div className="fixed top-5 right-5 z-50 p-4 bg-emerald-900 text-white rounded-xl shadow-xl flex items-center gap-3 border border-emerald-700 animate-in fade-in text-xs font-bold">
+        <div className="fixed top-5 right-5 z-50 px-4 py-2.5 bg-[#1F1F1D] text-white rounded-lg shadow-lg flex items-center gap-2 text-[13px] font-medium animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           <span>{toastMsg}</span>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
-              User Access & Permission Controls
+            <h1 className="text-[20px] font-semibold text-[#1F1F1D] tracking-tight">
+              User Access & Permissions
             </h1>
-            <span className="px-3 py-0.5 rounded-full text-xs font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+            <span className="text-[12px] font-medium px-2 py-0.5 rounded-full bg-[#F7F7F5] border border-[#E6E6E3] text-[#6B6B66] tabular-nums font-mono">
               {allUsers.length} Authorized Accounts
             </span>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Manage authenticated team accounts. Only emails listed here are permitted to access LeadOS via Google Sign-In and email login.
+          <p className="text-[13px] text-[#6B6B66] mt-0.5">
+            Role-based access control (Admin vs Salesperson). Only invited email addresses are permitted to log in via Google Sign-In or password.
           </p>
         </div>
 
-        <button
+        <Button
+          variant="primary"
+          size="md"
           onClick={() => setIsInviteModalOpen(true)}
-          className="px-4 py-2 bg-[#133926] hover:bg-[#1a4a33] text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+          className="flex items-center gap-1.5 text-[13px]"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-4 h-4" />
           <span>Invite Team Member</span>
-        </button>
+        </Button>
       </div>
 
       {/* Users Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+      <div className="bg-white border border-[#E6E6E3] rounded-lg p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
+            Authorized LeadOS Team Accounts
+          </h3>
+          <span className="text-[12px] text-[#6B6B66]">
+            Strict Google Workspace domain restriction enabled
+          </span>
+        </div>
+
+        <div className="overflow-x-auto rounded-md border border-[#E6E6E3]">
+          <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-750/50 text-gray-400 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">User</th>
-                <th className="py-3 px-3">Role & Access</th>
-                <th className="py-3 px-3">Contact</th>
-                <th className="py-3 px-3 text-center">Google Sign-In Status</th>
-                <th className="py-3 px-3 text-center">Account State</th>
-                <th className="py-3 px-4 text-right">Action</th>
+              <tr className="bg-[#F7F7F5] text-[#6B6B66] font-medium text-[12px] border-b border-[#E6E6E3]">
+                <th className="py-2.5 px-3">Team Member</th>
+                <th className="py-2.5 px-3">Email Address</th>
+                <th className="py-2.5 px-3">Role</th>
+                <th className="py-2.5 px-3">Permissions Scope</th>
+                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {allUsers.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-750/50 transition-colors">
-                  <td className="py-3 px-4">
+            <tbody className="divide-y divide-[#E6E6E3]">
+              {allUsers.map((user) => (
+                <tr key={user.id} className="hover:bg-[#F3F4F6] transition-colors h-11">
+                  <td className="py-2 px-3">
                     <div className="flex items-center gap-2.5">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${u.avatarColor || 'bg-gray-900'}`}>
-                        {u.name.charAt(0)}
+                      <div className="w-8 h-8 rounded-full bg-[#EEF0FD] text-[#3B4BDB] font-semibold text-[12px] flex items-center justify-center shrink-0">
+                        {user.name
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')}
                       </div>
                       <div>
-                        <div className="font-bold text-gray-900 dark:text-gray-100">{u.name}</div>
-                        <div className="text-[10px] text-gray-400">{u.title}</div>
+                        <div className="font-medium text-[#1F1F1D]">{user.name}</div>
+                        <div className="text-[11px] text-[#6B6B66]">{user.title}</div>
                       </div>
                     </div>
                   </td>
 
-                  <td className="py-3 px-3">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
-                      u.role === 'Admin'
-                        ? 'bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-950 dark:text-purple-300'
-                        : 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-950 dark:text-blue-300'
-                    }`}>
-                      <Shield className="w-2.5 h-2.5" />
-                      {u.role}
+                  <td className="py-2 px-3 text-[#1F1F1D] text-[12px]">
+                    {user.email}
+                  </td>
+
+                  <td className="py-2 px-3">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                        user.role === 'Admin'
+                          ? 'bg-[#EEF0FD] text-[#3B4BDB] border-[#C5CDFA]'
+                          : 'bg-[#F7F7F5] text-[#1F1F1D] border-[#E6E6E3]'
+                      }`}
+                    >
+                      {user.role}
                     </span>
                   </td>
 
-                  <td className="py-3 px-3 text-gray-600 dark:text-gray-300">
-                    <div className="flex items-center gap-1 text-[11px]">
-                      <Mail className="w-3 h-3 text-gray-400" />
-                      <span>{u.email}</span>
-                    </div>
-                    {u.phone && (
-                      <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
-                        <Phone className="w-2.5 h-2.5" />
-                        <span>{u.phone}</span>
-                      </div>
-                    )}
+                  <td className="py-2 px-3 text-[12px] text-[#6B6B66]">
+                    {user.role === 'Admin'
+                      ? 'Full Control Room, Reassignment & Integrations'
+                      : 'Scoped to My Day, Assigned Leads & Scripts'}
                   </td>
 
-                  <td className="py-3 px-3 text-center">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 inline-flex items-center gap-1">
-                      <Check className="w-2.5 h-2.5" />
-                      Whitelisted (Google Auth)
+                  <td className="py-2 px-3">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#DDF4E4] text-[#17673A] border border-[#C3ECD0]">
+                      Authorized
                     </span>
                   </td>
 
-                  <td className="py-3 px-3 text-center">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      u.status === 'Active'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-rose-50 text-rose-700'
-                    }`}>
-                      {u.status}
-                    </span>
-                  </td>
-
-                  <td className="py-3 px-4 text-right">
-                    {u.id !== 'rep-admin' && (
-                      <button
-                        onClick={() => {
-                          const nextStatus = u.status === 'Active' ? 'Inactive' : 'Active';
-                          updateSalesperson(u.id, { status: nextStatus });
+                  <td className="py-2 px-3 text-right">
+                    {user.role !== 'Admin' && (
+                      <select
+                        value={user.role}
+                        onChange={(e) => {
+                          updateSalesperson(user.id, { role: e.target.value as any });
+                          showToast(`Updated role for ${user.name} to ${e.target.value}`);
                         }}
-                        className="text-xs font-bold text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 cursor-pointer"
+                        className="px-2 py-0.5 border border-[#E6E6E3] rounded-md text-[11px] bg-white text-[#1F1F1D] cursor-pointer"
                       >
-                        {u.status === 'Active' ? 'Deactivate' : 'Activate'}
-                      </button>
+                        <option value="Salesperson">Salesperson</option>
+                        <option value="Admin">Admin</option>
+                      </select>
                     )}
                   </td>
                 </tr>
@@ -163,74 +177,80 @@ export default function Users() {
 
       {/* Invite Modal */}
       {isInviteModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <form onSubmit={handleInvite} className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 dark:border-gray-700 space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-3">
-              <h3 className="font-black text-sm text-gray-900 dark:text-gray-100">
-                Invite New Team Member
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <form
+            onSubmit={handleInvite}
+            className="bg-white rounded-lg max-w-md w-full p-5 shadow-xl border border-[#E6E6E3] space-y-4 animate-in fade-in"
+          >
+            <div className="flex items-center justify-between border-b border-[#E6E6E3] pb-3">
+              <h3 className="font-semibold text-[14px] text-[#1F1F1D]">
+                Invite Team Member
               </h3>
               <button
                 type="button"
                 onClick={() => setIsInviteModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-sm font-bold"
+                className="text-[#6B6B66] hover:text-[#1F1F1D] p-1 rounded-md cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="space-y-3 text-[13px]">
               <div>
-                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Full Name *</label>
+                <label className="font-medium text-[#1F1F1D] block mb-1 text-[12px]">
+                  Full Name *
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Maya Patel"
                   value={inviteName}
                   onChange={(e) => setInviteName(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                  placeholder="e.g. Priyanshu Roy"
+                  className="w-full px-3 py-1.5 border border-[#E6E6E3] rounded-md text-[13px] bg-white text-[#1F1F1D] focus:outline-hidden focus:border-[#3B4BDB]"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Google Work Email *</label>
+                <label className="font-medium text-[#1F1F1D] block mb-1 text-[12px]">
+                  Email Address * (must match login)
+                </label>
                 <input
                   type="email"
                   required
-                  placeholder="e.g. maya.patel@aivalytics.io"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                  placeholder="name@aivalytics.com"
+                  className="w-full px-3 py-1.5 border border-[#E6E6E3] rounded-md text-[13px] bg-white text-[#1F1F1D] focus:outline-hidden focus:border-[#3B4BDB]"
                 />
-                <span className="text-[10px] text-gray-400 mt-1 block">Only this email will be allowed to Sign in with Google.</span>
               </div>
 
               <div>
-                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Role *</label>
+                <label className="font-medium text-[#1F1F1D] block mb-1 text-[12px]">
+                  Role & Access Level
+                </label>
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as any)}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-semibold"
+                  className="w-full px-3 py-1.5 border border-[#E6E6E3] rounded-md text-[13px] bg-white text-[#1F1F1D] focus:outline-hidden focus:border-[#3B4BDB]"
                 >
-                  <option value="Salesperson">Sales Representative (Restricted to assigned leads)</option>
-                  <option value="Admin">Admin (Full management access)</option>
+                  <option value="Salesperson">Salesperson (My Day, Calling Mode & Leads)</option>
+                  <option value="Admin">Admin (Full Control Room, Reassignment & Settings)</option>
                 </select>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
-              <button
+            <div className="flex justify-end gap-2 pt-3 border-t border-[#E6E6E3]">
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => setIsInviteModalOpen(false)}
-                className="px-3.5 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-1.5 text-xs font-bold bg-[#133926] hover:bg-[#1a4a33] text-white rounded-lg shadow-sm cursor-pointer"
-              >
-                Whitelist & Invite
-              </button>
+              </Button>
+              <Button variant="primary" size="sm" type="submit">
+                Authorize Account
+              </Button>
             </div>
           </form>
         </div>
