@@ -1,5 +1,5 @@
 // src/pages/ImportCenter.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -52,6 +52,7 @@ export default function ImportCenter() {
   // Step 1: Source
   const [sourceType, setSourceType] = useState<'csv' | 'google_sheet' | 'paste'>('csv');
   const [, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [googleSheetUrl, setGoogleSheetUrl] = useState('');
   const [pasteContent, setPasteContent] = useState('');
   const [sourceName, setSourceName] = useState('');
@@ -121,6 +122,8 @@ export default function ImportCenter() {
     if (e.target.files && e.target.files[0]) {
       processFile(e.target.files[0]);
     }
+    // Reset so selecting the same file again triggers onChange
+    e.target.value = '';
   };
 
   const processFile = (selectedFile: File) => {
@@ -128,7 +131,8 @@ export default function ImportCenter() {
     setSourceName(selectedFile.name);
     setParseError(null);
 
-    const isExcel = selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls');
+    const lowerName = selectedFile.name.toLowerCase();
+    const isExcel = lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls');
 
     if (isExcel) {
       const reader = new FileReader();
@@ -625,28 +629,39 @@ export default function ImportCenter() {
               }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleFileDrop}
-              className={`border-2 border-dashed rounded-lg p-10 text-center transition-colors ${
-                isDragging ? 'border-[#3B4BDB] bg-[#EEF0FD]/30' : 'border-[#E6E6E3] hover:border-[#3B4BDB]/50'
+              onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-lg p-10 text-center transition-colors cursor-pointer ${
+                isDragging
+                  ? 'border-[#3B4BDB] bg-[#EEF0FD]/30'
+                  : 'border-[#E6E6E3] hover:border-[#3B4BDB] hover:bg-[#F7F7F5]/40'
               }`}
             >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                onChange={handleFileInput}
+                className="hidden"
+              />
               <Upload className="w-8 h-8 text-[#6B6B66] mx-auto mb-3" />
               <div className="text-[14px] font-medium text-[#1F1F1D]">
-                Drag and drop your CSV or Excel file here
+                Drag and drop your CSV or Excel file here, or click to browse
               </div>
               <div className="text-[12px] text-[#6B6B66] mt-1 mb-4">
                 Supports .csv, .xlsx, and .xls files from Meta Lead Ads, college drives, and offline forms.
               </div>
-              <label className="inline-flex">
-                <input
-                  type="file"
-                  accept=".csv, .xlsx, .xls"
-                  onChange={handleFileInput}
-                  className="hidden"
-                />
-                <Button variant="primary" size="md" type="button" className="cursor-pointer">
-                  Browse File
-                </Button>
-              </label>
+              <Button
+                variant="primary"
+                size="md"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                className="cursor-pointer"
+              >
+                Browse File
+              </Button>
             </div>
           )}
 
