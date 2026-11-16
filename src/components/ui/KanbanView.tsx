@@ -102,7 +102,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
         });
 
         const totalPotential = stageLeads.reduce(
-          (sum, l) => sum + (l.programId === 'ai-pm' ? 24999 : 4999),
+          (sum, l) => sum + (l.programId === 'ai-pm' ? 49999 : 6999),
           0
         );
 
