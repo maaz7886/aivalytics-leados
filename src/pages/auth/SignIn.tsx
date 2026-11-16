@@ -55,9 +55,35 @@ export default function SignIn() {
     setError(null);
     setLoading(true);
 
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Check configured Admin credential
+    if (cleanEmail === "maazpatel123@gmail.com") {
+      if (password === "Maaz@7886") {
+        setLoading(false);
+        localStorage.setItem(
+          "aivalytics_demo_user",
+          JSON.stringify({
+            user: {
+              id: "admin-maaz",
+              email: "maazpatel123@gmail.com",
+              role: "admin",
+              user_metadata: { name: "Maaz Patel" }
+            }
+          })
+        );
+        await handleSessionEstablished("maazpatel123@gmail.com");
+        return;
+      } else {
+        setLoading(false);
+        setError("Invalid email or password. Please try again.");
+        return;
+      }
+    }
+
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: cleanEmail,
         password: password
       });
 

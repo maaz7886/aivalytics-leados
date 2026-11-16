@@ -788,16 +788,16 @@ const generateInitialCallActivities = (): CallActivity[] => {
 };
 
 export const adminUser: Salesperson = {
-  id: 'rep-admin',
-  name: 'Admin Manager',
-  email: 'admin@aivalytics.io',
+  id: 'admin-maaz',
+  name: 'Maaz Patel',
+  email: 'maazpatel123@gmail.com',
   phone: '+91 99999 88888',
   role: 'Admin',
-  title: 'Head of Sales & Admissions',
+  title: 'Founder & Admin',
   status: 'Active',
   dailyCallTarget: 10,
   dailyLeadCapacity: 50,
-  avatarColor: 'bg-gray-900',
+  avatarColor: 'bg-[#3B4BDB]',
   joinedDate: '2025-11-01',
   bio: 'Full management access across all sales reps, lead pools, and automation.'
 };
