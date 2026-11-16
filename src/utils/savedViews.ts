@@ -8,7 +8,7 @@ export interface SavedViewDefinition {
   filterFn: (lead: Lead, currentUserId?: string, repName?: string) => boolean;
 }
 
-export function getSavedViewCounts(leads: Lead[], currentUserId?: string, repName?: string) {
+export function getSavedViewCounts(leads: Lead[], _currentUserId?: string, _repName?: string) {
   const now = new Date();
   const todayStr = now.toISOString().substring(0, 10);
 
@@ -24,29 +24,30 @@ export function getSavedViewCounts(leads: Lead[], currentUserId?: string, repNam
     overdue: leads.filter((l) => {
       const due = l.nextTask?.dueDateTime || l.nextFollowUp || '';
       if (!due) return false;
-      const isClosed = l.crmStage === 'Lost' || l.crmStage === 'Unqualified' || l.crmStage === 'Enrolled' || l.crmStage === 'Won';
+      const isClosed = l.crmStage === 'Lost' || l.crmStage === 'Unqualified' || l.crmStage === 'Converted' || l.enrollmentStatus === 'Enrolled';
       if (isClosed) return false;
       return new Date(due).getTime() < now.getTime() && !due.startsWith(todayStr);
     }).length,
     hot: leads.filter((l) => {
-      const temp = (l as any).temperature || 'Warm';
+      const temp = (l as any).temperature || (l as any).leadTemperature || 'Warm';
       return temp === 'Hot' || l.crmStage === 'Interested' || l.crmStage === 'Qualified';
     }).length,
     paymentPending: leads.filter((l) => {
       return (
-        l.crmStage === 'Payment pending' ||
+        l.crmStage === 'Payment Pending' ||
+        l.crmStage === 'Payment Discussion' ||
         l.paymentState === 'Payment link sent' ||
         l.paymentState === 'Deposit pending'
       );
     }).length,
     enrolled: leads.filter((l) => {
-      return l.crmStage === 'Enrolled' || l.crmStage === 'Won' || l.paymentStatus === 'Paid';
+      return l.crmStage === 'Converted' || l.enrollmentStatus === 'Enrolled' || l.paymentStatus === 'Paid';
     }).length,
     lost: leads.filter((l) => {
       return (
         l.crmStage === 'Lost' ||
         l.crmStage === 'Unqualified' ||
-        l.crmStage === 'Did Not Pick The Call'
+        l.crmStage === 'Not Interested'
       );
     }).length
   };

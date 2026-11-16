@@ -1,5 +1,4 @@
 // src/components/Header.tsx
-import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Search, Eye, X } from 'lucide-react';

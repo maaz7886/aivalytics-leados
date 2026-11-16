@@ -911,6 +911,7 @@ interface AppContextType {
   syncLogs: SyncLog[];
   triggerManualSync: () => Promise<{ success: boolean; message: string; rowsProcessed?: number }>;
   addLead: (lead: Lead) => void;
+  updateLead: (id: string, updates: Partial<Lead>) => void;
   bulkAddLeads: (leads: Lead[]) => void;
   updateLeadStage: (id: string, stage: Stage) => void;
   deleteLead: (id: string) => void;
@@ -1408,6 +1409,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addLead = (newLead: Lead) => {
     setMasterLeads((prev) => [newLead, ...prev]);
     insertLeadToSupabase(newLead);
+  };
+
+  const updateLead = (id: string, updates: Partial<Lead>) => {
+    setMasterLeads((prev) =>
+      prev.map((l) => {
+        if (l.id === id) {
+          const updated = { ...l, ...updates };
+          insertLeadToSupabase(updated);
+          return updated;
+        }
+        return l;
+      })
+    );
   };
 
   const updateLeadStage = (id: string, stage: Stage) => {
@@ -2288,6 +2302,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         syncLogs,
         triggerManualSync,
         addLead,
+        updateLead,
         bulkAddLeads,
         updateLeadStage,
         deleteLead,

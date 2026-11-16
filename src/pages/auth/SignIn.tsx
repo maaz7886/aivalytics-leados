@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useNavigate } from "react-router-dom";
-import { useApp } from "../../context/AppContext";
+import { useApp, adminUser } from "../../context/AppContext";
 import { getFriendlyErrorMessage } from "../../utils/friendlyError";
 import { ArrowLeft, CheckCircle2, AlertCircle, Mail, Lock } from "lucide-react";
 import { Button } from "../../components/ui/Button";
@@ -21,7 +21,7 @@ export default function SignIn() {
   const [resetLoading, setResetLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { setCurrentUser, setAdminWitnessRep, salespeople, adminUser } = useApp();
+  const { setCurrentUser, setAdminWitnessRep, salespeople } = useApp();
 
   // Handle successful verified authentication
   const handleSessionEstablished = async (userEmail: string) => {

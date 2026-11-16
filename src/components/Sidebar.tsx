@@ -1,5 +1,4 @@
 // src/components/Sidebar.tsx
-import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { getSavedViewCounts } from '../utils/savedViews';
@@ -29,8 +28,7 @@ import {
   LogOut,
   Search,
   PanelLeftClose,
-  PanelLeft,
-  ChevronRight
+  PanelLeft
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -47,7 +45,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, allLeads, leads, setCurrentUser } = useApp();
+  const { currentUser, allLeads, leads } = useApp();
 
   const isSalesperson = currentUser?.role === 'Salesperson';
   const leadsPool = allLeads || leads || [];

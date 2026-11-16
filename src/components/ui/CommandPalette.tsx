@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { Search, X, User, Phone, Mail, ArrowRight, LayoutGrid, CheckSquare } from 'lucide-react';
+import { Search, X, ArrowRight, LayoutGrid, CheckSquare } from 'lucide-react';
 import { StageChip } from './StageChip';
 import { Avatar } from './Avatar';
 import type { Lead } from '../../types';
