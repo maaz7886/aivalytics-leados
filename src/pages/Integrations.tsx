@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { EmptyState } from '../components/EmptyState';
 import {
-  Globe,
   RefreshCw,
   Check,
   Copy,
@@ -68,7 +67,7 @@ export default function Integrations() {
 // Automatically checks for unsynced rows every 1 minute and posts to LeadOS
 
 const CONFIG = {
-  ENDPOINT_URL: 'https://crm.aivalytics.com/api/integrations/sheet-leads',
+  ENDPOINT_URL: 'https://aivalytics-leados.vercel.app/api/integrations/sheet-leads',
   API_KEY: PropertiesService.getScriptProperties().getProperty('LEADOS_SYNC_API_KEY') || 'aiv_sync_sec_9941a87b',
   STATUS_COL_NAME: 'LeadOS Sync Status',
   TIMESTAMP_COL_NAME: 'LeadOS Synced At'
@@ -203,15 +202,12 @@ function syncNewLeadsToLeadOS() {
           <div className="space-y-3 text-xs">
             <div>
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                Primary Webhook URL (Custom Domain)
+                Active Production Webhook URL
               </label>
               <div className="flex items-center gap-2 p-2.5 bg-gray-50 dark:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-xl font-mono text-[11px] text-gray-800 dark:text-gray-200">
                 <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">POST</span>
-                <span className="truncate font-bold text-emerald-700 dark:text-emerald-400">https://crm.aivalytics.com/api/integrations/sheet-leads</span>
+                <span className="truncate font-bold text-emerald-700 dark:text-emerald-400">https://aivalytics-leados.vercel.app/api/integrations/sheet-leads</span>
               </div>
-              <span className="text-[10px] text-gray-400 block mt-1">
-                Fallback: <code>https://aivalytics-leados.vercel.app/api/integrations/sheet-leads</code>
-              </span>
             </div>
 
             <div>
@@ -278,46 +274,6 @@ function syncNewLeadsToLeadOS() {
               </p>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Custom Domain crm.aivalytics.com DNS Configuration Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-emerald-200 dark:border-emerald-900/60 shadow-2xs p-6 space-y-4">
-        <div className="border-b border-gray-100 dark:border-gray-700 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <Globe className="w-4 h-4 text-emerald-600" /> Custom Domain Configuration (crm.aivalytics.com)
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Add the following CNAME record at your DNS provider (Cloudflare, GoDaddy, Namecheap) to connect this CRM.
-            </p>
-          </div>
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 border border-emerald-300">
-            SSL Managed by Vercel
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-            <thead className="bg-gray-50 dark:bg-gray-750 text-gray-500 uppercase text-[10px] font-bold">
-              <tr>
-                <th className="p-3">Record Type</th>
-                <th className="p-3">Host / Subdomain Name</th>
-                <th className="p-3">Target Value</th>
-                <th className="p-3">TTL</th>
-                <th className="p-3">Proxy / Cloudflare</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700 font-mono text-[11px]">
-              <tr>
-                <td className="p-3 font-bold text-emerald-700">CNAME</td>
-                <td className="p-3 font-bold text-gray-900 dark:text-gray-100">crm</td>
-                <td className="p-3 font-bold text-emerald-700">cname.vercel-dns.com</td>
-                <td className="p-3 text-gray-500">60s / Auto</td>
-                <td className="p-3 font-sans text-gray-600 dark:text-gray-300">DNS only (Grey cloud) during setup</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </div>
 
