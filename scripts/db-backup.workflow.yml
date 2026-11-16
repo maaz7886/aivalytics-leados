@@ -1,0 +1,37 @@
+name: Daily Database Backup (14-Day Retention)
+
+on:
+  schedule:
+    # Runs daily at 02:00 UTC (07:30 IST)
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  backup:
+    name: Backup PostgreSQL Database
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL Client Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create Backup Directory
+        run: mkdir -p backups
+
+      - name: Execute Backup & 14-Day Purge
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.SUPABASE_DB_URL }}
+        run: |
+          chmod +x scripts/backup-db.sh
+          ./scripts/backup-db.sh
+
+      - name: Upload Backup Artifact (14-Day Retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: leados-db-backup-${{ github.run_id }}
+          path: backups/*.sql.gz
+          retention-days: 14

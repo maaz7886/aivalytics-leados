@@ -1,7 +1,18 @@
+// src/components/Header.tsx
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import { useApp, adminUser } from "../context/AppContext";
+import {
+  Search,
+  Phone,
+  Sun,
+  Moon,
+  Bell,
+  LogOut,
+  User,
+  Eye
+} from "lucide-react";
 
 export default function Header() {
   const {
@@ -23,7 +34,6 @@ export default function Header() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check Supabase connection health on boot
     const checkDbHealth = async () => {
       try {
         const { error } = await supabase.from('leads').select('id', { count: 'exact', head: true });
@@ -58,6 +68,7 @@ export default function Header() {
       await supabase.auth.signOut();
     } catch {}
     localStorage.removeItem("aivalytics_demo_user");
+    localStorage.removeItem("aivalytics_active_user");
     setUser(null);
     navigate("/auth/signin");
   };
@@ -77,27 +88,37 @@ export default function Header() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/pipeline`);
+      navigate(`/leads`);
     }
   };
 
   return (
     <header className="flex items-center justify-between px-6 py-2.5 border-b border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xs gap-4 shrink-0">
-      {/* Left: Brand */}
-      <div className="flex items-center gap-2 shrink-0">
-        <span className="font-bold text-gray-900 dark:text-gray-100 text-base tracking-tight">
-          Aivalytics LeadOS
-        </span>
-        <span 
-          className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} 
-          title={dbConnected ? 'Cloud Sync Active' : 'Connecting...'}
-        />
+      {/* Left: Brand Wordmark with Tagline */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-[#133926] text-white flex items-center justify-center font-black text-sm shadow-xs shrink-0">
+          AI
+        </div>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className="font-black text-gray-900 dark:text-gray-100 text-sm tracking-tight">
+              AIValytics LeadOS
+            </span>
+            <span 
+              className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} 
+              title={dbConnected ? 'Cloud Sync Active' : 'Connecting to database...'}
+            />
+          </div>
+          <span className="text-[9px] font-extrabold tracking-widest text-emerald-800 dark:text-emerald-400 uppercase leading-none mt-0.5">
+            BUILD · LEARN · DEPLOY
+          </span>
+        </div>
       </div>
 
       {/* Center: Search Bar */}
       <div className="flex-1 max-w-md mx-auto hidden md:block">
         <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-          <span className="absolute left-3.5 text-gray-400 text-xs">🔍</span>
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3" />
           <input
             type="text"
             value={searchQuery}
@@ -111,13 +132,13 @@ export default function Header() {
         </form>
       </div>
 
-      {/* Right: Actions, Theme, Notifications & User Avatar */}
+      {/* Right: Actions, Calling Goal & User Switcher */}
       <div className="flex items-center gap-3 shrink-0">
         {/* Role & Salesperson Switcher */}
         {currentUser?.role === 'Salesperson' ? (
           <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50/90 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 rounded-full text-xs shadow-2xs">
             <span className="text-emerald-800 dark:text-emerald-300 font-extrabold flex items-center gap-1.5">
-              <span>👤</span>
+              <User className="w-3 h-3" />
               <span>{currentUser.name}</span>
               <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">({currentUser.title?.split(' ')[0] || 'Sales Rep'})</span>
             </span>
@@ -130,14 +151,14 @@ export default function Header() {
                 localStorage.setItem("aivalytics_active_user", JSON.stringify(adminUser));
               }}
               className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 dark:hover:text-emerald-100 underline ml-1 cursor-pointer"
-              title="Switch to Admin Manager"
+              title="Switch back to Admin Manager"
             >
               Switch to Admin
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs shadow-2xs">
-            <span className="text-[11px] font-bold text-gray-400 hidden xl:inline">Portal View:</span>
+            <Eye className="w-3 h-3 text-gray-400" />
             <select
               value={adminWitnessRep ? `witness-${adminWitnessRep}` : 'admin-master'}
               onChange={(e) => {
@@ -161,18 +182,18 @@ export default function Header() {
               }}
               className="bg-transparent font-black text-gray-800 dark:text-gray-200 text-xs focus:outline-hidden cursor-pointer"
             >
-              <option value="admin-master">👑 Master Admin (All 362 Leads)</option>
-              <optgroup label="👁️ Witness Salesperson Portal:">
+              <option value="admin-master">Master Admin (All Leads)</option>
+              <optgroup label="Witness Rep Portal:">
                 {salespeople.map((s) => (
                   <option key={`witness-${s.id}`} value={`witness-${s.name}`}>
-                    👁️ Witness {s.name}'s Portal
+                    Witness {s.name}'s Portal
                   </option>
                 ))}
               </optgroup>
-              <optgroup label="Direct Account Sign-In:">
+              <optgroup label="Direct Sign-In:">
                 {salespeople.map((s) => (
                   <option key={`login-${s.id}`} value={`login-${s.id}`}>
-                    👤 Sign in as {s.name}
+                    Sign in as {s.name}
                   </option>
                 ))}
               </optgroup>
@@ -183,41 +204,37 @@ export default function Header() {
         {/* Today's Calls Live Counter Pill */}
         <button
           onClick={() => {
-            navigate("/dashboard");
-            setTimeout(() => {
-              const el = document.getElementById("daily-calling-tracker");
-              if (el) el.scrollIntoView({ behavior: "smooth" });
-            }, 100);
+            navigate("/today");
           }}
-          title={`${todayCallsCount} calls logged today (Daily Target: ${dailyCallGoal}). Click to view Calling Tracker.`}
+          title={`${todayCallsCount} calls logged today (Target: ${dailyCallGoal}).`}
           className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/80 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 rounded-full text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all shadow-2xs cursor-pointer group"
         >
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span className="group-hover:scale-110 transition-transform">📞</span>
+          <Phone className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
           <span>
             <strong className="font-black text-gray-900 dark:text-gray-100">{todayCallsCount}</strong>
-            <span className="text-gray-500 dark:text-gray-400 font-semibold">/{dailyCallGoal}</span> Calls Today
+            <span className="text-gray-500 dark:text-gray-400 font-semibold">/{dailyCallGoal}</span> Calls
           </span>
         </button>
 
-        {/* Theme Toggle Icon Button */}
+        {/* Theme Toggle Button */}
         <button
           onClick={toggleDark}
           title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
           className="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center transition-all cursor-pointer text-sm"
         >
-          {isDark ? "🌙" : "☀️"}
+          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-gray-600" />}
         </button>
 
         {/* Notifications Bell */}
         <button
           title="Notifications"
-          className="relative w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center transition-all cursor-pointer text-sm"
+          className="relative w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center transition-all cursor-pointer"
         >
-          <span>🔔</span>
+          <Bell className="w-4 h-4" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-gray-900"></span>
         </button>
 
@@ -237,9 +254,9 @@ export default function Header() {
           <button
             onClick={handleLogout}
             title="Sign Out"
-            className="text-[11px] font-bold text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer ml-1"
+            className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer ml-1"
           >
-            ↪
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

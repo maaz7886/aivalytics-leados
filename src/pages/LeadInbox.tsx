@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Lead } from '../types';
 import LeadDetailModal from '../components/LeadDetailModal';
+import { EmptyState } from '../components/EmptyState';
+import { CheckCircle2, Inbox, Zap, Users, Check } from 'lucide-react';
 
 export default function LeadInbox() {
   const {
@@ -99,7 +101,7 @@ export default function LeadInbox() {
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 p-4 bg-emerald-900 text-white rounded-xl shadow-xl flex items-center gap-3 border border-emerald-700 animate-in fade-in">
-          <span>✅</span>
+          <Check className="w-4 h-4 text-emerald-300" />
           <span className="text-xs font-bold">{toastMessage}</span>
         </div>
       )}
@@ -108,7 +110,7 @@ export default function LeadInbox() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="text-2xl">📥</span>
+            <Inbox className="w-6 h-6 text-emerald-600" />
             <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
               Unassigned Lead Inbox
             </h1>
@@ -143,9 +145,9 @@ export default function LeadInbox() {
           {/* Auto Assign Button */}
           <button
             onClick={handleAutoAssignSelected}
-            className="px-4 py-2 bg-[#133926] hover:bg-[#1a4a33] text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2 bg-[#133926] hover:bg-[#1a4a33] text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-2 cursor-pointer"
           >
-            <span>⚡</span> {selectedLeadIds.length > 0 ? `Auto-Assign (${selectedLeadIds.length})` : 'Auto-Assign All'}
+            <Zap className="w-3.5 h-3.5" /> {selectedLeadIds.length > 0 ? `Auto-Assign (${selectedLeadIds.length})` : 'Auto-Assign All'}
           </button>
         </div>
       </div>
@@ -154,7 +156,7 @@ export default function LeadInbox() {
       <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-            <span>👥</span> Active Sales Reps & Daily Capacity:
+            <Users className="w-4 h-4 text-emerald-600" /> Active Sales Reps & Daily Capacity:
           </span>
           <span className="text-[11px] text-gray-400 font-medium">
             {activeReps.length} reps online
@@ -232,7 +234,7 @@ export default function LeadInbox() {
         {selectedLeadIds.length > 0 && (
           <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
             <div className="flex items-center gap-2 text-xs text-emerald-900 dark:text-emerald-200 font-bold">
-              <span>🎯</span>
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
               <span><strong>{selectedLeadIds.length}</strong> leads selected</span>
             </div>
 
@@ -262,7 +264,7 @@ export default function LeadInbox() {
                 onClick={handleAutoAssignSelected}
                 className="px-3 py-1.5 bg-[#133926] hover:bg-[#1a4a33] text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer transition-all flex items-center gap-1"
               >
-                <span>⚡</span> Auto-Assign Selected
+                <Zap className="w-3.5 h-3.5" /> Auto-Assign Selected
               </button>
             </div>
           </div>
@@ -294,9 +296,13 @@ export default function LeadInbox() {
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {filteredUnassigned.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-gray-400">
-                    <span className="text-3xl block mb-2">🎉</span>
-                    No unassigned leads! All incoming leads have been distributed to sales reps.
+                  <td colSpan={6} className="py-12">
+                    <EmptyState
+                      icon={CheckCircle2}
+                      title="No unassigned leads."
+                      description="All incoming leads have been distributed to sales reps. Great job!"
+                      className="py-4"
+                    />
                   </td>
                 </tr>
               ) : (

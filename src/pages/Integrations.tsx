@@ -1,6 +1,18 @@
 // src/pages/Integrations.tsx
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { EmptyState } from '../components/EmptyState';
+import {
+  Globe,
+  RefreshCw,
+  Check,
+  Copy,
+  ShieldCheck,
+  FileCode,
+  History,
+  Zap,
+  Server
+} from 'lucide-react';
 
 export default function Integrations() {
   const { syncLogs, triggerManualSync, allLeads, leads } = useApp();
@@ -56,7 +68,7 @@ export default function Integrations() {
 // Automatically checks for unsynced rows every 1 minute and posts to LeadOS
 
 const CONFIG = {
-  ENDPOINT_URL: 'https://aivalytics-leados.vercel.app/api/integrations/sheet-leads',
+  ENDPOINT_URL: 'https://crm.aivalytics.com/api/integrations/sheet-leads',
   API_KEY: PropertiesService.getScriptProperties().getProperty('LEADOS_SYNC_API_KEY') || 'aiv_sync_sec_9941a87b',
   STATUS_COL_NAME: 'LeadOS Sync Status',
   TIMESTAMP_COL_NAME: 'LeadOS Synced At'
@@ -87,7 +99,7 @@ function syncNewLeadsToLeadOS() {
       {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 p-4 bg-emerald-900 text-white rounded-xl shadow-xl flex items-center gap-3 border border-emerald-700 animate-in fade-in">
-          <span>✅</span>
+          <Check className="w-4 h-4 text-emerald-300" />
           <span className="text-xs font-bold">{toastMessage}</span>
         </div>
       )}
@@ -96,7 +108,7 @@ function syncNewLeadsToLeadOS() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="text-2xl">⚡</span>
+            <Zap className="w-6 h-6 text-emerald-600" />
             <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
               Meta Ads & Google Sheets Integration
             </h1>
@@ -113,9 +125,9 @@ function syncNewLeadsToLeadOS() {
           <button
             onClick={handleManualSyncNow}
             disabled={isSyncing}
-            className="px-4 py-2 bg-[#133926] hover:bg-[#1a4a33] disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2 bg-[#133926] hover:bg-[#1a4a33] disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-2 cursor-pointer"
           >
-            <span className={isSyncing ? 'animate-spin' : ''}>🔄</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
             {isSyncing ? 'Synchronizing...' : 'Sync Now (Force Refresh)'}
           </button>
         </div>
@@ -181,7 +193,7 @@ function syncNewLeadsToLeadOS() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs p-6 space-y-4">
           <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
             <h2 className="text-base font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <span>🔐</span> Secure Ingestion Endpoint
+              <Server className="w-4 h-4 text-emerald-600" /> Secure Ingestion Endpoint
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Production API endpoint configured on Vercel Serverless. Protected by secret header key.
@@ -191,12 +203,15 @@ function syncNewLeadsToLeadOS() {
           <div className="space-y-3 text-xs">
             <div>
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                Webhook POST URL
+                Primary Webhook URL (Custom Domain)
               </label>
               <div className="flex items-center gap-2 p-2.5 bg-gray-50 dark:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-xl font-mono text-[11px] text-gray-800 dark:text-gray-200">
                 <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">POST</span>
-                <span className="truncate">https://aivalytics-leados.vercel.app/api/integrations/sheet-leads</span>
+                <span className="truncate font-bold text-emerald-700 dark:text-emerald-400">https://crm.aivalytics.com/api/integrations/sheet-leads</span>
               </div>
+              <span className="text-[10px] text-gray-400 block mt-1">
+                Fallback: <code>https://aivalytics-leados.vercel.app/api/integrations/sheet-leads</code>
+              </span>
             </div>
 
             <div>
@@ -228,7 +243,7 @@ function syncNewLeadsToLeadOS() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs p-6 space-y-4">
           <div className="border-b border-gray-100 dark:border-gray-700 pb-3">
             <h2 className="text-base font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <span>🛡️</span> Data Validation & Deduplication Engine
+              <ShieldCheck className="w-4 h-4 text-emerald-600" /> Data Validation & Deduplication Engine
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Guarantees zero dirty records enter your sales pipeline.
@@ -266,12 +281,52 @@ function syncNewLeadsToLeadOS() {
         </div>
       </div>
 
+      {/* Custom Domain crm.aivalytics.com DNS Configuration Guide */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-emerald-200 dark:border-emerald-900/60 shadow-2xs p-6 space-y-4">
+        <div className="border-b border-gray-100 dark:border-gray-700 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <Globe className="w-4 h-4 text-emerald-600" /> Custom Domain Configuration (crm.aivalytics.com)
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Add the following CNAME record at your DNS provider (Cloudflare, GoDaddy, Namecheap) to connect this CRM.
+            </p>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 border border-emerald-300">
+            SSL Managed by Vercel
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <thead className="bg-gray-50 dark:bg-gray-750 text-gray-500 uppercase text-[10px] font-bold">
+              <tr>
+                <th className="p-3">Record Type</th>
+                <th className="p-3">Host / Subdomain Name</th>
+                <th className="p-3">Target Value</th>
+                <th className="p-3">TTL</th>
+                <th className="p-3">Proxy / Cloudflare</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700 font-mono text-[11px]">
+              <tr>
+                <td className="p-3 font-bold text-emerald-700">CNAME</td>
+                <td className="p-3 font-bold text-gray-900 dark:text-gray-100">crm</td>
+                <td className="p-3 font-bold text-emerald-700">cname.vercel-dns.com</td>
+                <td className="p-3 text-gray-500">60s / Auto</td>
+                <td className="p-3 font-sans text-gray-600 dark:text-gray-300">DNS only (Grey cloud) during setup</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Google Apps Script Integration Box */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-700 pb-3">
           <div>
             <h2 className="text-base font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <span>📄</span> Google Apps Script Quick Setup
+              <FileCode className="w-4 h-4 text-emerald-600" /> Google Apps Script Quick Setup
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
               Copy and paste this script into your Google Sheet (Extensions → Apps Script) to enable automatic 1-minute time-based ingestion.
@@ -282,12 +337,13 @@ function syncNewLeadsToLeadOS() {
             onClick={() => {
               navigator.clipboard.writeText(sampleAppsScriptCode);
               setCopiedCode(true);
-              showToast('✓ Apps Script code copied to clipboard!');
+              showToast('Apps Script code copied to clipboard!');
               setTimeout(() => setCopiedCode(false), 2500);
             }}
             className="px-3.5 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-800 dark:text-gray-200 text-xs font-bold rounded-lg border border-gray-300 dark:border-gray-600 flex items-center gap-1.5 cursor-pointer"
           >
-            <span>{copiedCode ? '✓ Copied' : '📋 Copy Script'}</span>
+            {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedCode ? 'Copied' : 'Copy Script'}</span>
           </button>
         </div>
 
@@ -301,7 +357,7 @@ function syncNewLeadsToLeadOS() {
         <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-4">
           <div>
             <h2 className="text-base font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <span>📋</span> Ingestion Sync Audit Logs
+              <History className="w-4 h-4 text-emerald-600" /> Ingestion Sync Audit Logs
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
               History of batch requests processed by the LeadOS Google Sheet webhook endpoint.
@@ -327,8 +383,13 @@ function syncNewLeadsToLeadOS() {
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {syncLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-400">
-                    No sync logs recorded yet. Once your Google Sheet posts its first row, entries will appear here in real time.
+                  <td colSpan={5} className="py-8">
+                    <EmptyState
+                      icon={History}
+                      title="No sync logs recorded yet"
+                      description="Once your Google Sheet posts its first row, audit entries will appear here in real time."
+                      className="py-4"
+                    />
                   </td>
                 </tr>
               ) : (

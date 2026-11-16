@@ -5,6 +5,23 @@ import { useApp } from '../context/AppContext';
 import type { Lead, ActivityOutcome } from '../types';
 import LeadDetailModal from '../components/LeadDetailModal';
 import { calculate48HourWorkingSla } from '../utils/cadenceUtils';
+import { EmptyState } from '../components/EmptyState';
+import {
+  Phone,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  Sparkles,
+  PhoneCall,
+  ClipboardList,
+  TrendingUp,
+  Users,
+  X,
+  GraduationCap,
+  PlayCircle,
+  CreditCard,
+  Zap
+} from 'lucide-react';
 
 export default function SalespersonWorkspace() {
   const { repId } = useParams<{ repId: string }>();
@@ -20,7 +37,7 @@ export default function SalespersonWorkspace() {
     recordActivity
   } = useApp();
 
-  const rep = salespeople.find((s) => s.id === repId) || salespeople[0];
+  const rep = salespeople.find((s) => s.id === repId) || (currentUser?.role === 'Salesperson' ? currentUser : salespeople[0]);
 
   const [activeTab, setActiveTab] = useState<'queue' | 'leads' | 'calls'>('queue');
   const [stageFilter, setStageFilter] = useState<string>('All');
@@ -442,7 +459,7 @@ export default function SalespersonWorkspace() {
               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
           }`}
         >
-          <span>📋</span> All Assigned Leads ({repLeads.length})
+          <ClipboardList className="w-3.5 h-3.5" /> All Assigned Leads ({repLeads.length})
         </button>
 
         <button
@@ -453,7 +470,7 @@ export default function SalespersonWorkspace() {
               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
           }`}
         >
-          <span>📞</span> Call Activities Log ({repCallActivities.length})
+          <PhoneCall className="w-3.5 h-3.5" /> Call Activities Log ({repCallActivities.length})
         </button>
       </div>
 
@@ -475,9 +492,12 @@ export default function SalespersonWorkspace() {
             </div>
 
             {overdueQueue.length === 0 ? (
-              <p className="text-xs text-gray-400 py-3 italic">
-                🎉 No overdue follow-ups! Outstanding punctuality.
-              </p>
+              <EmptyState
+                icon={CheckCircle2}
+                title="No calls due right now. Great job!"
+                description="You're fully caught up on overdue callbacks. Keep up this outstanding punctuality!"
+                className="py-6"
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {overdueQueue.map((lead) =>
@@ -495,7 +515,7 @@ export default function SalespersonWorkspace() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-amber-200 dark:border-amber-900/60 p-5 space-y-3.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-base">📅</span>
+                <Calendar className="w-4 h-4 text-amber-600" />
                 <h3 className="text-sm font-black text-amber-900 dark:text-amber-300">
                   2. Today's Scheduled Calls & Tasks ({todayScheduledQueue.length})
                 </h3>
@@ -506,9 +526,12 @@ export default function SalespersonWorkspace() {
             </div>
 
             {todayScheduledQueue.length === 0 ? (
-              <p className="text-xs text-gray-400 py-3 italic">
-                No scheduled follow-ups remaining for today.
-              </p>
+              <EmptyState
+                icon={Sparkles}
+                title="No scheduled callbacks remaining for today"
+                description="Your calendar for today is clear. Review your pipeline leads or initiate proactive outreach!"
+                className="py-6"
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {todayScheduledQueue.map((lead) =>
@@ -526,7 +549,7 @@ export default function SalespersonWorkspace() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-blue-200 dark:border-blue-900/60 p-5 space-y-3.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-base">⚡</span>
+                <Clock className="w-4 h-4 text-blue-600" />
                 <h3 className="text-sm font-black text-blue-900 dark:text-blue-300">
                   3. Fresh Untouched Leads ({freshUntouchedQueue.length})
                 </h3>
@@ -537,9 +560,12 @@ export default function SalespersonWorkspace() {
             </div>
 
             {freshUntouchedQueue.length === 0 ? (
-              <p className="text-xs text-gray-400 py-3 italic">
-                All assigned incoming leads have been touched at least once.
-              </p>
+              <EmptyState
+                icon={CheckCircle2}
+                title="All fresh leads engaged!"
+                description="Every incoming lead assigned to you has been contacted. Speed-to-lead SLA is 100% healthy!"
+                className="py-6"
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {freshUntouchedQueue.map((lead) =>
@@ -557,7 +583,7 @@ export default function SalespersonWorkspace() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-emerald-200 dark:border-emerald-900/60 p-5 space-y-3.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-base">🌱</span>
+                <TrendingUp className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-sm font-black text-emerald-900 dark:text-emerald-300">
                   4. Active Pipeline / High-Intent Nurture ({activePipelineQueue.length})
                 </h3>
@@ -568,9 +594,12 @@ export default function SalespersonWorkspace() {
             </div>
 
             {activePipelineQueue.length === 0 ? (
-              <p className="text-xs text-gray-400 py-3 italic">
-                No extra active pipeline opportunities in queue.
-              </p>
+              <EmptyState
+                icon={CheckCircle2}
+                title="No active pipeline follow-ups pending"
+                description="All high-intent prospects are up to date. Check incoming leads or scheduled callbacks."
+                className="py-6"
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {activePipelineQueue.map((lead) =>
@@ -642,8 +671,13 @@ export default function SalespersonWorkspace() {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {filteredAssignedLeads.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-gray-400">
-                      No leads found in {rep.name}'s assigned pool matching criteria.
+                    <td colSpan={7} className="p-8">
+                      <EmptyState
+                        icon={Users}
+                        title="No leads found"
+                        description={`No leads found in ${rep.name}'s assigned pool matching the selected criteria.`}
+                        className="py-4"
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -692,9 +726,9 @@ export default function SalespersonWorkspace() {
                               logCall(lead.id, 'Connected', 'Direct phone call placed');
                               showToast(`Call placed to ${lead.fullName}!`);
                             }}
-                            className="font-bold text-gray-800 dark:text-gray-200 hover:text-emerald-600 flex items-center gap-1"
+                            className="font-bold text-gray-800 dark:text-gray-200 hover:text-emerald-600 flex items-center gap-1.5"
                           >
-                            <span>📞</span> {lead.phone}
+                            <Phone className="w-3.5 h-3.5 text-emerald-600" /> {lead.phone}
                           </a>
                           {lead.phone && (
                             <a
@@ -787,7 +821,7 @@ export default function SalespersonWorkspace() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <span>📞</span> Call Log & Touchpoints Placed by {rep.name}
+              <PhoneCall className="w-4 h-4 text-emerald-600" /> Call Log & Touchpoints Placed by {rep.name}
             </h2>
             <span className="text-xs font-bold text-gray-500">
               Total {repCallActivities.length} Calls Logged
@@ -796,9 +830,12 @@ export default function SalespersonWorkspace() {
 
           <div className="space-y-3">
             {repCallActivities.length === 0 ? (
-              <p className="p-8 text-center text-gray-400">
-                No calls logged yet by {rep.name}. Place a call or log an outcome above.
-              </p>
+              <EmptyState
+                icon={PhoneCall}
+                title="No calls logged yet"
+                description={`No call activities recorded for ${rep.name}. Place a call or log an outreach action above.`}
+                className="py-8"
+              />
             ) : (
               repCallActivities.map((act) => (
                 <div
@@ -807,7 +844,7 @@ export default function SalespersonWorkspace() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold flex items-center justify-center text-sm shrink-0">
-                      📞
+                      <PhoneCall className="w-4 h-4" />
                     </div>
                     <div>
                       <h4 className="font-bold text-xs text-gray-900 dark:text-gray-100">
@@ -852,9 +889,9 @@ export default function SalespersonWorkspace() {
               <button
                 type="button"
                 onClick={() => setQuickLogModalLead(null)}
-                className="text-gray-400 hover:text-gray-600 text-sm font-bold cursor-pointer"
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg cursor-pointer transition-colors"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -905,7 +942,7 @@ export default function SalespersonWorkspace() {
                 <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="font-black text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                      <span>📌</span> 3. Mandatory Next Task
+                      <Calendar className="w-4 h-4 text-emerald-600" /> 3. Mandatory Next Task
                     </span>
                     <span className="text-[10px] font-bold text-emerald-700 bg-white dark:bg-emerald-900 px-2 py-0.5 rounded-full border border-emerald-300">
                       Required for Active Pipeline
@@ -967,15 +1004,15 @@ export default function SalespersonWorkspace() {
                 </div>
               ) : (
                 <div className="p-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-semibold">
-                  ℹ️ Marked terminal ({quickLogOutcome}). Lead is moved to Closed/Unqualified with no mandatory follow-up task.
+                  Marked terminal ({quickLogOutcome}). Lead is moved to Closed/Unqualified with no mandatory follow-up task.
                 </div>
               )}
             </div>
 
             {/* Fast Pathway Jump from Quick Log Modal */}
             <div className="p-3 bg-purple-50/70 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800 flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-[11px] font-bold text-purple-900 dark:text-purple-300">
-                ⚡ Ready to Convert?
+              <span className="text-[11px] font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1">
+                <Zap className="w-3.5 h-3.5 text-amber-500" /> Ready to Convert?
               </span>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
@@ -986,9 +1023,9 @@ export default function SalespersonWorkspace() {
                     setSelectedLeadForDetail(l);
                     setModalInitialPathway('mentor');
                   }}
-                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-300 rounded-md border border-purple-300 hover:bg-purple-100 cursor-pointer shadow-2xs"
+                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-300 rounded-md border border-purple-300 hover:bg-purple-100 cursor-pointer shadow-2xs flex items-center gap-1"
                 >
-                  🎓 Book Mentor
+                  <GraduationCap className="w-3 h-3" /> Book Mentor
                 </button>
                 <button
                   type="button"
@@ -998,9 +1035,9 @@ export default function SalespersonWorkspace() {
                     setSelectedLeadForDetail(l);
                     setModalInitialPathway('demo');
                   }}
-                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 rounded-md border border-indigo-300 hover:bg-indigo-100 cursor-pointer shadow-2xs"
+                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 rounded-md border border-indigo-300 hover:bg-indigo-100 cursor-pointer shadow-2xs flex items-center gap-1"
                 >
-                  🖥️ Demo Session
+                  <PlayCircle className="w-3 h-3" /> Demo Session
                 </button>
                 <button
                   type="button"
@@ -1010,9 +1047,9 @@ export default function SalespersonWorkspace() {
                     setSelectedLeadForDetail(l);
                     setModalInitialPathway('sale');
                   }}
-                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 rounded-md border border-emerald-300 hover:bg-emerald-100 cursor-pointer shadow-2xs"
+                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 rounded-md border border-emerald-300 hover:bg-emerald-100 cursor-pointer shadow-2xs flex items-center gap-1"
                 >
-                  💳 Direct Sale
+                  <CreditCard className="w-3 h-3" /> Direct Sale
                 </button>
               </div>
             </div>

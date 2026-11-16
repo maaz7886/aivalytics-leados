@@ -13,7 +13,8 @@
  */
 
 // Production Configuration Defaults (Stored in Script Properties)
-var DEFAULT_API_URL = 'https://aivalytics-leados.vercel.app/api/integrations/sheet-leads';
+var DEFAULT_API_URL = 'https://crm.aivalytics.com/api/integrations/sheet-leads';
+var FALLBACK_API_URL = 'https://aivalytics-leados.vercel.app/api/integrations/sheet-leads';
 var DEFAULT_API_KEY = 'aiv_sync_sec_9942a1bc';
 
 /**
