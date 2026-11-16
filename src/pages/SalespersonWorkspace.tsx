@@ -2,24 +2,29 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import type { Lead, ActivityOutcome } from '../types';
-import LeadDetailModal from '../components/LeadDetailModal';
-import { calculate48HourWorkingSla } from '../utils/cadenceUtils';
+import type { Lead, ActivityOutcome, Stage } from '../types';
+import { SidePanel } from '../components/ui/SidePanel';
+import { LeadPanel } from '../components/LeadPanel';
+import { CallingMode } from '../components/CallingMode';
+import { StageChip } from '../components/ui/StageChip';
+import { TempTag } from '../components/ui/TempTag';
+import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/EmptyState';
+import { formatPhoneNumber, formatRelativeTime } from '../utils/tableFormatters';
 import {
   Phone,
+  PhoneCall,
   Calendar,
   Clock,
   CheckCircle2,
-  Sparkles,
-  PhoneCall,
+  AlertCircle,
   ClipboardList,
   TrendingUp,
   Users,
   X,
-  GraduationCap,
-  PlayCircle,
-  CreditCard,
+  MessageSquare,
+  Search,
+  Kanban,
   Zap
 } from 'lucide-react';
 
@@ -32,20 +37,34 @@ export default function SalespersonWorkspace() {
     allLeads,
     callActivities,
     currentUser,
-    setCurrentUser,
     logCall,
     recordActivity
   } = useApp();
 
-  const rep = salespeople.find((s) => s.id === repId) || (currentUser?.role === 'Salesperson' ? currentUser : salespeople[0]);
+  const rep =
+    salespeople.find((s) => s.id === repId) ||
+    (currentUser?.role === 'Salesperson' ? currentUser : salespeople[0]) || {
+      id: 'rep-default',
+      name: 'Sales Rep',
+      title: 'Senior Admissions Specialist',
+      email: 'sales@aivalytics.com',
+      phone: '+91 98220 12345',
+      dailyCallTarget: 30,
+      avatarColor: 'bg-[#3B4BDB]'
+    };
 
   const [activeTab, setActiveTab] = useState<'queue' | 'leads' | 'calls'>('queue');
   const [stageFilter, setStageFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLeadForDetail, setSelectedLeadForDetail] = useState<Lead | null>(null);
-  const [modalInitialPathway, setModalInitialPathway] = useState<'none' | 'mentor' | 'demo' | 'sale'>('none');
 
-  // Quick Log Modal State with Mandatory Next Task
+  // Side Panel state
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
+
+  // Calling Mode (Power Dialer) state
+  const [isCallingModeOpen, setIsCallingModeOpen] = useState(false);
+
+  // Quick Log Modal State
   const [quickLogModalLead, setQuickLogModalLead] = useState<Lead | null>(null);
   const [quickLogOutcome, setQuickLogOutcome] = useState<string>('Connected');
   const [quickLogNotes, setQuickLogNotes] = useState('');
@@ -68,45 +87,76 @@ export default function SalespersonWorkspace() {
 
   const todayStr = new Date().toISOString().substring(0, 10);
 
-  const leadsPool = allLeads || leads;
-  // Leads strictly assigned to this salesperson
+  const leadsPool = allLeads && allLeads.length > 0 ? allLeads : leads;
+  // Rep-scoped leads
   const repLeads = leadsPool.filter((l) => l.assignedSalesperson === rep.name);
 
   // Calls logged by this rep
   const repCallActivities = callActivities.filter((c) => c.salesperson === rep.name);
   const repTodayCalls = repCallActivities.filter((c) => c.timestamp.startsWith(todayStr));
 
-  // --- 4 GROUPED ACTION QUEUES ---
-  // 1. Overdue Follow-ups & Tasks (SLA Breach Risk)
+  // --- 4 ACTION QUEUES ---
+  // 1. Overdue Follow-ups (SLA breach risk)
   const overdueQueue = repLeads.filter((l) => {
-    if (l.crmStage === 'Not Interested' || l.crmStage === 'Unqualified' || l.crmStage === 'Converted' || l.leadStage === 'Closed Lost') return false;
-    const taskOverdue = l.nextTask && !l.nextTask.completionStatus?.toLowerCase().includes('complete') && l.nextTask.dueDateTime?.substring(0, 10) < todayStr;
+    if (
+      l.crmStage === 'Not Interested' ||
+      l.crmStage === 'Unqualified' ||
+      l.crmStage === 'Converted' ||
+      l.leadStage === 'Closed Lost'
+    )
+      return false;
+    const taskOverdue =
+      l.nextTask &&
+      !l.nextTask.completionStatus?.toLowerCase().includes('complete') &&
+      l.nextTask.dueDateTime?.substring(0, 10) < todayStr;
     const followUpOverdue = l.nextFollowUp && l.nextFollowUp.substring(0, 10) < todayStr;
     return Boolean(taskOverdue || followUpOverdue);
   });
 
-  // 2. Today's Scheduled Calls & Tasks
+  // 2. Today's Scheduled Calls
   const todayScheduledQueue = repLeads.filter((l) => {
-    if (l.crmStage === 'Not Interested' || l.crmStage === 'Unqualified' || l.crmStage === 'Converted' || l.leadStage === 'Closed Lost') return false;
+    if (
+      l.crmStage === 'Not Interested' ||
+      l.crmStage === 'Unqualified' ||
+      l.crmStage === 'Converted' ||
+      l.leadStage === 'Closed Lost'
+    )
+      return false;
     if (overdueQueue.some((o) => o.id === l.id)) return false;
-    const isTodayTask = l.nextTask && !l.nextTask.completionStatus?.toLowerCase().includes('complete') && l.nextTask.dueDateTime?.substring(0, 10) === todayStr;
+    const isTodayTask =
+      l.nextTask &&
+      !l.nextTask.completionStatus?.toLowerCase().includes('complete') &&
+      l.nextTask.dueDateTime?.substring(0, 10) === todayStr;
     const isTodayFollowUp = l.nextFollowUp && l.nextFollowUp.substring(0, 10) === todayStr;
     return Boolean(isTodayTask || isTodayFollowUp);
   });
 
-  // 3. Fresh Untouched Leads (Fast Response SLA Alert)
+  // 3. Fresh Untouched Leads (<15m SLA)
   const freshUntouchedQueue = repLeads.filter((l) => {
-    if (l.crmStage === 'Not Interested' || l.crmStage === 'Unqualified' || l.crmStage === 'Converted' || l.leadStage === 'Closed Lost') return false;
+    if (
+      l.crmStage === 'Not Interested' ||
+      l.crmStage === 'Unqualified' ||
+      l.crmStage === 'Converted' ||
+      l.leadStage === 'Closed Lost'
+    )
+      return false;
     if (overdueQueue.some((o) => o.id === l.id)) return false;
     if (todayScheduledQueue.some((o) => o.id === l.id)) return false;
     const calls = l.numberOfCalls || 0;
-    const isNew = l.crmStage === 'New Lead' || l.leadStage === 'New' || l.lastContacted === 'Not Contacted';
+    const isNew =
+      l.crmStage === 'New Lead' || l.leadStage === 'New' || l.lastContacted === 'Not Contacted';
     return calls === 0 || isNew;
   });
 
   // 4. Active Pipeline / High-Intent Nurture
   const activePipelineQueue = repLeads.filter((l) => {
-    if (l.crmStage === 'Not Interested' || l.crmStage === 'Unqualified' || l.crmStage === 'Converted' || l.leadStage === 'Closed Lost') return false;
+    if (
+      l.crmStage === 'Not Interested' ||
+      l.crmStage === 'Unqualified' ||
+      l.crmStage === 'Converted' ||
+      l.leadStage === 'Closed Lost'
+    )
+      return false;
     if (overdueQueue.some((o) => o.id === l.id)) return false;
     if (todayScheduledQueue.some((o) => o.id === l.id)) return false;
     if (freshUntouchedQueue.some((o) => o.id === l.id)) return false;
@@ -120,10 +170,35 @@ export default function SalespersonWorkspace() {
     );
   });
 
-  const totalPriorityQueueItems =
-    overdueQueue.length + todayScheduledQueue.length + freshUntouchedQueue.length + activePipelineQueue.length;
+  const fullPriorityQueue = [
+    ...overdueQueue,
+    ...todayScheduledQueue,
+    ...freshUntouchedQueue,
+    ...activePipelineQueue
+  ];
 
-  // Filtered assigned leads for Tab 1
+  // Daily target metrics
+  const dailyTarget = rep.dailyCallTarget || 30;
+  const callsMadeToday = repTodayCalls.length;
+  const progressPercent = Math.min(100, Math.round((callsMadeToday / dailyTarget) * 100));
+
+  // Connected ratio
+  const connectedCallsToday = repTodayCalls.filter((c) =>
+    ['Connected', 'Interested', 'Qualified', 'Details Sent on WhatsApp'].includes(c.outcome)
+  ).length;
+  const notConnectedCallsToday = callsMadeToday - connectedCallsToday;
+  const connectedRatio = callsMadeToday > 0 ? Math.round((connectedCallsToday / callsMadeToday) * 100) : 0;
+
+  // Enrolled conversions value
+  const enrolledLeads = repLeads.filter(
+    (l) => l.crmStage === 'Converted' || l.paymentStatus === 'Paid' || l.paymentState === 'Paid in full'
+  );
+  const enrolledValue = enrolledLeads.reduce((acc, l) => {
+    const isAiPm = (l.programName || '').toLowerCase().includes('pm');
+    return acc + (isAiPm ? 49999 : 6999);
+  }, 0);
+
+  // Filtered assigned leads for Tab 2
   const filteredAssignedLeads = repLeads.filter((lead) => {
     if (stageFilter !== 'All' && lead.crmStage !== stageFilter) {
       return false;
@@ -138,16 +213,6 @@ export default function SalespersonWorkspace() {
     }
     return true;
   });
-
-  // Performance calculations
-  const totalAssigned = repLeads.length;
-  const contactedCount = repLeads.filter((l) => (l.numberOfCalls || 0) > 0 || l.crmStage !== 'New Lead').length;
-  const qualifiedCount = repLeads.filter(
-    (l) => l.crmStage === 'Qualified' || l.crmStage === 'Details Sent on WhatsApp'
-  ).length;
-  const convertedCount = repLeads.filter(
-    (l) => l.crmStage === 'Converted' || l.paymentStatus === 'Paid' || l.paymentState === 'Paid in full'
-  ).length;
 
   const isTerminalOutcome = (outcome: string) => {
     return outcome === 'Not Interested' || outcome === 'Unqualified' || outcome === 'Closed Lost';
@@ -171,7 +236,6 @@ export default function SalespersonWorkspace() {
 
     const terminal = isTerminalOutcome(quickLogOutcome);
 
-    // Enforce mandatory next task for all active/non-terminal outreach
     if (!terminal && !nextTaskDate) {
       setQuickLogErrorMessage('Mandatory: Please select a scheduled Next Action date.');
       return;
@@ -193,136 +257,145 @@ export default function SalespersonWorkspace() {
         : undefined
     );
 
-    // Also update legacy call activity for backwards compatibility
     logCall(quickLogModalLead.id, quickLogOutcome, quickLogNotes || 'Call logged');
 
-    showToast(`✅ Activity & Next Task logged for ${quickLogModalLead.fullName}!`);
+    showToast(`Activity and Next Task logged for ${quickLogModalLead.fullName}`);
     setQuickLogModalLead(null);
   };
 
-  const handleImpersonateThisRep = () => {
-    setCurrentUser(rep);
-    showToast(`Session switched to ${rep.name}!`);
+  const handleOpenLeadPanel = (lead: Lead) => {
+    setSelectedLeadId(lead.id);
+    setIsSidePanelOpen(true);
+  };
+
+  const handleStartCallingQueue = () => {
+    setIsCallingModeOpen(true);
   };
 
   // Helper for rendering a single lead card inside the priority queues
-  const renderQueueItem = (lead: Lead, badgeColor: string, urgencyLabel: string) => {
+  const renderQueueItem = (
+    lead: Lead,
+    urgencyType: 'overdue' | 'today' | 'fresh' | 'active',
+    urgencyText: string
+  ) => {
     const cleanPhone = (lead.phone || '').replace(/\D/g, '');
     const waUrl = `https://wa.me/${cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone}?text=Hi%20${encodeURIComponent(
       lead.fullName.split(' ')[0]
-    )},%20this%20is%20${encodeURIComponent(rep.name)}%20from%20Aivalytics.`;
+    )},%20this%20is%20${encodeURIComponent(rep.name)}%20from%20AIValytics.`;
 
-    const sla = calculate48HourWorkingSla(lead.dateCaptured);
-    const callAttempts = lead.outreachCadence?.callAttempts ?? (lead.numberOfCalls || 0);
-    const waTouches = lead.outreachCadence?.whatsappTouches ?? (lead.crmStage === 'Details Sent on WhatsApp' ? 1 : 0);
+    const nextActionText = lead.nextTask?.taskType
+      ? `${lead.nextTask.taskType} (${lead.nextTask.dueDateTime || 'No due time'})`
+      : lead.nextFollowUp
+      ? `Follow-up: ${lead.nextFollowUp}`
+      : 'No next action scheduled';
+
+    const isOverdue = urgencyType === 'overdue';
 
     return (
       <div
         key={lead.id}
-        className="p-3.5 rounded-xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-850 hover:border-gray-300 dark:hover:border-gray-700 transition-all space-y-2.5"
+        className="p-3.5 bg-white border border-[#E6E6E3] rounded-lg hover:border-[#3B4BDB]/40 transition-all space-y-3"
       >
+        {/* Row 1: Candidate Name + Stage + Temperature */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h4
-                onClick={() => {
-                  setSelectedLeadForDetail(lead);
-                  setModalInitialPathway('none');
-                }}
-                className="font-bold text-sm text-gray-900 dark:text-gray-100 hover:text-emerald-700 cursor-pointer truncate"
+              <button
+                type="button"
+                onClick={() => handleOpenLeadPanel(lead)}
+                className="font-semibold text-[14px] text-[#1F1F1D] hover:text-[#3B4BDB] text-left truncate cursor-pointer"
               >
                 {lead.fullName}
-              </h4>
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${badgeColor}`}>
-                {urgencyLabel}
-              </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                {lead.crmStage}
-              </span>
+              </button>
+              <StageChip stage={lead.crmStage as Stage} />
+              <TempTag temperature={lead.leadTemperature} />
             </div>
-            <p className="text-xs text-gray-500 font-medium truncate mt-0.5">
-              {lead.programName || 'AI Cohort'} • {lead.currentRole || 'Candidate'}
+            <p className="text-[12px] text-[#6B6B66] truncate mt-0.5">
+              {lead.programName || 'AI Cohort'} · {lead.currentRole || 'Candidate'} · {lead.currentCompany || lead.city || 'India'}
             </p>
           </div>
 
-          <div className="text-right shrink-0">
+          <div className="shrink-0 text-right">
             <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                sla.isWithin48Hours
-                  ? sla.remainingHours <= 12
-                    ? 'bg-amber-50 text-amber-800 border-amber-300'
-                    : 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                  : 'bg-red-50 text-red-800 border-red-300'
+              className={`text-[11px] font-medium px-2 py-0.5 rounded-md inline-flex items-center gap-1 ${
+                urgencyType === 'overdue'
+                  ? 'bg-[#FDF2F2] text-[#B42318] border border-[#FECDCA]'
+                  : urgencyType === 'today'
+                  ? 'bg-[#FFF0D6] text-[#8A4B00] border border-[#FFE0A3]'
+                  : urgencyType === 'fresh'
+                  ? 'bg-[#E3EBFF] text-[#1E3FA8] border border-[#BFD5FF]'
+                  : 'bg-[#F7F7F5] text-[#1F1F1D] border border-[#E6E6E3]'
               }`}
             >
-              ⏰ {sla.isWithin48Hours ? `${sla.remainingHours.toFixed(1)}h left` : 'Expired'}
+              {urgencyType === 'overdue' && <AlertCircle className="w-3 h-3" />}
+              {urgencyType === 'today' && <Clock className="w-3 h-3" />}
+              {urgencyType === 'fresh' && <Zap className="w-3 h-3" />}
+              {urgencyText}
             </span>
           </div>
         </div>
 
-        {/* Task & Next Action */}
-        <div className="p-2 rounded-lg bg-gray-50/70 dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 flex items-center justify-between">
-          <div className="truncate">
-            {lead.nextTask ? (
-              <span className="text-emerald-700 dark:text-emerald-400 font-semibold truncate">
-                📌 Next: {lead.nextTask.taskType} ({lead.nextTask.dueDateTime})
-              </span>
-            ) : lead.nextFollowUp ? (
-              <span className="text-amber-700 dark:text-amber-400 font-semibold truncate">
-                ⏰ Follow-up: {lead.nextFollowUp}
-              </span>
-            ) : (
-              <span className="text-amber-600 font-medium">⚠️ Needs scheduled action</span>
-            )}
+        {/* Row 2: Next Action Banner */}
+        <div className="p-2 rounded-md bg-[#F7F7F5] border border-[#E6E6E3] flex items-center justify-between text-[12px]">
+          <div className="flex items-center gap-2 truncate">
+            <span className="text-[#6B6B66] shrink-0 font-medium">Next:</span>
+            <span
+              className={`truncate font-medium ${
+                isOverdue ? 'text-[#B42318] font-semibold' : 'text-[#1F1F1D]'
+              }`}
+            >
+              {nextActionText}
+            </span>
           </div>
-          <span className="text-[10px] text-gray-400 font-medium shrink-0 ml-2">
-            📞 {callAttempts}/3 • 💬 {waTouches}/5
+          <span className="text-[11px] text-[#6B6B66] tabular-nums font-mono shrink-0 ml-2">
+            Calls: {lead.numberOfCalls || 0}
           </span>
         </div>
 
-        {/* Action Row */}
-        <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800 text-xs">
+        {/* Row 3: Action Buttons */}
+        <div className="flex items-center justify-between pt-2 border-t border-[#E6E6E3] text-[12px]">
           <div className="flex items-center gap-2">
             <a
               href={`tel:${lead.phone}`}
               onClick={() => {
                 logCall(lead.id, 'Connected', 'Direct queue call');
-                showToast(`Call initiated to ${lead.fullName}!`);
+                showToast(`Dialing ${lead.fullName}...`);
               }}
-              className="font-bold text-gray-800 dark:text-gray-200 hover:text-emerald-600 flex items-center gap-1"
+              className="font-medium text-[#1F1F1D] hover:text-[#3B4BDB] flex items-center gap-1 tabular-nums font-mono"
             >
-              <span>📞</span> {lead.phone}
+              <Phone className="w-3.5 h-3.5 text-[#3B4BDB]" />
+              <span>{formatPhoneNumber(lead.phone)}</span>
             </a>
             {lead.phone && (
               <a
                 href={waUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-gray-500 hover:text-emerald-600 font-semibold text-[11px]"
+                className="text-[#6B6B66] hover:text-[#17673A] font-medium flex items-center gap-1 ml-2"
               >
-                💬 WhatsApp
+                <MessageSquare className="w-3.5 h-3.5 text-[#17673A]" />
+                <span>WhatsApp</span>
               </a>
             )}
           </div>
 
           <div className="flex items-center gap-1.5">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => handleOpenQuickLog(lead)}
-              className="px-2.5 py-1 text-xs font-bold bg-[#133926] text-white rounded-lg hover:bg-[#1a4a33] cursor-pointer"
+              className="h-7 text-[12px] px-2.5"
             >
-              + Log Call
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedLeadForDetail(lead);
-                setModalInitialPathway('none');
-              }}
-              className="px-2.5 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 cursor-pointer"
+              Log Call
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenLeadPanel(lead)}
+              className="h-7 text-[12px] px-2.5 text-[#3B4BDB]"
             >
               Details
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -330,164 +403,242 @@ export default function SalespersonWorkspace() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 p-4 bg-emerald-900 text-white rounded-xl shadow-xl flex items-center gap-3 border border-emerald-700 animate-in fade-in">
-          <span>✅</span>
-          <span className="text-xs font-bold">{toastMessage}</span>
+        <div className="fixed top-5 right-5 z-50 px-4 py-2.5 bg-[#1F1F1D] text-white rounded-lg shadow-lg flex items-center gap-2 text-[13px] font-medium animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Top Breadcrumb & Rep Workspace Banner */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div className="flex items-start gap-4">
-            <button
-              onClick={() => navigate('/team')}
-              className="mt-1 w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 flex items-center justify-center text-sm font-black transition-all cursor-pointer"
-              title="Back to Sales Team Hub"
-            >
-              ←
-            </button>
-
-            <div className="flex items-center gap-4">
-              <div
-                className={`w-16 h-16 rounded-2xl ${
-                  rep.avatarColor || 'bg-emerald-600'
-                } text-white font-black text-2xl flex items-center justify-center shadow-md`}
-              >
-                {rep.name.split(' ').map((n) => n[0]).join('')}
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
-                    {rep.name}
-                  </h1>
-                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300">
-                    {rep.title}
-                  </span>
-                  {currentUser?.id === rep.id && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200">
-                      Logged in as this Rep
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-3 flex-wrap">
-                  <span>✉️ {rep.email}</span>
-                  <span>•</span>
-                  <span>📱 {rep.phone}</span>
-                  <span>•</span>
-                  <span>📅 Joined: {rep.joinedDate}</span>
-                </p>
-              </div>
-            </div>
+      {/* Top Header Row */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-[20px] font-semibold text-[#1F1F1D] tracking-tight">
+              My Day
+            </h1>
+            <span className="text-[12px] font-medium px-2 py-0.5 rounded-full bg-[#EEF0FD] text-[#3B4BDB]">
+              {rep.name}
+            </span>
+            <span className="text-[12px] text-[#6B6B66]">
+              {rep.title || 'Admissions Specialist'}
+            </span>
           </div>
+          <p className="text-[13px] text-[#6B6B66] mt-0.5">
+            Daily calling queue, priority follow-ups, and student admissions outreach.
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={handleImpersonateThisRep}
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-800 dark:text-gray-200 text-xs font-bold rounded-xl border border-gray-300 dark:border-gray-600 transition-all flex items-center gap-2 cursor-pointer"
-              title="Set active role-based session to this rep"
-            >
-              <span>👤</span> View LeadOS As {rep.name.split(' ')[0]}
-            </button>
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => navigate('/leads?mode=kanban')}
+            className="flex items-center gap-1.5 text-[13px]"
+          >
+            <Kanban className="w-4 h-4 text-[#6B6B66]" />
+            <span>Kanban Pipeline</span>
+          </Button>
 
-            <button
-              onClick={() => navigate('/pipeline')}
-              className="px-4 py-2 bg-[#133926] hover:bg-[#1a4a33] text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <span>⚡</span> Open Kanban Pipeline
-            </button>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => handleStartCallingQueue()}
+            className="flex items-center gap-2 text-[13px] font-medium shadow-xs"
+          >
+            <PhoneCall className="w-4 h-4" />
+            <span>Start Calling Mode</span>
+            <span className="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 text-white text-[11px] tabular-nums font-mono">
+              {fullPriorityQueue.length}
+            </span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Progress & Target Metrics (4 Notion/Airtable style cards) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metric 1: Today's Calls */}
+        <div className="p-4 bg-white border border-[#E6E6E3] rounded-lg space-y-2">
+          <div className="flex items-center justify-between text-[#6B6B66] text-[12px]">
+            <span className="font-medium">Today's Calls</span>
+            <span className="tabular-nums font-mono text-[11px]">Goal: {dailyTarget}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[24px] font-semibold text-[#1F1F1D] tabular-nums font-mono">
+              {callsMadeToday}
+            </span>
+            <span className="text-[13px] text-[#6B6B66] tabular-nums font-mono">
+              / {dailyTarget}
+            </span>
+            <span className="ml-auto text-[12px] font-medium text-[#3B4BDB] tabular-nums font-mono">
+              {progressPercent}%
+            </span>
+          </div>
+          {/* Progress bar */}
+          <div className="w-full bg-[#F7F7F5] rounded-full h-1.5 overflow-hidden border border-[#E6E6E3]">
+            <div
+              className="bg-[#3B4BDB] h-full rounded-full transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
         </div>
 
-        {/* Rep Quota & Outreach Tracker Bar */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
-          <div className="p-3 bg-gray-50 dark:bg-gray-750 rounded-xl">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Assigned Leads</span>
-            <span className="text-xl font-black text-gray-900 dark:text-gray-100">{totalAssigned}</span>
+        {/* Metric 2: Connected Ratio */}
+        <div className="p-4 bg-white border border-[#E6E6E3] rounded-lg space-y-2">
+          <div className="flex items-center justify-between text-[#6B6B66] text-[12px]">
+            <span className="font-medium">Connected Calls</span>
+            <span className="tabular-nums font-mono text-[11px]">Connect rate</span>
           </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[24px] font-semibold text-[#1F1F1D] tabular-nums font-mono">
+              {connectedRatio}%
+            </span>
+            <span className="text-[12px] text-[#6B6B66]">
+              ({connectedCallsToday} connected)
+            </span>
+          </div>
+          <div className="text-[12px] text-[#6B6B66] tabular-nums font-mono">
+            {notConnectedCallsToday} unanswered / voicemail
+          </div>
+        </div>
 
-          <div className="p-3 bg-gray-50 dark:bg-gray-750 rounded-xl">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Today's Calls</span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-xl font-black text-emerald-700 dark:text-emerald-400">
-                {repTodayCalls.length}
+        {/* Metric 3: Value Enrolled Today */}
+        <div className="p-4 bg-white border border-[#E6E6E3] rounded-lg space-y-2">
+          <div className="flex items-center justify-between text-[#6B6B66] text-[12px]">
+            <span className="font-medium">Revenue Enrolled</span>
+            <span className="text-[11px] font-medium text-[#17673A] bg-[#DDF4E4] px-1.5 py-0.2 rounded">
+              {enrolledLeads.length} paid
+            </span>
+          </div>
+          <div className="text-[24px] font-semibold text-[#1F1F1D] tabular-nums font-mono">
+            ₹{enrolledValue.toLocaleString('en-IN')}
+          </div>
+          <div className="text-[12px] text-[#6B6B66]">
+            From AI Builder & AI-PM cohorts
+          </div>
+        </div>
+
+        {/* Metric 4: Overdue Follow-ups */}
+        <div
+          className={`p-4 rounded-lg border space-y-2 ${
+            overdueQueue.length > 0
+              ? 'bg-[#FDF2F2] border-[#FECDCA]'
+              : 'bg-white border-[#E6E6E3]'
+          }`}
+        >
+          <div className="flex items-center justify-between text-[12px]">
+            <span
+              className={`font-medium ${
+                overdueQueue.length > 0 ? 'text-[#B42318]' : 'text-[#6B6B66]'
+              }`}
+            >
+              Overdue Actions
+            </span>
+            {overdueQueue.length > 0 ? (
+              <span className="text-[11px] font-medium text-[#B42318] bg-white px-1.5 py-0.2 rounded border border-[#FECDCA]">
+                Immediate attention
               </span>
-              <span className="text-xs text-gray-400 font-bold">/{rep.dailyCallTarget || 25} goal</span>
-            </div>
+            ) : (
+              <span className="text-[11px] font-medium text-[#17673A] bg-[#DDF4E4] px-1.5 py-0.2 rounded">
+                All clear
+              </span>
+            )}
           </div>
-
-          <div className="p-3 bg-gray-50 dark:bg-gray-750 rounded-xl">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Contacted Leads</span>
-            <span className="text-xl font-black text-blue-700 dark:text-blue-400">{contactedCount}</span>
+          <div className="flex items-baseline gap-2">
+            <span
+              className={`text-[24px] font-semibold tabular-nums font-mono ${
+                overdueQueue.length > 0 ? 'text-[#B42318]' : 'text-[#1F1F1D]'
+              }`}
+            >
+              {overdueQueue.length}
+            </span>
+            <span
+              className={`text-[12px] ${
+                overdueQueue.length > 0 ? 'text-[#B42318]' : 'text-[#6B6B66]'
+              }`}
+            >
+              leads past SLA
+            </span>
           </div>
-
-          <div className="p-3 bg-gray-50 dark:bg-gray-750 rounded-xl">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Qualified Prospects</span>
-            <span className="text-xl font-black text-purple-700 dark:text-purple-400">{qualifiedCount}</span>
-          </div>
-
-          <div className="p-3 bg-gray-50 dark:bg-gray-750 rounded-xl">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Enrolled / Paid</span>
-            <span className="text-xl font-black text-emerald-700 dark:text-emerald-400">{convertedCount}</span>
+          <div
+            className={`text-[12px] ${
+              overdueQueue.length > 0 ? 'text-[#B42318]' : 'text-[#6B6B66]'
+            }`}
+          >
+            {overdueQueue.length > 0
+              ? 'Call these candidates first'
+              : 'No missed callbacks today'}
           </div>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+      {/* Workspace Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-[#E6E6E3] pb-2">
         <button
+          type="button"
           onClick={() => setActiveTab('queue')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors flex items-center gap-2 cursor-pointer ${
             activeTab === 'queue'
-              ? 'bg-[#133926] text-white shadow-xs'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              ? 'bg-[#EEF0FD] text-[#3B4BDB]'
+              : 'text-[#6B6B66] hover:bg-[#F3F4F6]'
           }`}
         >
-          <span>⏰</span> Priority Action Queue ({totalPriorityQueueItems})
+          <Clock className="w-4 h-4" />
+          <span>Priority Action Queue</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-white text-[11px] tabular-nums font-mono font-semibold border border-[#E6E6E3]">
+            {fullPriorityQueue.length}
+          </span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab('leads')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors flex items-center gap-2 cursor-pointer ${
             activeTab === 'leads'
-              ? 'bg-[#133926] text-white shadow-xs'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              ? 'bg-[#EEF0FD] text-[#3B4BDB]'
+              : 'text-[#6B6B66] hover:bg-[#F3F4F6]'
           }`}
         >
-          <ClipboardList className="w-3.5 h-3.5" /> All Assigned Leads ({repLeads.length})
+          <ClipboardList className="w-4 h-4" />
+          <span>All Assigned Leads</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-white text-[11px] tabular-nums font-mono font-semibold border border-[#E6E6E3]">
+            {repLeads.length}
+          </span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab('calls')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors flex items-center gap-2 cursor-pointer ${
             activeTab === 'calls'
-              ? 'bg-[#133926] text-white shadow-xs'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              ? 'bg-[#EEF0FD] text-[#3B4BDB]'
+              : 'text-[#6B6B66] hover:bg-[#F3F4F6]'
           }`}
         >
-          <PhoneCall className="w-3.5 h-3.5" /> Call Activities Log ({repCallActivities.length})
+          <PhoneCall className="w-4 h-4" />
+          <span>Call Activity Log</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-white text-[11px] tabular-nums font-mono font-semibold border border-[#E6E6E3]">
+            {repCallActivities.length}
+          </span>
         </button>
       </div>
 
-      {/* TAB 1: GROUPED PRIORITIZED ACTION QUEUE */}
+      {/* TAB 1: 4 ACTION QUEUES */}
       {activeTab === 'queue' && (
-        <div className="space-y-4">
-          {/* Group 1: Overdue Follow-ups & Tasks */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-red-200 dark:border-red-900/60 p-5 space-y-3.5 shadow-2xs">
+        <div className="space-y-6">
+          {/* Queue 1: Overdue Follow-ups */}
+          <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
-                <h3 className="text-sm font-black text-red-900 dark:text-red-300">
-                  🚨 1. Overdue Follow-ups & Tasks ({overdueQueue.length})
+                <div className="w-2 h-2 rounded-full bg-[#B42318]" />
+                <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
+                  1. Overdue Follow-ups ({overdueQueue.length})
                 </h3>
               </div>
-              <span className="text-[11px] font-bold text-red-700 bg-red-50 dark:bg-red-950 px-2.5 py-0.5 rounded-full border border-red-200 dark:border-red-800">
-                Immediate SLA Breach Risk
+              <span className="text-[11px] font-medium text-[#B42318] bg-[#FDF2F2] border border-[#FECDCA] px-2 py-0.5 rounded-md">
+                SLA Breach Risk · Immediate Action
               </span>
             </div>
 
@@ -495,67 +646,59 @@ export default function SalespersonWorkspace() {
               <EmptyState
                 icon={CheckCircle2}
                 title="No calls due right now. Great job!"
-                description="You're fully caught up on overdue callbacks. Keep up this outstanding punctuality!"
+                description="You are fully caught up on all scheduled callbacks and next actions."
                 className="py-6"
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {overdueQueue.map((lead) =>
-                  renderQueueItem(
-                    lead,
-                    'bg-red-100 text-red-900 border-red-300 dark:bg-red-950 dark:text-red-300',
-                    'Overdue Task'
-                  )
+                  renderQueueItem(lead, 'overdue', 'Overdue')
                 )}
               </div>
             )}
           </div>
 
-          {/* Group 2: Today's Scheduled Calls */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-amber-200 dark:border-amber-900/60 p-5 space-y-3.5 shadow-2xs">
+          {/* Queue 2: Today's Scheduled Calls */}
+          <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-amber-600" />
-                <h3 className="text-sm font-black text-amber-900 dark:text-amber-300">
-                  2. Today's Scheduled Calls & Tasks ({todayScheduledQueue.length})
+                <Calendar className="w-4 h-4 text-[#DC8A00]" />
+                <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
+                  2. Today's Scheduled Calls ({todayScheduledQueue.length})
                 </h3>
               </div>
-              <span className="text-[11px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-950 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+              <span className="text-[11px] font-medium text-[#8A4B00] bg-[#FFF0D6] border border-[#FFE0A3] px-2 py-0.5 rounded-md tabular-nums font-mono">
                 Due Today ({todayStr})
               </span>
             </div>
 
             {todayScheduledQueue.length === 0 ? (
               <EmptyState
-                icon={Sparkles}
+                icon={Calendar}
                 title="No scheduled callbacks remaining for today"
-                description="Your calendar for today is clear. Review your pipeline leads or initiate proactive outreach!"
+                description="Your calendar for today is clear. Review incoming leads or nurture active pipeline."
                 className="py-6"
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {todayScheduledQueue.map((lead) =>
-                  renderQueueItem(
-                    lead,
-                    'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-300',
-                    'Scheduled Today'
-                  )
+                  renderQueueItem(lead, 'today', 'Due Today')
                 )}
               </div>
             )}
           </div>
 
-          {/* Group 3: Fresh Untouched Leads (Fast Response SLA) */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-blue-200 dark:border-blue-900/60 p-5 space-y-3.5 shadow-2xs">
+          {/* Queue 3: Fresh Untouched Leads */}
+          <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <h3 className="text-sm font-black text-blue-900 dark:text-blue-300">
+                <Zap className="w-4 h-4 text-[#3B4BDB]" />
+                <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
                   3. Fresh Untouched Leads ({freshUntouchedQueue.length})
                 </h3>
               </div>
-              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 dark:bg-blue-950 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                Speed-to-Lead SLA (&lt;15m)
+              <span className="text-[11px] font-medium text-[#1E3FA8] bg-[#E3EBFF] border border-[#BFD5FF] px-2 py-0.5 rounded-md">
+                Fast Response SLA (&lt;15m)
               </span>
             </div>
 
@@ -563,51 +706,43 @@ export default function SalespersonWorkspace() {
               <EmptyState
                 icon={CheckCircle2}
                 title="All fresh leads engaged!"
-                description="Every incoming lead assigned to you has been contacted. Speed-to-lead SLA is 100% healthy!"
+                description="Every incoming lead assigned to you has been contacted promptly."
                 className="py-6"
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {freshUntouchedQueue.map((lead) =>
-                  renderQueueItem(
-                    lead,
-                    'bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950 dark:text-blue-300',
-                    'Fresh Ingestion'
-                  )
+                  renderQueueItem(lead, 'fresh', 'Fresh Ingestion')
                 )}
               </div>
             )}
           </div>
 
-          {/* Group 4: Active Pipeline & High Intent Nurture */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-emerald-200 dark:border-emerald-900/60 p-5 space-y-3.5 shadow-2xs">
+          {/* Queue 4: Active Pipeline / High-Intent Nurture */}
+          <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
-                <h3 className="text-sm font-black text-emerald-900 dark:text-emerald-300">
-                  4. Active Pipeline / High-Intent Nurture ({activePipelineQueue.length})
+                <TrendingUp className="w-4 h-4 text-[#17673A]" />
+                <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
+                  4. Active Pipeline & High-Intent Nurture ({activePipelineQueue.length})
                 </h3>
               </div>
-              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+              <span className="text-[11px] font-medium text-[#17673A] bg-[#DDF4E4] border border-[#C3ECD0] px-2 py-0.5 rounded-md">
                 Hot Candidates & Deal Closing
               </span>
             </div>
 
             {activePipelineQueue.length === 0 ? (
               <EmptyState
-                icon={CheckCircle2}
+                icon={TrendingUp}
                 title="No active pipeline follow-ups pending"
-                description="All high-intent prospects are up to date. Check incoming leads or scheduled callbacks."
+                description="All warm prospects have scheduled next steps. Check incoming leads or upcoming webinars."
                 className="py-6"
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {activePipelineQueue.map((lead) =>
-                  renderQueueItem(
-                    lead,
-                    'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300',
-                    'High Intent'
-                  )
+                  renderQueueItem(lead, 'active', 'High Intent')
                 )}
               </div>
             )}
@@ -617,8 +752,8 @@ export default function SalespersonWorkspace() {
 
       {/* TAB 2: ALL ASSIGNED LEADS */}
       {activeTab === 'leads' && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs p-6 space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             {/* Stage filter pills */}
             <div className="flex items-center gap-1.5 flex-wrap">
               {[
@@ -627,16 +762,16 @@ export default function SalespersonWorkspace() {
                 'Interested',
                 'Details Sent on WhatsApp',
                 'Qualified',
-                'Follow-Up 1',
-                'Payment Pending'
+                'Payment Pending',
+                'Converted'
               ].map((stage) => (
                 <button
                   key={stage}
                   onClick={() => setStageFilter(stage)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors cursor-pointer ${
                     stageFilter === stage
-                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
+                      ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                      : 'bg-[#F7F7F5] text-[#6B6B66] hover:bg-[#F3F4F6]'
                   }`}
                 >
                   {stage === 'Details Sent on WhatsApp' ? 'Details Sent' : stage}
@@ -645,37 +780,40 @@ export default function SalespersonWorkspace() {
             </div>
 
             {/* Search */}
-            <input
-              type="text"
-              placeholder={`Search ${rep.name.split(' ')[0]}'s leads...`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="px-3.5 py-1.5 bg-gray-50 dark:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-xl text-xs w-64 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
-            />
+            <div className="relative w-full md:w-64">
+              <Search className="w-3.5 h-3.5 text-[#6B6B66] absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder={`Search ${rep.name.split(' ')[0]}'s leads...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md text-[13px] text-[#1F1F1D] focus:outline-hidden focus:border-[#3B4BDB]"
+              />
+            </div>
           </div>
 
-          {/* Leads Table */}
-          <div className="overflow-x-auto rounded-xl border border-gray-200/80 dark:border-gray-700">
-            <table className="w-full text-left border-collapse text-xs">
+          {/* Table */}
+          <div className="overflow-x-auto rounded-md border border-[#E6E6E3]">
+            <table className="w-full text-left border-collapse text-[13px]">
               <thead>
-                <tr className="bg-gray-50 dark:bg-gray-750 text-gray-500 font-bold uppercase text-[10px] tracking-wider border-b border-gray-200 dark:border-gray-700">
-                  <th className="p-3">Candidate</th>
-                  <th className="p-3">Phone & Direct Outreach</th>
-                  <th className="p-3">Program</th>
-                  <th className="p-3">Lifecycle / CRM Stage</th>
-                  <th className="p-3">Next Action</th>
-                  <th className="p-3">Payment State</th>
-                  <th className="p-3 text-right">Actions</th>
+                <tr className="bg-[#F7F7F5] text-[#6B6B66] font-medium text-[12px] border-b border-[#E6E6E3]">
+                  <th className="py-2.5 px-3">Lead</th>
+                  <th className="py-2.5 px-3">Phone</th>
+                  <th className="py-2.5 px-3">Program</th>
+                  <th className="py-2.5 px-3">Stage</th>
+                  <th className="py-2.5 px-3">Temperature</th>
+                  <th className="py-2.5 px-3">Next Action</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              <tbody className="divide-y divide-[#E6E6E3]">
                 {filteredAssignedLeads.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8">
                       <EmptyState
                         icon={Users}
-                        title="No leads found"
-                        description={`No leads found in ${rep.name}'s assigned pool matching the selected criteria.`}
+                        title="No leads found in this view"
+                        description="Try adjusting your search query or stage filter."
                         className="py-4"
                       />
                     </td>
@@ -684,127 +822,84 @@ export default function SalespersonWorkspace() {
                   filteredAssignedLeads.map((lead) => (
                     <tr
                       key={lead.id}
-                      className="hover:bg-gray-50/70 dark:hover:bg-gray-750/50 transition-colors"
+                      className="hover:bg-[#F3F4F6] transition-colors h-10"
                     >
-                      <td className="p-3">
-                        <div
-                          onClick={() => {
-                            setSelectedLeadForDetail(lead);
-                            setModalInitialPathway('none');
-                          }}
-                          className="font-bold text-gray-900 dark:text-gray-100 hover:text-emerald-700 cursor-pointer"
+                      <td className="py-2 px-3">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenLeadPanel(lead)}
+                          className="font-medium text-[#1F1F1D] hover:text-[#3B4BDB] text-left cursor-pointer"
                         >
                           {lead.fullName}
-                        </div>
-                        <div className="text-[11px] text-gray-400">
-                          {lead.currentRole || lead.professionalStatus || 'Candidate'}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-1 flex-wrap text-[10px]">
-                          {(() => {
-                            const sla = calculate48HourWorkingSla(lead.dateCaptured);
-                            const callAttempts = lead.outreachCadence?.callAttempts ?? (lead.numberOfCalls || 0);
-                            const waTouches = lead.outreachCadence?.whatsappTouches ?? (lead.crmStage === 'Details Sent on WhatsApp' ? 1 : 0);
-                            return (
-                              <>
-                                <span className={`px-1.5 py-0.2 rounded font-bold border ${sla.isWithin48Hours ? (sla.remainingHours <= 12 ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-emerald-50 text-emerald-800 border-emerald-300') : 'bg-red-50 text-red-800 border-red-300'}`}>
-                                  ⏰ {sla.isWithin48Hours ? `${sla.remainingHours.toFixed(1)}h` : 'Expired'}
-                                </span>
-                                <span className="text-gray-500 font-semibold">
-                                  📞{callAttempts}/3 • 💬{waTouches}/5
-                                </span>
-                              </>
-                            );
-                          })()}
+                        </button>
+                        <div className="text-[11px] text-[#6B6B66]">
+                          {lead.currentRole || 'Candidate'}
                         </div>
                       </td>
 
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
+                      <td className="py-2 px-3 tabular-nums font-mono text-[12px]">
+                        <div className="flex items-center gap-1.5">
                           <a
                             href={`tel:${lead.phone}`}
-                            onClick={() => {
-                              logCall(lead.id, 'Connected', 'Direct phone call placed');
-                              showToast(`Call placed to ${lead.fullName}!`);
-                            }}
-                            className="font-bold text-gray-800 dark:text-gray-200 hover:text-emerald-600 flex items-center gap-1.5"
+                            className="text-[#1F1F1D] hover:text-[#3B4BDB] flex items-center gap-1"
                           >
-                            <Phone className="w-3.5 h-3.5 text-emerald-600" /> {lead.phone}
+                            <Phone className="w-3 h-3 text-[#3B4BDB]" />
+                            <span>{formatPhoneNumber(lead.phone)}</span>
                           </a>
-                          {lead.phone && (
-                            <a
-                              href={`https://wa.me/${lead.phone.replace(/\D/g, '')}?text=Hi%20${encodeURIComponent(
-                                lead.fullName.split(' ')[0]
-                              )},%20this%20is%20${encodeURIComponent(rep.name)}%20from%20Aivalytics.`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[10px] bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 px-1.5 py-0.5 rounded font-bold"
-                            >
-                              WhatsApp
-                            </a>
-                          )}
                         </div>
                       </td>
 
-                      <td className="p-3">
-                        <span className="font-semibold text-gray-700 dark:text-gray-300">
-                          {lead.programName || 'AI Program'}
-                        </span>
+                      <td className="py-2 px-3 text-[#1F1F1D]">
+                        {lead.programName || 'AI Cohort'}
                       </td>
 
-                      <td className="p-3">
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                          {lead.crmStage}
-                        </span>
+                      <td className="py-2 px-3">
+                        <StageChip stage={lead.crmStage as Stage} />
                       </td>
 
-                      <td className="p-3">
+                      <td className="py-2 px-3">
+                        <TempTag temperature={lead.leadTemperature} />
+                      </td>
+
+                      <td className="py-2 px-3">
                         {lead.nextTask ? (
-                          <div className="text-[11px]">
-                            <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                          <div className="text-[12px]">
+                            <span className="font-medium text-[#1F1F1D]">
                               {lead.nextTask.taskType}
                             </span>
-                            <div className="text-gray-400">{lead.nextTask.dueDateTime}</div>
+                            <div className="text-[11px] text-[#6B6B66] tabular-nums font-mono">
+                              {lead.nextTask.dueDateTime}
+                            </div>
                           </div>
                         ) : lead.nextFollowUp ? (
-                          <span className="text-[11px] text-amber-700 dark:text-amber-400 font-bold">
+                          <span className="text-[12px] text-[#8A4B00] font-medium tabular-nums font-mono">
                             {lead.nextFollowUp}
                           </span>
                         ) : (
-                          <span className="text-[11px] text-amber-600 font-medium">⚠️ No Next Task</span>
+                          <span className="text-[12px] text-[#B42318]">
+                            No next action
+                          </span>
                         )}
                       </td>
 
-                      <td className="p-3">
-                        <span
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
-                            lead.paymentState === 'Paid in full' || lead.paymentStatus === 'Paid'
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                              : lead.paymentState === 'Payment link sent' || lead.paymentState === 'Deposit pending'
-                              ? 'bg-amber-50 text-amber-800 border-amber-300'
-                              : 'bg-gray-50 text-gray-600 border-gray-200'
-                          }`}
-                        >
-                          {lead.paymentState || lead.paymentStatus || 'No payment request'}
-                        </span>
-                      </td>
-
-                      <td className="p-3 text-right">
+                      <td className="py-2 px-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => handleOpenQuickLog(lead)}
-                            className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 rounded-lg text-xs font-bold cursor-pointer"
+                            className="h-7 text-[12px] px-2.5"
                           >
-                            + Log Call
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedLeadForDetail(lead);
-                              setModalInitialPathway('none');
-                            }}
-                            className="px-2.5 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-700 dark:text-gray-200 rounded-lg text-xs font-bold cursor-pointer"
+                            Log Call
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenLeadPanel(lead)}
+                            className="h-7 text-[12px] px-2.5 text-[#3B4BDB]"
                           >
                             Details
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -818,49 +913,49 @@ export default function SalespersonWorkspace() {
 
       {/* TAB 3: CALL ACTIVITIES LOG */}
       {activeTab === 'calls' && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-2xs p-6 space-y-4">
+        <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-black text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <PhoneCall className="w-4 h-4 text-emerald-600" /> Call Log & Touchpoints Placed by {rep.name}
+            <h2 className="text-[14px] font-semibold text-[#1F1F1D] flex items-center gap-2">
+              <PhoneCall className="w-4 h-4 text-[#3B4BDB]" />
+              <span>Outreach Calls Placed by {rep.name}</span>
             </h2>
-            <span className="text-xs font-bold text-gray-500">
-              Total {repCallActivities.length} Calls Logged
+            <span className="text-[12px] text-[#6B6B66] tabular-nums font-mono">
+              Total {repCallActivities.length} calls logged
             </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {repCallActivities.length === 0 ? (
               <EmptyState
                 icon={PhoneCall}
                 title="No calls logged yet"
-                description={`No call activities recorded for ${rep.name}. Place a call or log an outreach action above.`}
+                description={`No call activities recorded for ${rep.name}. Start Calling Mode or place a call above.`}
                 className="py-8"
               />
             ) : (
               repCallActivities.map((act) => (
                 <div
                   key={act.id}
-                  className="p-3.5 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-750 flex items-center justify-between gap-4"
+                  className="p-3 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md flex items-center justify-between gap-4"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold flex items-center justify-center text-sm shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-[#EEF0FD] text-[#3B4BDB] flex items-center justify-center shrink-0">
                       <PhoneCall className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-xs text-gray-900 dark:text-gray-100">
-                        {act.leadName} ({act.leadPhone})
+                      <h4 className="font-semibold text-[13px] text-[#1F1F1D]">
+                        {act.leadName} ({formatPhoneNumber(act.leadPhone)})
                       </h4>
-                      <p className="text-[11px] text-gray-500 mt-0.5">{act.notes}</p>
+                      <p className="text-[12px] text-[#6B6B66] mt-0.5">{act.notes}</p>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white border border-[#E6E6E3] text-[#1F1F1D]">
                       {act.outcome}
                     </span>
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •{' '}
-                      {new Date(act.timestamp).toLocaleDateString()}
+                    <p className="text-[11px] text-[#6B6B66] mt-1 tabular-nums font-mono">
+                      {formatRelativeTime(act.timestamp)}
                     </p>
                   </div>
                 </div>
@@ -870,47 +965,80 @@ export default function SalespersonWorkspace() {
         </div>
       )}
 
-      {/* Quick Log Call & Mandatory Next Task Modal */}
+      {/* Slide-over Side Panel (480px, responsive) */}
+      <SidePanel
+        isOpen={isSidePanelOpen}
+        onClose={() => {
+          setIsSidePanelOpen(false);
+          setSelectedLeadId(null);
+        }}
+      >
+        <LeadPanel
+          leadId={selectedLeadId}
+          onClose={() => {
+            setIsSidePanelOpen(false);
+            setSelectedLeadId(null);
+          }}
+        />
+      </SidePanel>
+
+      {/* Calling Mode (Distraction-Free Power Dialer Modal) */}
+      {isCallingModeOpen && (
+        <CallingMode
+          queue={fullPriorityQueue}
+          onClose={() => setIsCallingModeOpen(false)}
+          onOpenSidePanel={(lead) => {
+            setIsCallingModeOpen(false);
+            handleOpenLeadPanel(lead);
+          }}
+        />
+      )}
+
+      {/* Quick Log Call & Next Task Modal */}
       {quickLogModalLead && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <form
             onSubmit={handleQuickLogSubmit}
-            className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 dark:border-gray-700 space-y-4 animate-in fade-in"
+            className="bg-white rounded-lg max-w-lg w-full p-5 shadow-xl border border-[#E6E6E3] space-y-4 animate-in fade-in"
           >
-            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-3">
+            <div className="flex items-center justify-between border-b border-[#E6E6E3] pb-3">
               <div>
-                <h3 className="font-black text-sm text-gray-900 dark:text-gray-100">
+                <h3 className="font-semibold text-[14px] text-[#1F1F1D]">
                   Log Call & Schedule Next Action
                 </h3>
-                <p className="text-xs text-gray-500">
-                  Candidate: <span className="font-bold text-gray-900 dark:text-gray-200">{quickLogModalLead.fullName}</span> ({quickLogModalLead.phone})
+                <p className="text-[12px] text-[#6B6B66]">
+                  Candidate:{' '}
+                  <span className="font-medium text-[#1F1F1D]">
+                    {quickLogModalLead.fullName}
+                  </span>{' '}
+                  ({formatPhoneNumber(quickLogModalLead.phone)})
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setQuickLogModalLead(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg cursor-pointer transition-colors"
+                className="text-[#6B6B66] hover:text-[#1F1F1D] p-1 rounded-md cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {quickLogErrorMessage && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-300 text-red-700 dark:text-red-300 rounded-xl text-xs font-bold">
-                ⚠️ {quickLogErrorMessage}
+              <div className="p-3 bg-[#FDF2F2] border border-[#FECDCA] text-[#B42318] rounded-md text-[12px] font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{quickLogErrorMessage}</span>
               </div>
             )}
 
-            <div className="space-y-4 text-xs">
-              {/* 1. Call Outcome */}
+            <div className="space-y-3 text-[13px]">
               <div>
-                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
-                  1. Call Outcome
+                <label className="font-medium text-[#1F1F1D] block mb-1 text-[12px]">
+                  Call Outcome
                 </label>
                 <select
                   value={quickLogOutcome}
                   onChange={(e) => setQuickLogOutcome(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-bold focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                  className="w-full px-3 py-1.5 border border-[#E6E6E3] rounded-md text-[13px] bg-white text-[#1F1F1D] focus:outline-hidden focus:border-[#3B4BDB]"
                 >
                   <option value="Connected">Connected & Discussed</option>
                   <option value="Interested">Interested in Cohort</option>
@@ -923,41 +1051,40 @@ export default function SalespersonWorkspace() {
                 </select>
               </div>
 
-              {/* 2. Call Notes */}
               <div>
-                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
-                  2. Discussion Summary & Notes
+                <label className="font-medium text-[#1F1F1D] block mb-1 text-[12px]">
+                  Discussion Summary & Notes
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Discussed curriculum, pricing objections, or candidate background..."
+                  placeholder="Notes on questions asked, program track discussion..."
                   value={quickLogNotes}
                   onChange={(e) => setQuickLogNotes(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
-                ></textarea>
+                  className="w-full px-3 py-1.5 border border-[#E6E6E3] rounded-md text-[13px] text-[#1F1F1D] focus:outline-hidden focus:border-[#3B4BDB]"
+                />
               </div>
 
-              {/* 3. Mandatory Next Task Section */}
               {!isTerminalOutcome(quickLogOutcome) ? (
-                <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 space-y-2.5">
+                <div className="p-3 rounded-md border border-[#E6E6E3] bg-[#F7F7F5] space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-emerald-600" /> 3. Mandatory Next Task
+                    <span className="font-semibold text-[12px] text-[#1F1F1D] flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-[#3B4BDB]" />
+                      <span>Mandatory Next Task</span>
                     </span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-white dark:bg-emerald-900 px-2 py-0.5 rounded-full border border-emerald-300">
-                      Required for Active Pipeline
+                    <span className="text-[10px] font-medium text-[#3B4BDB] bg-[#EEF0FD] px-2 py-0.5 rounded-full border border-[#C5CDFA]">
+                      Required
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="font-bold text-gray-600 dark:text-gray-300 text-[11px] block mb-0.5">
+                      <label className="font-medium text-[#6B6B66] text-[11px] block mb-0.5">
                         Task Type
                       </label>
                       <select
                         value={nextTaskType}
                         onChange={(e) => setNextTaskType(e.target.value as any)}
-                        className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-bold"
+                        className="w-full px-2 py-1 bg-white border border-[#E6E6E3] rounded-md text-[12px]"
                       >
                         <option value="Call">Phone Call</option>
                         <option value="WhatsApp">WhatsApp Follow-up</option>
@@ -968,7 +1095,7 @@ export default function SalespersonWorkspace() {
                     </div>
 
                     <div>
-                      <label className="font-bold text-gray-600 dark:text-gray-300 text-[11px] block mb-0.5">
+                      <label className="font-medium text-[#6B6B66] text-[11px] block mb-0.5">
                         Due Date & Time
                       </label>
                       <div className="flex items-center gap-1">
@@ -976,114 +1103,58 @@ export default function SalespersonWorkspace() {
                           type="date"
                           value={nextTaskDate}
                           onChange={(e) => setNextTaskDate(e.target.value)}
-                          className="w-2/3 px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-medium"
+                          className="w-2/3 px-2 py-1 bg-white border border-[#E6E6E3] rounded-md text-[12px]"
                           required
                         />
                         <input
                           type="time"
                           value={nextTaskTime}
                           onChange={(e) => setNextTaskTime(e.target.value)}
-                          className="w-1/3 px-2 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-medium"
+                          className="w-1/3 px-2 py-1 bg-white border border-[#E6E6E3] rounded-md text-[12px]"
                         />
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <label className="font-bold text-gray-600 dark:text-gray-300 text-[11px] block mb-0.5">
+                    <label className="font-medium text-[#6B6B66] text-[11px] block mb-0.5">
                       Next Action Instructions
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g., Confirm attendance for Saturday session, send curriculum PDF"
+                      placeholder="e.g. Follow-up after review of AI Builder replay"
                       value={nextTaskInstructions}
                       onChange={(e) => setNextTaskInstructions(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-xs"
+                      className="w-full px-2 py-1 bg-white border border-[#E6E6E3] rounded-md text-[12px]"
                     />
                   </div>
                 </div>
               ) : (
-                <div className="p-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-semibold">
-                  Marked terminal ({quickLogOutcome}). Lead is moved to Closed/Unqualified with no mandatory follow-up task.
+                <div className="p-3 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md text-[12px] text-[#6B6B66]">
+                  Lead marked terminal ({quickLogOutcome}). No mandatory follow-up task required.
                 </div>
               )}
             </div>
 
-            {/* Fast Pathway Jump from Quick Log Modal */}
-            <div className="p-3 bg-purple-50/70 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800 flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-[11px] font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5 text-amber-500" /> Ready to Convert?
-              </span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const l = quickLogModalLead;
-                    setQuickLogModalLead(null);
-                    setSelectedLeadForDetail(l);
-                    setModalInitialPathway('mentor');
-                  }}
-                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-300 rounded-md border border-purple-300 hover:bg-purple-100 cursor-pointer shadow-2xs flex items-center gap-1"
-                >
-                  <GraduationCap className="w-3 h-3" /> Book Mentor
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const l = quickLogModalLead;
-                    setQuickLogModalLead(null);
-                    setSelectedLeadForDetail(l);
-                    setModalInitialPathway('demo');
-                  }}
-                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 rounded-md border border-indigo-300 hover:bg-indigo-100 cursor-pointer shadow-2xs flex items-center gap-1"
-                >
-                  <PlayCircle className="w-3 h-3" /> Demo Session
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const l = quickLogModalLead;
-                    setQuickLogModalLead(null);
-                    setSelectedLeadForDetail(l);
-                    setModalInitialPathway('sale');
-                  }}
-                  className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 rounded-md border border-emerald-300 hover:bg-emerald-100 cursor-pointer shadow-2xs flex items-center gap-1"
-                >
-                  <CreditCard className="w-3 h-3" /> Direct Sale
-                </button>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
-              <button
+            <div className="flex justify-end gap-2 pt-3 border-t border-[#E6E6E3]">
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => setQuickLogModalLead(null)}
-                className="px-3.5 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 type="submit"
-                className="px-4 py-1.5 text-xs font-bold bg-[#133926] hover:bg-[#1a4a33] text-white rounded-lg shadow-sm cursor-pointer"
               >
                 Save Outreach & Task
-              </button>
+              </Button>
             </div>
           </form>
         </div>
-      )}
-
-      {/* Lead Detail Modal */}
-      {selectedLeadForDetail && (
-        <LeadDetailModal
-          lead={leadsPool.find((l) => l.id === selectedLeadForDetail.id) || selectedLeadForDetail}
-          isOpen={!!selectedLeadForDetail}
-          onClose={() => {
-            setSelectedLeadForDetail(null);
-            setModalInitialPathway('none');
-          }}
-          initialPathway={modalInitialPathway}
-        />
       )}
     </div>
   );
