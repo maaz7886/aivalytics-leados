@@ -20,8 +20,19 @@ import type {
   DirectSale,
   OutreachCadence,
   TimelineEvent,
-  SyncLog
+  SyncLog,
+  CustomField,
+  CustomFieldType,
+  ContactFieldValue,
+  Submission,
+  QuestionAnswer,
+  MappingTemplate,
+  ImportBatch,
+  ImportBatchConflict,
+  QuestionBankItem,
+  ScoringRule
 } from '../types';
+import { ingestLeadRows } from '../services/leadIngestionService';
 import {
   supabase,
   fetchLeadsFromSupabase,
@@ -875,6 +886,258 @@ export const initialSalespeople: Salesperson[] = [
   }
 ];
 
+// ==========================================
+// STEP 2C SEED DATA
+// ==========================================
+
+export const initialCustomFields: CustomField[] = [
+  {
+    id: 'cf-linkedin',
+    key: 'linkedin_url',
+    label: 'LinkedIn URL',
+    type: 'url',
+    programScope: 'All',
+    active: true,
+    createdAt: '2026-01-01'
+  },
+  {
+    id: 'cf-current-ctc',
+    key: 'current_ctc',
+    label: 'Current CTC (LPA)',
+    type: 'number',
+    programScope: 'AI-PM',
+    active: true,
+    createdAt: '2026-01-01'
+  },
+  {
+    id: 'cf-preferred-payment',
+    key: 'preferred_payment',
+    label: 'Payment Preference',
+    type: 'single select',
+    options: ['Full Payment (₹49,999)', 'No-cost EMI (₹8,333/mo)', 'Company Sponsored'],
+    programScope: 'AI-PM',
+    active: true,
+    createdAt: '2026-01-01'
+  },
+  {
+    id: 'cf-laptop-specs',
+    key: 'laptop_specs',
+    label: 'Laptop Configuration',
+    type: 'single select',
+    options: ['Mac M1/M2/M3 (16GB+)', 'Windows i7/Ryzen 7 (16GB+)', 'Under 16GB RAM', 'No Laptop'],
+    programScope: 'AI Builder',
+    active: true,
+    createdAt: '2026-01-01'
+  },
+  {
+    id: 'cf-ai-tools',
+    key: 'ai_tools_used',
+    label: 'AI Tools Familiarity',
+    type: 'multi select',
+    options: ['ChatGPT', 'Cursor', 'Claude', 'Midjourney', 'GitHub Copilot', 'None'],
+    programScope: 'All',
+    active: true,
+    createdAt: '2026-01-01'
+  }
+];
+
+export const initialQuestionBank: QuestionBankItem[] = [
+  // AI-PM Seed
+  {
+    id: 'qb-pm-1',
+    programScope: 'AI-PM',
+    questionText: "What is your current role/designation?",
+    questionKey: 'current_role',
+    type: 'single select',
+    options: ['Product Manager', 'Software Engineer/Dev', 'Consultant/Analyst', 'Operations/Project Manager', 'Founder/Leader', 'Other'],
+    order: 1,
+    requiredBeforePaymentLink: true
+  },
+  {
+    id: 'qb-pm-2',
+    programScope: 'AI-PM',
+    questionText: "How many years of professional experience do you have?",
+    questionKey: 'years_of_experience',
+    type: 'number',
+    order: 2,
+    requiredBeforePaymentLink: true
+  },
+  {
+    id: 'qb-pm-3',
+    programScope: 'AI-PM',
+    questionText: "Which company and industry are you currently working in?",
+    questionKey: 'company_industry',
+    type: 'text',
+    order: 3,
+    requiredBeforePaymentLink: false
+  },
+  {
+    id: 'qb-pm-4',
+    programScope: 'AI-PM',
+    questionText: "What is your primary career goal with this cohort?",
+    questionKey: 'primary_goal',
+    type: 'single select',
+    options: ['Switch to Product Management', 'Grow/Advance in PM role', 'Build & ship AI products', 'Hike earning potential'],
+    order: 4,
+    requiredBeforePaymentLink: true
+  },
+  {
+    id: 'qb-pm-5',
+    programScope: 'AI-PM',
+    questionText: "What is your preferred payment structure?",
+    questionKey: 'preferred_payment',
+    type: 'single select',
+    options: ['Full payment (₹49,999)', 'No-cost EMI (from ₹8,333/mo)', 'Employer reimbursement'],
+    order: 5,
+    requiredBeforePaymentLink: true
+  },
+  {
+    id: 'qb-pm-6',
+    programScope: 'AI-PM',
+    questionText: "When are you planning to start your transition?",
+    questionKey: 'expected_timeline',
+    type: 'single select',
+    options: ['Immediate (Next cohort)', 'Next month', 'Exploring options'],
+    order: 6,
+    requiredBeforePaymentLink: false
+  },
+  // AI Builder Seed
+  {
+    id: 'qb-b-1',
+    programScope: 'AI Builder',
+    questionText: "What is your current role/background?",
+    questionKey: 'current_role',
+    type: 'text',
+    order: 1,
+    requiredBeforePaymentLink: true
+  },
+  {
+    id: 'qb-b-2',
+    programScope: 'AI Builder',
+    questionText: "Have you built anything with AI before?",
+    questionKey: 'built_with_ai',
+    type: 'yes/no',
+    order: 2,
+    requiredBeforePaymentLink: true
+  },
+  {
+    id: 'qb-b-3',
+    programScope: 'AI Builder',
+    questionText: "Do you have a working laptop available for live workshop labs?",
+    questionKey: 'laptop_available',
+    type: 'yes/no',
+    order: 3,
+    requiredBeforePaymentLink: true
+  },
+  {
+    id: 'qb-b-4',
+    programScope: 'AI Builder',
+    questionText: "Can you attend all sessions during the Friday–Sunday timing?",
+    questionKey: 'can_attend_timing',
+    type: 'yes/no',
+    order: 4,
+    requiredBeforePaymentLink: true
+  }
+];
+
+export const initialScoringRules: ScoringRule[] = [
+  {
+    id: 'sr-1',
+    name: 'Experienced Pro + Immediate -> Hot',
+    programScope: 'AI-PM',
+    conditions: [
+      { fieldKey: 'yearsOfExperience', operator: 'gte', value: 3 },
+      { fieldKey: 'expectedTimeline', operator: 'equals', value: 'immediately' }
+    ],
+    resultingTemperature: 'Hot',
+    active: true
+  },
+  {
+    id: 'sr-2',
+    name: 'Student + Later -> Cold',
+    programScope: 'All',
+    conditions: [
+      { fieldKey: 'professionalStatus', operator: 'equals', value: 'Student' },
+      { fieldKey: 'expectedTimeline', operator: 'equals', value: 'later' }
+    ],
+    resultingTemperature: 'Cold',
+    active: true
+  },
+  {
+    id: 'sr-3',
+    name: 'High Intent Earning Goal -> Hot',
+    programScope: 'AI-PM',
+    conditions: [
+      { fieldKey: 'primaryGoal', operator: 'equals', value: 'increase_my_earning_potential' }
+    ],
+    resultingTemperature: 'Hot',
+    active: true
+  }
+];
+
+export const initialMappingTemplates: MappingTemplate[] = [
+  {
+    id: 'mt-1',
+    name: 'Meta Form – AI-PM Lead Ad',
+    sourceType: 'Meta form',
+    mappings: {
+      'full_name': { targetType: 'core', targetKey: 'fullName' },
+      'phone_number': { targetType: 'core', targetKey: 'phone' },
+      'email': { targetType: 'core', targetKey: 'email' },
+      'city': { targetType: 'core', targetKey: 'city' },
+      "what's_your_current_role?": { targetType: 'core', targetKey: 'currentRole' },
+      'years_of_experience': { targetType: 'core', targetKey: 'yearsOfExperience' }
+    },
+    updatedAt: '2026-02-01'
+  },
+  {
+    id: 'mt-2',
+    name: 'Meta Form – AI Builder Workshop',
+    sourceType: 'Meta form',
+    mappings: {
+      'full_name': { targetType: 'core', targetKey: 'fullName' },
+      'phone_number': { targetType: 'core', targetKey: 'phone' },
+      'email': { targetType: 'core', targetKey: 'email' },
+      'city': { targetType: 'core', targetKey: 'city' }
+    },
+    updatedAt: '2026-02-01'
+  },
+  {
+    id: 'mt-3',
+    name: 'College Placement List CSV',
+    sourceType: 'CSV import',
+    mappings: {
+      'Student Name': { targetType: 'core', targetKey: 'fullName' },
+      'Contact No': { targetType: 'core', targetKey: 'phone' },
+      'Email ID': { targetType: 'core', targetKey: 'email' },
+      'College': { targetType: 'core', targetKey: 'currentCompany' }
+    },
+    updatedAt: '2026-02-01'
+  }
+];
+
+export const initialImportBatches: ImportBatch[] = [
+  {
+    id: 'batch-init-01',
+    importedBy: 'Maaz Patel',
+    importedAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
+    source: 'CSV import',
+    filename: 'Meta_Leads_PM_Cohort_Nov.csv',
+    counts: {
+      total: 45,
+      new: 38,
+      updated: 7,
+      duplicate: 0,
+      invalid: 0,
+      skipped: 0
+    },
+    conflicts: [],
+    errors: [],
+    status: 'completed',
+    undoAvailableUntil: new Date(Date.now() + 20 * 3600 * 1000).toISOString()
+  }
+];
+
 interface AppContextType {
   leads: Lead[];
   allLeads: Lead[];
@@ -981,6 +1244,27 @@ interface AppContextType {
     callNotes?: string
   ) => void;
   incrementCadenceTouch: (leadId: string, touchType: 'Call' | 'WhatsApp') => void;
+
+  // Step 2C: Flexible Fields, Ingestion & Q&A
+  customFields: CustomField[];
+  submissions: Submission[];
+  questionAnswers: QuestionAnswer[];
+  mappingTemplates: MappingTemplate[];
+  importBatches: ImportBatch[];
+  questionBank: QuestionBankItem[];
+  scoringRules: ScoringRule[];
+  ingestImportBatch: (rows: Record<string, any>[], options: any) => any;
+  undoImportBatch: (batchId: string) => boolean;
+  resolveConflict: (batchId: string, conflictId: string, useNewValue: boolean) => void;
+  addCustomField: (field: Omit<CustomField, 'id' | 'createdAt'>) => CustomField;
+  updateCustomField: (id: string, updates: Partial<CustomField>) => void;
+  archiveCustomField: (id: string, activeState?: boolean) => void;
+  addQuestionBankItem: (item: Omit<QuestionBankItem, 'id'>) => QuestionBankItem;
+  updateQuestionBankItem: (id: string, updates: Partial<QuestionBankItem>) => void;
+  deleteQuestionBankItem: (id: string) => void;
+  saveScoringRule: (rule: ScoringRule) => void;
+  saveMappingTemplate: (template: Omit<MappingTemplate, 'id' | 'updatedAt'>) => MappingTemplate;
+  promoteQuestionToCustomField: (questionKey: string, label: string, type?: CustomFieldType, options?: string[]) => CustomField;
 }
 
 
@@ -1115,6 +1399,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [roundRobinEnabled, setRoundRobinEnabledState] = useState<boolean>(() => {
     const saved = localStorage.getItem('AIVALYTICS_ROUND_ROBIN');
     return saved !== null ? saved === 'true' : true;
+  });
+
+  // Step 2C: Flexible Fields, Ingestion & Q&A States
+  const [customFields, setCustomFields] = useState<CustomField[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_CUSTOM_FIELDS');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return initialCustomFields;
+  });
+
+  const [submissions, setSubmissions] = useState<Submission[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_SUBMISSIONS');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  });
+
+  const [questionAnswers, setQuestionAnswers] = useState<QuestionAnswer[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_QUESTION_ANSWERS');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  });
+
+  const [mappingTemplates, setMappingTemplates] = useState<MappingTemplate[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_MAPPING_TEMPLATES');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return initialMappingTemplates;
+  });
+
+  const [importBatches, setImportBatches] = useState<ImportBatch[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_IMPORT_BATCHES');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return initialImportBatches;
+  });
+
+  const [questionBank, setQuestionBank] = useState<QuestionBankItem[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_QUESTION_BANK');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return initialQuestionBank;
+  });
+
+  const [scoringRules, setScoringRulesState] = useState<ScoringRule[]>(() => {
+    const saved = localStorage.getItem('AIVALYTICS_SCORING_RULES');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return initialScoringRules;
   });
 
   const setRoundRobinEnabled = (val: boolean) => {
@@ -2265,6 +2627,233 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  // ==========================================
+  // STEP 2C: UNIVERSAL INGESTION & FLEXIBLE FIELDS METHODS
+  // ==========================================
+
+  const ingestImportBatch = (rows: Record<string, any>[], options: any) => {
+    const result = ingestLeadRows(
+      rows,
+      masterLeads,
+      customFields,
+      scoringRules,
+      salespeople,
+      {
+        ...options,
+        importedBy: currentUser?.name || 'Maaz Patel'
+      }
+    );
+
+    // Update master leads
+    setMasterLeads(result.updatedLeads);
+    localStorage.setItem('AIVALYTICS_LEADS_DATASET', JSON.stringify(result.updatedLeads));
+
+    // Update submissions & answers
+    const updatedSubmissions = [...result.submissions, ...submissions];
+    setSubmissions(updatedSubmissions);
+    localStorage.setItem('AIVALYTICS_SUBMISSIONS', JSON.stringify(updatedSubmissions));
+
+    const updatedAnswers = [...result.answers, ...questionAnswers];
+    setQuestionAnswers(updatedAnswers);
+    localStorage.setItem('AIVALYTICS_QUESTION_ANSWERS', JSON.stringify(updatedAnswers));
+
+    // Create & append Import Batch
+    const batchId = options.importBatchId || `batch-${Date.now()}`;
+    const newBatch: ImportBatch = {
+      id: batchId,
+      importedBy: currentUser?.name || 'Maaz Patel',
+      importedAt: new Date().toISOString(),
+      source: options.source,
+      filename: options.sourceName,
+      counts: result.counts,
+      conflicts: result.conflicts,
+      errors: result.errors,
+      status: 'completed',
+      undoAvailableUntil: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+      revertPayload: {
+        createdLeadIds: result.createdLeads.map((l) => l.id),
+        previousLeadSnapshots: result.previousLeadSnapshots
+      }
+    };
+
+    const updatedBatches = [newBatch, ...importBatches];
+    setImportBatches(updatedBatches);
+    localStorage.setItem('AIVALYTICS_IMPORT_BATCHES', JSON.stringify(updatedBatches));
+
+    return { ...result, batch: newBatch };
+  };
+
+  const undoImportBatch = (batchId: string): boolean => {
+    const batch = importBatches.find((b) => b.id === batchId);
+    if (!batch || batch.status === 'reverted') return false;
+
+    const expiry = new Date(batch.undoAvailableUntil).getTime();
+    if (Date.now() > expiry) return false;
+
+    const payload = batch.revertPayload;
+    if (!payload) return false;
+
+    // 1. Remove created leads and revert modified leads
+    setMasterLeads((prev) => {
+      const reverted = prev
+        .filter((l) => !payload.createdLeadIds.includes(l.id))
+        .map((l) => {
+          if (payload.previousLeadSnapshots && payload.previousLeadSnapshots[l.id]) {
+            return { ...l, ...payload.previousLeadSnapshots[l.id] };
+          }
+          return l;
+        });
+      localStorage.setItem('AIVALYTICS_LEADS_DATASET', JSON.stringify(reverted));
+      return reverted;
+    });
+
+    // 2. Mark batch reverted
+    setImportBatches((prev) => {
+      const updated = prev.map((b) => (b.id === batchId ? { ...b, status: 'reverted' as const } : b));
+      localStorage.setItem('AIVALYTICS_IMPORT_BATCHES', JSON.stringify(updated));
+      return updated;
+    });
+
+    return true;
+  };
+
+  const resolveConflict = (batchId: string, conflictId: string, useNewValue: boolean) => {
+    let targetConflict: ImportBatchConflict | undefined;
+
+    setImportBatches((prev) => {
+      const updatedBatches = prev.map((b) => {
+        if (b.id === batchId) {
+          const updatedConflicts = b.conflicts.map((c) => {
+            if (c.id === conflictId) {
+              targetConflict = c;
+              return { ...c, resolved: true, usedNewValue };
+            }
+            return c;
+          });
+          return { ...b, conflicts: updatedConflicts };
+        }
+        return b;
+      });
+      localStorage.setItem('AIVALYTICS_IMPORT_BATCHES', JSON.stringify(updatedBatches));
+      return updatedBatches;
+    });
+
+    if (useNewValue && targetConflict) {
+      setMasterLeads((prev) => {
+        const updated = prev.map((l) => {
+          if (l.id === targetConflict!.contactId) {
+            return { ...l, [targetConflict!.fieldKey]: targetConflict!.newValue };
+          }
+          return l;
+        });
+        localStorage.setItem('AIVALYTICS_LEADS_DATASET', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  };
+
+  const addCustomField = (field: Omit<CustomField, 'id' | 'createdAt'>): CustomField => {
+    const newField: CustomField = {
+      ...field,
+      id: `cf-${Date.now()}`,
+      createdAt: new Date().toISOString().substring(0, 10)
+    };
+    setCustomFields((prev) => {
+      const updated = [...prev, newField];
+      localStorage.setItem('AIVALYTICS_CUSTOM_FIELDS', JSON.stringify(updated));
+      return updated;
+    });
+    return newField;
+  };
+
+  const updateCustomField = (id: string, updates: Partial<CustomField>) => {
+    setCustomFields((prev) => {
+      const updated = prev.map((f) => (f.id === id ? { ...f, ...updates } : f));
+      localStorage.setItem('AIVALYTICS_CUSTOM_FIELDS', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const archiveCustomField = (id: string, activeState?: boolean) => {
+    setCustomFields((prev) => {
+      const updated = prev.map((f) =>
+        f.id === id ? { ...f, active: activeState !== undefined ? activeState : false } : f
+      );
+      localStorage.setItem('AIVALYTICS_CUSTOM_FIELDS', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const addQuestionBankItem = (item: Omit<QuestionBankItem, 'id'>): QuestionBankItem => {
+    const newItem: QuestionBankItem = {
+      ...item,
+      id: `qb-${Date.now()}`
+    };
+    setQuestionBank((prev) => {
+      const updated = [...prev, newItem];
+      localStorage.setItem('AIVALYTICS_QUESTION_BANK', JSON.stringify(updated));
+      return updated;
+    });
+    return newItem;
+  };
+
+  const updateQuestionBankItem = (id: string, updates: Partial<QuestionBankItem>) => {
+    setQuestionBank((prev) => {
+      const updated = prev.map((q) => (q.id === id ? { ...q, ...updates } : q));
+      localStorage.setItem('AIVALYTICS_QUESTION_BANK', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const deleteQuestionBankItem = (id: string) => {
+    setQuestionBank((prev) => {
+      const updated = prev.filter((q) => q.id !== id);
+      localStorage.setItem('AIVALYTICS_QUESTION_BANK', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const saveScoringRule = (rule: ScoringRule) => {
+    setScoringRulesState((prev) => {
+      const exists = prev.some((r) => r.id === rule.id);
+      const updated = exists ? prev.map((r) => (r.id === rule.id ? rule : r)) : [...prev, rule];
+      localStorage.setItem('AIVALYTICS_SCORING_RULES', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const saveMappingTemplate = (template: Omit<MappingTemplate, 'id' | 'updatedAt'>): MappingTemplate => {
+    const newTpl: MappingTemplate = {
+      ...template,
+      id: `mt-${Date.now()}`,
+      updatedAt: new Date().toISOString().substring(0, 10)
+    };
+    setMappingTemplates((prev) => {
+      const updated = [newTpl, ...prev.filter((t) => t.name !== template.name)];
+      localStorage.setItem('AIVALYTICS_MAPPING_TEMPLATES', JSON.stringify(updated));
+      return updated;
+    });
+    return newTpl;
+  };
+
+  const promoteQuestionToCustomField = (
+    questionKey: string,
+    label: string,
+    type: CustomFieldType = 'text',
+    options?: string[]
+  ): CustomField => {
+    const existing = customFields.find((f) => f.key === questionKey);
+    if (existing) return existing;
+    return addCustomField({
+      key: questionKey,
+      label: label || questionKey,
+      type: type,
+      options: options || [],
+      programScope: 'All',
+      active: true
+    });
+  };
+
   const todayStr = new Date().toISOString().substring(0, 10);
   const todayCallActivities = callActivities.filter((c) => {
     const isToday = c.timestamp.startsWith(todayStr);
@@ -2339,7 +2928,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         scheduleMentorMeeting,
         inviteDemoSession,
         initiateDirectSale,
-        incrementCadenceTouch
+        incrementCadenceTouch,
+        // Step 2C: Flexible Fields, Ingestion & Q&A
+        customFields,
+        submissions,
+        questionAnswers,
+        mappingTemplates,
+        importBatches,
+        questionBank,
+        scoringRules,
+        ingestImportBatch,
+        undoImportBatch,
+        resolveConflict,
+        addCustomField,
+        updateCustomField,
+        archiveCustomField,
+        addQuestionBankItem,
+        updateQuestionBankItem,
+        deleteQuestionBankItem,
+        saveScoringRule,
+        saveMappingTemplate,
+        promoteQuestionToCustomField
       }}
     >
       {children}

@@ -24,6 +24,7 @@ import {
   getAiPmFallbackToBuilderWhatsApp
 } from '../utils/offeringTemplates';
 import { LostReasonModal } from './LostReasonModal';
+import { evaluateScoringRules } from '../services/leadIngestionService';
 
 interface CallingModeProps {
   queue: Lead[];
@@ -42,7 +43,9 @@ export const CallingMode: React.FC<CallingModeProps> = ({
     updateLeadStage,
     updatePaymentState,
     addLead,
-    currentUser
+    currentUser,
+    questionBank,
+    scoringRules
   } = useApp();
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -56,6 +59,9 @@ export const CallingMode: React.FC<CallingModeProps> = ({
     const d = new Date(Date.now() + 86400000);
     return d.toISOString().substring(0, 16).replace('T', ' ');
   });
+
+  // Step 2C: Qualification state
+  const [qualAnswers, setQualAnswers] = useState<Record<string, any>>({});
 
   // Lost modal state
   const [isLostModalOpen, setIsLostModalOpen] = useState(false);
@@ -90,7 +96,12 @@ export const CallingMode: React.FC<CallingModeProps> = ({
     setMandatoryDueDate(
       new Date(Date.now() + 86400000).toISOString().substring(0, 16).replace('T', ' ')
     );
-  }, [currentIndex]);
+    if (currentLead) {
+      setQualAnswers(currentLead.customFields || {});
+    } else {
+      setQualAnswers({});
+    }
+  }, [currentIndex, currentLead]);
 
   if (!currentLead) {
     return (
@@ -137,6 +148,20 @@ export const CallingMode: React.FC<CallingModeProps> = ({
   const handleSaveAndAdvance = (e: React.FormEvent) => {
     e.preventDefault();
     if (!callNotes.trim()) return;
+
+    // Update custom fields and scoring
+    const updatedCustom = { ...(currentLead.customFields || {}), ...qualAnswers };
+    let newTemp = (currentLead as any).temperature || (currentLead as any).leadTemperature || 'Warm';
+    if (!currentLead.temperatureLocked && scoringRules && scoringRules.length > 0) {
+      const scored = evaluateScoringRules({ ...currentLead, customFields: updatedCustom }, scoringRules);
+      if (scored) newTemp = scored;
+    }
+
+    updateLead(currentLead.id, {
+      customFields: updatedCustom,
+      temperature: newTemp,
+      leadTemperature: newTemp
+    });
 
     logCall(
       currentLead.id,
@@ -608,6 +633,65 @@ export const CallingMode: React.FC<CallingModeProps> = ({
                     className="w-full h-8 px-2 bg-white border border-[#E6E6E3] rounded-[6px] text-xs outline-none"
                   />
                 </div>
+
+                {/* Step 2C: Qualification Questions */}
+                {((questionBank || []).filter(q => q.programScope === 'All' || q.programScope === (isAiBuilder ? 'AI Builder' : 'AI-PM'))).length > 0 && (
+                  <div className="pt-2.5 border-t border-[#E6E6E3] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-[#1F1F1D]">Call Qualification</span>
+                      <span className="text-[10px] text-[#6B6B66]">Updates custom fields & scoring</span>
+                    </div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {questionBank
+                        .filter(q => q.programScope === 'All' || q.programScope === (isAiBuilder ? 'AI Builder' : 'AI-PM'))
+                        .map((q) => {
+                          const k = q.customFieldKey || q.questionKey;
+                          const val = qualAnswers[k];
+                          const isReq = q.requiredBeforePaymentLink || q.requiredBeforePayment;
+                          return (
+                            <div key={q.id} className="space-y-1">
+                              <label className="text-[10px] font-medium text-[#6B6B66] block">
+                                {q.questionText} {isReq && <span className="text-[#B42318]">*</span>}
+                              </label>
+                              {q.options && q.options.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {q.options.map((opt) => {
+                                    const isSelected = val === opt;
+                                    return (
+                                      <button
+                                        key={opt}
+                                        type="button"
+                                        onClick={() =>
+                                          setQualAnswers((prev) => ({ ...prev, [k]: opt }))
+                                        }
+                                        className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors border ${
+                                          isSelected
+                                            ? 'bg-[#EEF0FD] border-[#3B4BDB] text-[#3B4BDB]'
+                                            : 'bg-white border-[#E6E6E3] text-[#1F1F1D] hover:bg-[#F3F4F6]'
+                                        }`}
+                                      >
+                                        {opt}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={val || ''}
+                                  onChange={(e) =>
+                                    setQualAnswers((prev) => ({ ...prev, [k]: e.target.value }))
+                                  }
+                                  placeholder="Type answer..."
+                                  className="w-full h-7 px-2 bg-white border border-[#E6E6E3] rounded-[4px] text-[11px] outline-none"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="pt-2 flex items-center justify-between">
                   <button

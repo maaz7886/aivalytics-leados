@@ -42,7 +42,7 @@ const VIEW_NAMES: Record<string, string> = {
 
 interface FilterCondition {
   id: string;
-  field: 'stage' | 'owner' | 'program' | 'temperature' | 'source' | 'campaign';
+  field: string;
   operator: 'is' | 'is_not' | 'contains' | 'is_empty';
   value: string;
 }
@@ -58,7 +58,8 @@ export default function AllLeads() {
     bulkUpdateStage,
     updateLead,
     addLead,
-    currentUser
+    currentUser,
+    customFields
   } = useApp();
 
   const leadsPool = allLeads || leads || [];
@@ -110,6 +111,18 @@ export default function AllLeads() {
       return next;
     });
   };
+
+  // Step 2C: Dynamic columns including active Custom Fields
+  const availableColumns = useMemo(() => {
+    const cfCols = (customFields || []).filter((f) => f.active).map((f) => ({
+      id: `cf_${f.key}`,
+      label: f.label,
+      defaultWidth: 150,
+      minWidth: 110,
+      sortable: true
+    }));
+    return [...ALL_COLUMNS, ...cfCols];
+  }, [customFields]);
 
   // Top Bar Segmented Control: Grid | Kanban | Calendar
   const urlMode = (searchParams.get('mode') as 'grid' | 'kanban' | 'calendar') || 'grid';
@@ -215,7 +228,10 @@ export default function AllLeads() {
       // 2. Custom Filter Conditions (AND combined)
       for (const cond of customFilters) {
         let fieldVal = '';
-        if (cond.field === 'stage') fieldVal = l.crmStage || '';
+        if (cond.field.startsWith('cf_')) {
+          const k = cond.field.replace('cf_', '');
+          fieldVal = String(l.customFields?.[k] ?? (l as any)[k] ?? '');
+        } else if (cond.field === 'stage') fieldVal = l.crmStage || '';
         else if (cond.field === 'owner') fieldVal = l.assignedSalesperson || '';
         else if (cond.field === 'program') fieldVal = l.programName || '';
         else if (cond.field === 'temperature') fieldVal = (l as any).temperature || (l as any).leadTemperature || 'Warm';
@@ -543,6 +559,15 @@ export default function AllLeads() {
                     <option value="temperature">Temperature</option>
                     <option value="source">Source</option>
                     <option value="campaign">Campaign</option>
+                    {customFields && customFields.length > 0 && (
+                      <optgroup label="Custom Fields">
+                        {customFields.filter(f => f.active).map(f => (
+                          <option key={f.key} value={`cf_${f.key}`}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
 
                   <select
@@ -643,28 +668,36 @@ export default function AllLeads() {
 
         {/* 3. Hide fields Popover */}
         {activePopover === 'hide' && (
-          <div className="absolute top-14 left-80 z-50 w-56 bg-white border border-[#E6E6E3] rounded-[8px] shadow-lg p-2.5 text-xs space-y-2 animate-in fade-in duration-150">
+          <div className="absolute top-14 left-80 z-50 w-64 bg-white border border-[#E6E6E3] rounded-[8px] shadow-lg p-2.5 text-xs space-y-2 animate-in fade-in duration-150">
             <div className="font-semibold text-[#1F1F1D] px-1">Column Visibility</div>
-            <div className="max-h-60 overflow-y-auto space-y-1">
-              {ALL_COLUMNS.filter((c) => c.id !== 'select' && c.id !== 'name').map((col) => {
+            <div className="max-h-64 overflow-y-auto space-y-1">
+              {availableColumns.filter((c) => c.id !== 'select' && c.id !== 'name').map((col) => {
                 const isChecked = viewPrefs.visibleColumns.includes(col.id);
+                const isCustom = col.id.startsWith('cf_');
                 return (
                   <label
                     key={col.id}
-                    className="flex items-center gap-2 px-1 py-1 hover:bg-[#F3F4F6] rounded cursor-pointer"
+                    className="flex items-center justify-between px-1.5 py-1 hover:bg-[#F3F4F6] rounded cursor-pointer"
                   >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => {
-                        const nextCols = isChecked
-                          ? viewPrefs.visibleColumns.filter((id) => id !== col.id)
-                          : [...viewPrefs.visibleColumns, col.id];
-                        updateAndSavePrefs({ visibleColumns: nextCols });
-                      }}
-                      className="rounded text-[#3B4BDB]"
-                    />
-                    <span>{col.label}</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          const nextCols = isChecked
+                            ? viewPrefs.visibleColumns.filter((id) => id !== col.id)
+                            : [...viewPrefs.visibleColumns, col.id];
+                          updateAndSavePrefs({ visibleColumns: nextCols });
+                        }}
+                        className="rounded border-[#E6E6E3] text-[#3B4BDB] focus:ring-0"
+                      />
+                      <span className="text-xs text-[#1F1F1D]">{col.label}</span>
+                    </div>
+                    {isCustom && (
+                      <span className="text-[10px] text-[#3B4BDB] bg-[#EEF0FD] px-1 py-0.2 rounded font-medium">
+                        Custom
+                      </span>
+                    )}
                   </label>
                 );
               })}
@@ -797,6 +830,7 @@ export default function AllLeads() {
             }}
             isAdmin={isAdmin}
             salespeople={salespeople}
+            customFields={customFields}
           />
         )}
 

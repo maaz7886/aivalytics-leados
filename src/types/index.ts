@@ -338,6 +338,10 @@ export interface Lead {
       recommendedStrategy: string;
     };
   }[];
+  customFields?: Record<string, any>;
+  temperatureLocked?: boolean;
+  submissionsCount?: number;
+  timeline?: TimelineEvent[];
 }
 
 export interface Task {
@@ -397,7 +401,7 @@ export interface LeadStageHistory {
   created_at: string;
 }
 
-export interface ImportBatch {
+export interface LegacyImportBatch {
   id: string;
   filename: string;
   source: string;
@@ -456,5 +460,154 @@ export interface SyncLog {
   errors?: any[];
   createdAt: string;
 }
+
+// ==========================================
+// STEP 2C: UNIVERSAL INGESTION & FLEXIBLE FIELDS
+// ==========================================
+
+export type CustomFieldType =
+  | 'text'
+  | 'number'
+  | 'single select'
+  | 'multi select'
+  | 'date'
+  | 'yes/no'
+  | 'phone'
+  | 'url';
+
+export type ProgramScope = 'All' | 'AI Builder' | 'AI-PM';
+
+export interface CustomField {
+  id: string;
+  key: string;
+  label: string;
+  type: CustomFieldType;
+  options?: string[];
+  programScope: ProgramScope;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface ContactFieldValue {
+  id: string;
+  contactId: string;
+  fieldId: string;
+  fieldKey: string;
+  value: any;
+  source: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export type SubmissionSource =
+  | 'Meta form'
+  | 'CSV import'
+  | 'Google Sheet'
+  | 'Paste'
+  | 'Website'
+  | 'Zoom registration'
+  | 'Manual'
+  | 'Call';
+
+export interface Submission {
+  id: string;
+  contactId: string;
+  source: SubmissionSource;
+  sourceName: string;
+  submittedAt: string;
+  rawPayload: Record<string, any>;
+  importBatchId?: string;
+}
+
+export interface QuestionAnswer {
+  id: string;
+  contactId: string;
+  submissionId: string;
+  questionKey: string;
+  questionLabel: string;
+  answerValue: any;
+  answerLabel: string;
+}
+
+export interface ColumnMappingConfig {
+  targetType: 'core' | 'custom' | 'answer' | 'ignore';
+  targetKey: string;
+  customFieldId?: string;
+  alwaysOverwrite?: boolean;
+}
+
+export interface MappingTemplate {
+  id: string;
+  name: string;
+  sourceType: string;
+  mappings: Record<string, ColumnMappingConfig>;
+  updatedAt: string;
+}
+
+export interface ImportBatchConflict {
+  id: string;
+  contactId: string;
+  contactName: string;
+  fieldKey: string;
+  fieldLabel: string;
+  existingValue: any;
+  newValue: any;
+  resolved?: boolean;
+  usedNewValue?: boolean;
+}
+
+export interface ImportBatch {
+  id: string;
+  importedBy: string;
+  importedAt: string;
+  source: string;
+  filename: string;
+  counts: {
+    total: number;
+    new: number;
+    updated: number;
+    duplicate: number;
+    invalid: number;
+    skipped: number;
+  };
+  conflicts: ImportBatchConflict[];
+  errors: { row: number; reason: string; raw: any }[];
+  status: 'completed' | 'reverted';
+  undoAvailableUntil: string; // 24 hours from importedAt
+  revertPayload?: {
+    createdLeadIds: string[];
+    previousLeadSnapshots: Record<string, Partial<Lead>>;
+  };
+}
+
+export interface QuestionBankItem {
+  id: string;
+  programScope: 'AI Builder' | 'AI-PM' | 'All';
+  questionText: string;
+  questionKey: string;
+  customFieldKey?: string;
+  fieldId?: string;
+  type: CustomFieldType;
+  options?: string[];
+  order: number;
+  requiredBeforePaymentLink: boolean;
+  requiredBeforePayment?: boolean;
+}
+
+export interface ScoringRuleCondition {
+  fieldKey: string;
+  operator: 'equals' | 'gte' | 'lte' | 'contains' | 'in';
+  value: any;
+}
+
+export interface ScoringRule {
+  id: string;
+  name: string;
+  programScope?: 'All' | 'AI Builder' | 'AI-PM';
+  conditions: ScoringRuleCondition[];
+  resultingTemperature: 'Hot' | 'Warm' | 'Cold';
+  active: boolean;
+}
+
 
 

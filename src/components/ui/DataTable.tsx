@@ -1,6 +1,6 @@
 // src/components/ui/DataTable.tsx
 import React, { useState, useRef, useMemo } from 'react';
-import type { Lead, Stage } from '../../types';
+import type { Lead, Stage, CustomField } from '../../types';
 import { StageChip } from './StageChip';
 import { TempTag } from './TempTag';
 import { Avatar } from './Avatar';
@@ -66,6 +66,7 @@ interface DataTableProps {
   onColumnWidthChange?: (colId: string, width: number) => void;
   rowHeight?: 'compact' | 'default' | 'tall';
   groupBy?: 'stage' | 'owner' | 'program' | 'temperature' | 'source' | 'none';
+  customFields?: CustomField[];
   // Sorting
   sortColumn?: string;
   sortDirection?: 'asc' | 'desc';
@@ -102,7 +103,8 @@ export const DataTable: React.FC<DataTableProps> = ({
   isFiltered = false,
   onClearFilters,
   isAdmin = false,
-  salespeople = []
+  salespeople = [],
+  customFields = []
 }) => {
   // Pagination / Load more (100 rows per batch for 2,000+ lead smoothness)
   const [visibleCount, setVisibleCount] = useState(100);
@@ -454,6 +456,31 @@ export const DataTable: React.FC<DataTableProps> = ({
                   />
                 </th>
               )}
+
+              {/* Dynamic Custom Field Headers */}
+              {customFields.map((cf) => {
+                const colKey = `cf_${cf.key}`;
+                if (!isColVisible(colKey)) return null;
+                return (
+                  <th
+                    key={colKey}
+                    style={{ width: columnWidths[colKey] || 150 }}
+                    className="px-3 border-r border-[#E6E6E3] group relative cursor-pointer"
+                    onClick={() => onSortChange && onSortChange(colKey)}
+                  >
+                    <div className="flex items-center justify-between gap-1 py-2">
+                      <span className="truncate text-[#3B4BDB]">{cf.label}</span>
+                      {sortColumn === colKey && (
+                        sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-[#3B4BDB]" /> : <ArrowDown className="w-3 h-3 text-[#3B4BDB]" />
+                      )}
+                    </div>
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, colKey, columnWidths[colKey] || 150)}
+                      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[#3B4BDB]/40"
+                    />
+                  </th>
+                );
+              })}
             </tr>
           </thead>
 
@@ -710,6 +737,23 @@ export const DataTable: React.FC<DataTableProps> = ({
                               {lead.dateCaptured ? new Date(lead.dateCaptured).toLocaleDateString('en-IN') : '—'}
                             </td>
                           )}
+
+                          {/* Dynamic Custom Field Cells */}
+                          {customFields.map((cf) => {
+                            const colKey = `cf_${cf.key}`;
+                            if (!isColVisible(colKey)) return null;
+                            const rawVal = lead.customFields?.[cf.key] ?? (lead as any)[cf.key];
+                            const displayVal = rawVal !== undefined && rawVal !== null && rawVal !== '' ? String(rawVal) : '—';
+                            return (
+                              <td
+                                key={colKey}
+                                className="px-3 border-r border-[#E6E6E3]/70 text-[#1F1F1D] truncate max-w-[180px]"
+                                title={displayVal}
+                              >
+                                {displayVal}
+                              </td>
+                            );
+                          })}
                         </tr>
                       );
                     })}

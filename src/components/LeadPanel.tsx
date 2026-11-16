@@ -24,6 +24,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { formatPhoneNumber, formatRelativeDue, formatRelativeTime } from '../utils/tableFormatters';
+import { evaluateScoringRules, humanizeQuestionLabel } from '../services/leadIngestionService';
 import {
   getWorkshopDirectSaleWhatsApp,
   getWebinarInviteWhatsApp,
@@ -60,7 +61,11 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
     callActivities,
     updatePaymentState,
     addCallNote,
-    currentUser
+    currentUser,
+    submissions = [],
+    questionAnswers = [],
+    questionBank = [],
+    scoringRules = []
   } = useApp();
 
   const leadsPool = allLeads || leads || [];
@@ -128,8 +133,41 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
       setFieldEmail(lead.email || '');
       setFieldCity(lead.city || '');
       setFieldProgram(lead.programName || 'AI-Native Project Management');
+      setQualAnswers(lead.customFields || {});
     }
   }, [lead]);
+
+  // Step 2C: Answers & Qualification State
+  const [showAllSubmissions, setShowAllSubmissions] = useState(false);
+  const [qualAnswers, setQualAnswers] = useState<Record<string, any>>({});
+  const [qualSaved, setQualSaved] = useState(false);
+
+  const leadSubmissions = submissions.filter((s) => s.contactId === lead?.id);
+  const isBuilderLead = lead?.programId === 'workshop-3day' || lead?.programName?.toLowerCase().includes('builder');
+  const programScopeFilter = isBuilderLead ? 'AI Builder' : 'AI-PM';
+  const relevantQuestions = questionBank.filter(
+    (q) => q.programScope === 'All' || q.programScope === programScopeFilter
+  );
+
+  const handleSaveQualification = () => {
+    if (!lead) return;
+    const updatedCustom = { ...(lead.customFields || {}), ...qualAnswers };
+
+    let newTemp = lead.temperature;
+    if (!lead.temperatureLocked) {
+      const scored = evaluateScoringRules({ ...lead, customFields: updatedCustom }, scoringRules);
+      if (scored) newTemp = scored;
+    }
+
+    updateLead(lead.id, {
+      customFields: updatedCustom,
+      temperature: newTemp,
+      submissionsCount: (lead.submissionsCount || 1) + 1
+    });
+
+    setQualSaved(true);
+    setTimeout(() => setQualSaved(false), 2500);
+  };
 
   if (!leadId) return null;
 
@@ -893,36 +931,198 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
           </div>
         </div>
 
-        {/* 5. FORM ANSWERS (Qualifying Questions from Meta Ads) */}
-        <div className="border border-[#E6E6E3] rounded-[8px] p-3 text-xs space-y-2.5">
-          <div className="font-semibold text-[#1F1F1D] text-[13px] border-b border-[#E6E6E3] pb-1.5">
-            Meta Form Answers
+        {/* 5A. CALL QUALIFICATION CARD (Question Bank Quick Inputs) */}
+        <div className="border border-[#E6E6E3] rounded-[8px] p-3 text-xs space-y-3 bg-[#FCFCFA]">
+          <div className="flex items-center justify-between border-b border-[#E6E6E3] pb-2">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-[#3B4BDB]" />
+              <span className="font-semibold text-[#1F1F1D] text-[13px]">
+                Call Qualification ({programScopeFilter})
+              </span>
+            </div>
+            {qualSaved ? (
+              <span className="text-[11px] font-medium text-[#166534] bg-[#DDF4E4] px-2 py-0.5 rounded flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                <span>Saved & Scored</span>
+              </span>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveQualification}
+                className="h-6 text-[11px] px-2.5"
+              >
+                Save Answers
+              </Button>
+            )}
           </div>
 
-          <div className="space-y-2">
-            <div>
-              <span className="text-[11px] text-[#6B6B66]">Experience:</span>
-              <p className="font-medium text-[#1F1F1D]">{lead.yearsOfExperience || lead.experience || '5–8 years'}</p>
-            </div>
-            <div>
-              <span className="text-[11px] text-[#6B6B66]">Current Role & Company:</span>
-              <p className="font-medium text-[#1F1F1D]">
-                {lead.currentRole || 'Product Manager'} at {lead.currentCompany || 'Tech Corp'}
-              </p>
-            </div>
-            <div>
-              <span className="text-[11px] text-[#6B6B66]">Primary Goal:</span>
-              <p className="font-medium text-[#1F1F1D]">
-                {lead.primaryGoal || lead.goal || 'Upskill in current role and boost earning potential'}
-              </p>
-            </div>
-            <div>
-              <span className="text-[11px] text-[#6B6B66]">Main Blocker:</span>
-              <p className="font-medium text-[#1F1F1D]">
-                {lead.mainChallenge || lead.blocker || 'Traditional PM workflows are becoming slow and manual'}
-              </p>
-            </div>
+          <div className="space-y-3 pt-1">
+            {relevantQuestions.map((q) => {
+              const currentVal = qualAnswers[q.questionKey] ?? (lead as any)[q.questionKey] ?? '';
+
+              return (
+                <div key={q.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-medium text-[#1F1F1D]">{q.questionText}</span>
+                    {q.requiredBeforePaymentLink && (
+                      <span className="text-[10px] text-[#B42318] font-mono">* Required for Pay</span>
+                    )}
+                  </div>
+
+                  {/* Single Select / Options Chips */}
+                  {q.type === 'single select' && q.options && q.options.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {q.options.map((opt) => {
+                        const isSelected = String(currentVal).toLowerCase() === opt.toLowerCase();
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() =>
+                              setQualAnswers((prev) => ({ ...prev, [q.questionKey]: opt }))
+                            }
+                            className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer border ${
+                              isSelected
+                                ? 'bg-[#EEF0FD] border-[#3B4BDB] text-[#3B4BDB]'
+                                : 'bg-white border-[#E6E6E3] text-[#6B6B66] hover:bg-[#F3F4F6]'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : q.type === 'yes/no' ? (
+                    <div className="flex items-center gap-2">
+                      {['Yes', 'No'].map((opt) => {
+                        const isSelected = String(currentVal).toLowerCase() === opt.toLowerCase();
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() =>
+                              setQualAnswers((prev) => ({ ...prev, [q.questionKey]: opt }))
+                            }
+                            className={`px-3 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer border ${
+                              isSelected
+                                ? 'bg-[#EEF0FD] border-[#3B4BDB] text-[#3B4BDB]'
+                                : 'bg-white border-[#E6E6E3] text-[#6B6B66] hover:bg-[#F3F4F6]'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <input
+                      type={q.type === 'number' ? 'number' : 'text'}
+                      value={currentVal}
+                      onChange={(e) =>
+                        setQualAnswers((prev) => ({ ...prev, [q.questionKey]: e.target.value }))
+                      }
+                      placeholder={`Enter ${q.questionText.toLowerCase()}...`}
+                      className="w-full px-2.5 py-1 border border-[#E6E6E3] rounded-md text-[12px] bg-white text-[#1F1F1D] focus:outline-hidden focus:border-[#3B4BDB]"
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
+        </div>
+
+        {/* 5B. ANSWERS SECTION (Grouped by Submission, Newest First) */}
+        <div className="border border-[#E6E6E3] rounded-[8px] p-3 text-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-[#E6E6E3] pb-2">
+            <div>
+              <span className="font-semibold text-[#1F1F1D] text-[13px]">
+                Question Answers & Form Submissions
+              </span>
+              <div className="text-[11px] text-[#6B6B66]">
+                {leadSubmissions.length > 0
+                  ? `${leadSubmissions.length} recorded submissions`
+                  : 'Meta Ads primary intake'}
+              </div>
+            </div>
+
+            {leadSubmissions.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setShowAllSubmissions(!showAllSubmissions)}
+                className="text-[11px] text-[#3B4BDB] hover:underline font-medium cursor-pointer"
+              >
+                {showAllSubmissions ? 'Show Latest Only' : `Show All (${leadSubmissions.length})`}
+              </button>
+            )}
+          </div>
+
+          {/* Submissions List */}
+          {leadSubmissions.length > 0 ? (
+            <div className="space-y-3">
+              {(showAllSubmissions ? leadSubmissions : leadSubmissions.slice(0, 1)).map((sub) => {
+                const subAnswers = questionAnswers.filter((a) => a.submissionId === sub.id);
+                return (
+                  <div key={sub.id} className="border border-[#E6E6E3] rounded-md p-2.5 space-y-2 bg-white">
+                    <div className="flex items-center justify-between text-[11px] border-b border-[#E6E6E3] pb-1">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#EEF0FD] text-[#3B4BDB] border border-[#C5CDFA]">
+                        {sub.source}: {sub.sourceName}
+                      </span>
+                      <span className="text-[#6B6B66] font-mono">
+                        {new Date(sub.submittedAt).toLocaleDateString()} {new Date(sub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {subAnswers.length > 0 ? (
+                        subAnswers.map((ans) => (
+                          <div key={ans.id} className="text-[11px]">
+                            <span className="text-[#6B6B66] block">{ans.questionLabel}</span>
+                            <span className="font-medium text-[#1F1F1D]">{ans.answerLabel}</span>
+                          </div>
+                        ))
+                      ) : sub.rawPayload ? (
+                        Object.entries(sub.rawPayload).map(([k, v]) => (
+                          <div key={k} className="text-[11px]">
+                            <span className="text-[#6B6B66] block">{humanizeQuestionLabel(k)}</span>
+                            <span className="font-medium text-[#1F1F1D]">{String(v)}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-[11px] text-[#6B6B66] italic">No question pairs in payload</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Fallback to core lead answers if no multi-submissions exist yet */
+            <div className="space-y-2 text-[11px]">
+              <div>
+                <span className="text-[#6B6B66] block">Experience:</span>
+                <span className="font-medium text-[#1F1F1D]">{lead.yearsOfExperience || lead.experience || '5–8 years'}</span>
+              </div>
+              <div>
+                <span className="text-[#6B6B66] block">Current Role & Company:</span>
+                <span className="font-medium text-[#1F1F1D]">
+                  {lead.currentRole || 'Product Manager'} at {lead.currentCompany || 'Tech Corp'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#6B6B66] block">Primary Goal:</span>
+                <span className="font-medium text-[#1F1F1D]">
+                  {lead.primaryGoal || lead.goal || 'Upskill in AI and increase earning potential'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#6B6B66] block">Main Challenge / Blocker:</span>
+                <span className="font-medium text-[#1F1F1D]">
+                  {lead.mainChallenge || lead.blocker || 'Need practical AI project workflows'}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 6. TABS (Timeline | Calls | Notes | Payments) */}
