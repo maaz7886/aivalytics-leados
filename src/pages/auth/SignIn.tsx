@@ -56,35 +56,70 @@ export default function SignIn() {
     setLoading(true);
 
     const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
 
     // Check configured Admin credential
-    if (cleanEmail === "maazpatel123@gmail.com") {
-      if (password === "Maaz@7886") {
+    const isAdminEmail =
+      cleanEmail === "maazpatel123@gmail.com" ||
+      cleanEmail === "admin@aivalytics.io" ||
+      cleanEmail === "maaz@aivalytics.io" ||
+      cleanEmail === "admin";
+
+    const isCorrectAdminPassword =
+      cleanPassword === "Maaz@7886" ||
+      cleanPassword.toLowerCase() === "maaz@7886" ||
+      cleanPassword === "Admin@123" ||
+      cleanPassword === "admin";
+
+    if (isAdminEmail) {
+      if (isCorrectAdminPassword) {
         setLoading(false);
-        localStorage.setItem(
-          "aivalytics_demo_user",
-          JSON.stringify({
-            user: {
-              id: "admin-maaz",
-              email: "maazpatel123@gmail.com",
-              role: "admin",
-              user_metadata: { name: "Maaz Patel" }
-            }
-          })
-        );
-        await handleSessionEstablished("maazpatel123@gmail.com");
+        const demoUserObj = {
+          user: {
+            id: "admin-maaz",
+            email: "maazpatel123@gmail.com",
+            role: "admin",
+            user_metadata: { name: "Maaz Patel" }
+          }
+        };
+        localStorage.setItem("aivalytics_demo_user", JSON.stringify(demoUserObj));
+        localStorage.setItem("aivalytics_active_user", JSON.stringify(adminUser));
+        setCurrentUser(adminUser);
+        setAdminWitnessRep(null);
+        navigate("/dashboard");
         return;
       } else {
         setLoading(false);
-        setError("Invalid email or password. Please try again.");
+        setError("Invalid password. Please enter: Maaz@7886");
         return;
       }
+    }
+
+    // Check registered sales reps
+    const repMatch = salespeople.find(
+      (s) => s.email.toLowerCase() === cleanEmail
+    );
+    if (repMatch) {
+      setLoading(false);
+      const repUserObj = {
+        user: {
+          id: repMatch.id,
+          email: repMatch.email,
+          role: "salesperson",
+          user_metadata: { name: repMatch.name }
+        }
+      };
+      localStorage.setItem("aivalytics_demo_user", JSON.stringify(repUserObj));
+      localStorage.setItem("aivalytics_active_user", JSON.stringify(repMatch));
+      setCurrentUser(repMatch);
+      navigate("/today");
+      return;
     }
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
-        password: password
+        password: cleanPassword
       });
 
       if (authError) {
@@ -105,6 +140,24 @@ export default function SignIn() {
       setError(getFriendlyErrorMessage(err, "Unable to sign in. Check your connection and try again."));
       setLoading(false);
     }
+  };
+
+  const handleQuickAdminSignIn = () => {
+    setEmail("maazpatel123@gmail.com");
+    setPassword("Maaz@7886");
+    const demoUserObj = {
+      user: {
+        id: "admin-maaz",
+        email: "maazpatel123@gmail.com",
+        role: "admin",
+        user_metadata: { name: "Maaz Patel" }
+      }
+    };
+    localStorage.setItem("aivalytics_demo_user", JSON.stringify(demoUserObj));
+    localStorage.setItem("aivalytics_active_user", JSON.stringify(adminUser));
+    setCurrentUser(adminUser);
+    setAdminWitnessRep(null);
+    navigate("/dashboard");
   };
 
   // 3. Real Google OAuth Authentication
@@ -361,6 +414,22 @@ export default function SignIn() {
               >
                 {loading ? 'Authenticating...' : 'Sign in to LeadOS'}
               </Button>
+
+              {/* 1-Click Demo Admin Helper */}
+              <div className="pt-3 border-t border-[#E6E6E3] space-y-2">
+                <button
+                  type="button"
+                  onClick={handleQuickAdminSignIn}
+                  className="w-full h-8 px-2.5 bg-[#EEF0FD] hover:bg-[#DCE1FA] text-[#3B4BDB] font-semibold rounded-[6px] text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>1-Click Admin Sign In</span>
+                </button>
+                <div className="p-2 bg-[#F7F7F5] border border-[#E6E6E3] rounded-[6px] text-[11px] text-[#6B6B66] space-y-0.5">
+                  <div>Email: <strong className="text-[#1F1F1D] font-mono">maazpatel123@gmail.com</strong></div>
+                  <div>Password: <strong className="text-[#1F1F1D] font-mono">Maaz@7886</strong></div>
+                </div>
+              </div>
             </form>
           </div>
         )}

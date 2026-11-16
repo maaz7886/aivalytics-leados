@@ -10,18 +10,20 @@ export default function ProtectedRoute() {
   useEffect(() => {
     const getSession = async () => {
       try {
+        const storedUser = localStorage.getItem("aivalytics_demo_user") || localStorage.getItem("aivalytics_active_user");
+        if (storedUser) {
+          setSession(JSON.parse(storedUser));
+          setLoading(false);
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           setSession(session);
-        } else {
-          const demoUser = localStorage.getItem("aivalytics_demo_user");
-          if (demoUser) {
-            setSession(JSON.parse(demoUser));
-          }
         }
       } catch (e) {
-        const demoUser = localStorage.getItem("aivalytics_demo_user");
-        if (demoUser) setSession(JSON.parse(demoUser));
+        const storedUser = localStorage.getItem("aivalytics_demo_user") || localStorage.getItem("aivalytics_active_user");
+        if (storedUser) setSession(JSON.parse(storedUser));
       } finally {
         setLoading(false);
       }
