@@ -14,7 +14,6 @@ export default function Header({ onOpenSearch }: HeaderProps) {
   const {
     currentUser,
     salespeople,
-    setCurrentUser,
     adminWitnessRep,
     setAdminWitnessRep
   } = useApp();
@@ -92,16 +91,24 @@ export default function Header({ onOpenSearch }: HeaderProps) {
           </kbd>
         </button>
 
-        {/* Admin preview persona switcher */}
+        {/* Admin preview persona switcher - Strictly Admin Only */}
         {currentUser?.role === 'Admin' && (
           <div className="flex items-center gap-1.5 pl-2 border-l border-[#E6E6E3]">
             <span className="text-[11px] text-[#6B6B66] hidden md:inline">View as:</span>
             <select
-              value={currentUser.id}
+              aria-label="View as salesperson (Admin only)"
+              value={adminWitnessRep ? (salespeople.find(s => s.name === adminWitnessRep)?.id || 'admin-1') : 'admin-1'}
               onChange={(e) => {
-                const rep = salespeople.find((s) => s.id === e.target.value);
-                if (rep) {
-                  setCurrentUser(rep);
+                if (currentUser?.role !== 'Admin') {
+                  console.error('Unauthorized persona switch blocked: user is not an Admin');
+                  return;
+                }
+                const selected = e.target.value;
+                if (selected === 'admin-1') {
+                  setAdminWitnessRep(null);
+                } else {
+                  const rep = salespeople.find((s) => s.id === selected);
+                  setAdminWitnessRep(rep ? rep.name : null);
                 }
               }}
               className="text-xs bg-transparent border border-[#E6E6E3] rounded-[4px] px-2 py-0.5 text-[#1F1F1D] cursor-pointer outline-none hover:bg-[#F7F7F5]"

@@ -55,6 +55,8 @@ function App() {
             <Route path="/rep-activity" element={<RepActivity />} />
             <Route path="/payouts" element={<Payouts />} />
             <Route path="/reports" element={<Analytics />} />
+            <Route path="/reports/revenue" element={<Analytics />} />
+            <Route path="/reports/lost-reasons" element={<Analytics />} />
             <Route path="/analytics" element={<Analytics />} />
 
             {/* 4. Settings Section */}

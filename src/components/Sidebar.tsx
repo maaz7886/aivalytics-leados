@@ -19,6 +19,8 @@ import {
   Activity,
   DollarSign,
   BarChart2,
+  TrendingUp,
+  UserX,
   BookOpen,
   GraduationCap,
   Zap,
@@ -309,7 +311,7 @@ export default function Sidebar({
               to="/reports"
               title="Sources & Ads"
               className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
-                isActive('/reports')
+                isActive('/reports') && !location.pathname.includes('revenue') && !location.pathname.includes('lost')
                   ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
                   : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
               }`}
@@ -317,6 +319,36 @@ export default function Sidebar({
               <div className="flex items-center gap-2.5 min-w-0">
                 <BarChart2 className={`w-4 h-4 shrink-0 ${isActive('/reports') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
                 {!collapsed && <span className="truncate">Sources & ads</span>}
+              </div>
+            </Link>
+
+            <Link
+              to="/reports/revenue"
+              title="Revenue"
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                location.pathname === '/reports/revenue'
+                  ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                  : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <TrendingUp className={`w-4 h-4 shrink-0 ${location.pathname === '/reports/revenue' ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                {!collapsed && <span className="truncate">Revenue</span>}
+              </div>
+            </Link>
+
+            <Link
+              to="/reports/lost-reasons"
+              title="Lost Reasons"
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                location.pathname === '/reports/lost-reasons'
+                  ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                  : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <UserX className={`w-4 h-4 shrink-0 ${location.pathname === '/reports/lost-reasons' ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                {!collapsed && <span className="truncate">Lost reasons</span>}
               </div>
             </Link>
           </div>

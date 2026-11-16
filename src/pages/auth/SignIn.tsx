@@ -2,13 +2,15 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useNavigate } from "react-router-dom";
-import { useApp, initialSalespeople, adminUser } from "../../context/AppContext";
+import { useApp } from "../../context/AppContext";
 import { getFriendlyErrorMessage } from "../../utils/friendlyError";
 import { ArrowLeft, CheckCircle2, AlertCircle, Mail, Lock } from "lucide-react";
+import { Button } from "../../components/ui/Button";
 
 export default function SignIn() {
-  const [email, setEmail] = useState("alex.rivera@aivalytics.io");
-  const [password, setPassword] = useState("password123");
+  // 1. Form loads completely EMPTY with no autofill / prefilled values
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -19,219 +21,226 @@ export default function SignIn() {
   const [resetLoading, setResetLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { setCurrentUser, setAdminWitnessRep } = useApp();
+  const { setCurrentUser, setAdminWitnessRep, salespeople, adminUser } = useApp();
 
-  // Whitelisted / Invited team emails list
-  const invitedEmails = [
-    adminUser.email.toLowerCase(),
-    ...initialSalespeople.map((s) => s.email.toLowerCase())
-  ];
-
-  const handleLoginSuccess = (repEmail: string) => {
+  // Handle successful verified authentication
+  const handleSessionEstablished = async (userEmail: string) => {
     setAdminWitnessRep(null);
-    const cleanEmail = repEmail.trim().toLowerCase();
-    const repMatch = initialSalespeople.find(
-      (s) => s.email.toLowerCase() === cleanEmail || s.name.toLowerCase().replace(/\s+/g, '') === cleanEmail.split('@')[0].replace(/[\._]/g, '')
+    const cleanEmail = userEmail.trim().toLowerCase();
+
+    // Check if user is a registered salesperson or admin
+    const repMatch = salespeople.find(
+      (s) => s.email.toLowerCase() === cleanEmail
     );
 
     if (repMatch) {
       setCurrentUser(repMatch);
-      localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email: repMatch.email, role: "Salesperson" }));
       localStorage.setItem("aivalytics_active_user", JSON.stringify(repMatch));
       navigate("/today");
     } else {
       setCurrentUser(adminUser);
-      localStorage.setItem("aivalytics_demo_user", JSON.stringify({ email: repEmail, role: "Admin" }));
       localStorage.setItem("aivalytics_active_user", JSON.stringify(adminUser));
-      navigate("/today");
+      navigate("/dashboard");
     }
   };
 
+  // 2. Real Password Authentication (Strictly enforced, no bypass)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      setError("Please enter both email and password.");
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
     try {
-      // Optional Supabase password check if connected
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-      if (authError && !authError.message.includes('offline') && !authError.message.includes('fetch')) {
-        // If technical error occurs, normalize it
-        console.warn('Supabase auth notice:', authError);
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password
+      });
+
+      if (authError) {
+        // Enforce real password check: fail immediately with friendly error
+        setError(getFriendlyErrorMessage(authError, "Invalid email or password. Please try again."));
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      console.warn('Auth exception handled:', err);
-    } finally {
+
+      if (data?.user?.email) {
+        setLoading(false);
+        await handleSessionEstablished(data.user.email);
+      } else {
+        setError("Authentication failed. Please verify your credentials.");
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setError(getFriendlyErrorMessage(err, "Unable to sign in. Check your connection and try again."));
       setLoading(false);
-      handleLoginSuccess(email);
     }
   };
 
-  // Google OAuth Sign-In (Restricted to invited emails only)
+  // 3. Real Google OAuth Authentication
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
 
-    const testEmail = prompt(
-      "Sign in with Google (Authorized Team Access Only):\nEnter your corporate Google work email:",
-      email || "alex.rivera@aivalytics.io"
-    );
-
-    if (!testEmail) {
-      setLoading(false);
-      return;
-    }
-
-    const cleanInput = testEmail.trim().toLowerCase();
-
-    // Check against authorized invite whitelist
-    const isInvited = invitedEmails.includes(cleanInput);
-
-    if (!isInvited) {
-      setLoading(false);
-      setError(`Access restricted: ${cleanInput} is not on the invited sales team list. Please contact admin@aivalytics.io.`);
-      return;
-    }
-
     try {
-      // Trigger Supabase Google OAuth provider if configured
-      await supabase.auth.signInWithOAuth({
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: window.location.origin + '/today'
         }
       });
-    } catch {}
 
-    setLoading(false);
-    handleLoginSuccess(cleanInput);
+      if (oauthError) {
+        setError(getFriendlyErrorMessage(oauthError, "Google sign-in could not be initiated."));
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setError(getFriendlyErrorMessage(err, "Google sign-in failed. Please try again."));
+      setLoading(false);
+    }
   };
 
-  // Forgot Password Reset Submission
+  // 4. Forgot Password Flow
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetEmail.trim()) return;
+    if (!resetEmail.trim()) {
+      setError("Please enter your registered email address.");
+      return;
+    }
 
     setResetLoading(true);
     setError(null);
 
     try {
-      await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
         redirectTo: window.location.origin + '/auth/signin'
       });
-    } catch (err) {
+
+      if (resetErr) {
+        setError(getFriendlyErrorMessage(resetErr, "Could not send password reset instructions."));
+      } else {
+        setResetSent(true);
+      }
+    } catch (err: any) {
       setError(getFriendlyErrorMessage(err, "Couldn't send reset link. Check your connection and try again."));
     } finally {
       setResetLoading(false);
-      setResetSent(true);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950 px-4 py-8">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200/80 dark:border-gray-800">
+    <div className="flex items-center justify-center min-h-screen bg-[#F7F7F5] px-4 py-8 select-none">
+      <div className="w-full max-w-[380px] p-6 bg-white border border-[#E6E6E3] rounded-[8px] shadow-xs space-y-5">
         {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#133926] text-white font-black text-xl shadow-md">
+        <div className="flex flex-col items-center text-center space-y-1.5">
+          <div className="w-9 h-9 rounded-[6px] bg-[#3B4BDB] text-white flex items-center justify-center font-bold text-sm shadow-xs">
             AI
           </div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
-            AIValytics LeadOS
+          <h1 className="text-xl font-semibold text-[#1F1F1D] tracking-tight">
+            Sign in to LeadOS
           </h1>
-          <p className="text-[10px] font-extrabold tracking-widest text-emerald-800 dark:text-emerald-400 uppercase">
+          <p className="text-[10px] font-semibold tracking-wider text-[#6B6B66] uppercase">
             BUILD · LEARN · DEPLOY
           </p>
         </div>
 
-        {/* Error Alert in Plain English */}
+        {/* Error Alert */}
         {error && (
-          <div className="p-3.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 rounded-xl flex items-start gap-2.5 text-xs text-rose-800 dark:text-rose-200 animate-in fade-in">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            <span className="leading-relaxed font-semibold">{error}</span>
+          <div className="p-3 bg-[#FEE4E2] border border-[#FDA29B] rounded-[6px] flex items-start gap-2 text-xs text-[#B42318] animate-in fade-in">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="leading-snug font-medium">{error}</span>
           </div>
         )}
 
-        {/* --- VIEW 1: FORGOT PASSWORD FLOW --- */}
+        {/* FORGOT PASSWORD VIEW */}
         {isForgotPassword ? (
           <div className="space-y-4">
             {resetSent ? (
-              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-center space-y-2">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <h3 className="text-sm font-black text-gray-900 dark:text-gray-100">
-                  Password Reset Instructions Sent
+              <div className="p-4 bg-[#F7F7F5] border border-[#E6E6E3] rounded-[6px] text-center space-y-2">
+                <CheckCircle2 className="w-7 h-7 text-[#17673A] mx-auto" />
+                <h3 className="text-sm font-semibold text-[#1F1F1D]">
+                  Instructions sent
                 </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  We've sent password reset instructions to <strong>{resetEmail}</strong>. Please check your inbox and follow the link.
+                <p className="text-xs text-[#6B6B66] leading-relaxed">
+                  We've sent password reset instructions to <strong>{resetEmail}</strong>. Please check your inbox.
                 </p>
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => {
                     setIsForgotPassword(false);
                     setResetSent(false);
                     setResetEmail('');
                   }}
-                  className="mt-3 px-4 py-2 bg-[#133926] hover:bg-[#1a4a33] text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  className="mt-2 w-full"
                 >
-                  Back to Sign In
-                </button>
+                  Back to sign in
+                </Button>
               </div>
             ) : (
-              <form onSubmit={handleResetPassword} className="space-y-4">
-                <div>
-                  <h2 className="text-base font-black text-gray-900 dark:text-gray-100">
+              <form onSubmit={handleResetPassword} className="space-y-3.5">
+                <div className="text-left">
+                  <h2 className="text-sm font-semibold text-[#1F1F1D]">
                     Reset your password
                   </h2>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Enter your work email address and we'll send you a secure link to reset your account password.
+                  <p className="text-xs text-[#6B6B66] mt-0.5">
+                    Enter your work email address to receive a secure recovery link.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Work Email Address
+                  <label className="block text-xs font-medium text-[#1F1F1D] mb-1">
+                    Work email address
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                    <Mail className="w-4 h-4 text-[#6B6B66] absolute left-2.5 top-2 pointer-events-none" />
                     <input
                       type="email"
                       required
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="e.g. alex.rivera@aivalytics.io"
-                      className="w-full pl-9 pr-3.5 py-2 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 text-xs text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                      placeholder="you@aivalytics.com"
+                      className="w-full pl-8 pr-2.5 h-8 bg-white border border-[#E6E6E3] rounded-[6px] text-[13px] text-[#1F1F1D] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#3B4BDB]"
                     />
                   </div>
                 </div>
 
-                <button
+                <Button
                   type="submit"
+                  variant="primary"
+                  size="md"
                   disabled={resetLoading}
-                  className="w-full px-4 py-2.5 font-bold text-white bg-[#133926] hover:bg-[#1a4a33] rounded-xl shadow-md transition-all cursor-pointer text-xs"
+                  className="w-full"
                 >
-                  {resetLoading ? 'Sending Instructions...' : 'Send Password Reset Link'}
-                </button>
+                  {resetLoading ? 'Sending link...' : 'Send reset link'}
+                </Button>
 
                 <button
                   type="button"
                   onClick={() => setIsForgotPassword(false)}
-                  className="w-full text-center text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 font-bold flex items-center justify-center gap-1 cursor-pointer pt-1"
+                  className="w-full text-center text-xs text-[#6B6B66] hover:text-[#1F1F1D] font-medium flex items-center justify-center gap-1 cursor-pointer pt-1"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Sign In</span>
+                  <span>Back to sign in</span>
                 </button>
               </form>
             )}
           </div>
         ) : (
-          /* --- VIEW 2: NORMAL SIGN IN & GOOGLE AUTH --- */
+          /* STANDARD SIGN IN VIEW */
           <div className="space-y-4">
             {/* Google Sign In Button */}
             <button
               type="button"
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full py-2.5 px-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-700 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 shadow-2xs transition-all cursor-pointer"
+              className="w-full h-9 px-3 bg-white hover:bg-[#F3F4F6] text-[#1F1F1D] border border-[#E6E6E3] rounded-[6px] text-[13px] font-medium flex items-center justify-center gap-2.5 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#3B4BDB]"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -250,23 +259,25 @@ export default function SignIn() {
                 />
               </svg>
               <span>Sign in with Google</span>
-              <span className="text-[10px] text-gray-400 font-normal">(Invited emails only)</span>
             </button>
 
-            <div className="relative flex items-center justify-center my-3">
-              <div className="border-t border-gray-200 dark:border-gray-800 w-full"></div>
-              <span className="bg-white dark:bg-gray-900 px-3 text-[10px] text-gray-400 font-bold uppercase tracking-wider relative">
-                or sign in with password
+            {/* Divider: one centred lowercase label "or" with a 1px #E6E6E3 line on both sides, on one line */}
+            <div className="relative flex items-center justify-center my-4">
+              <div className="border-t border-[#E6E6E3] w-full" />
+              <span className="bg-white px-2.5 text-xs text-[#6B6B66] relative font-normal shrink-0">
+                or
               </span>
+              <div className="border-t border-[#E6E6E3] w-full" />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+            {/* Password Credentials Form */}
+            <form onSubmit={handleSubmit} className="space-y-3.5 text-left">
               <div>
-                <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Work Email Address
+                <label className="block text-xs font-medium text-[#1F1F1D] mb-1">
+                  Work email
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                  <Mail className="w-4 h-4 text-[#6B6B66] absolute left-2.5 top-2 pointer-events-none" />
                   <input
                     type="email"
                     required
@@ -275,15 +286,16 @@ export default function SignIn() {
                       setEmail(e.target.value);
                       if (error) setError(null);
                     }}
-                    placeholder="e.g. alex.rivera@aivalytics.io"
-                    className="w-full pl-9 pr-3.5 py-2 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    placeholder="you@aivalytics.com"
+                    autoComplete="username"
+                    className="w-full pl-8 pr-2.5 h-8 bg-white border border-[#E6E6E3] rounded-[6px] text-[13px] text-[#1F1F1D] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#3B4BDB]"
                   />
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="font-bold text-gray-700 dark:text-gray-300">
+                  <label className="text-xs font-medium text-[#1F1F1D]">
                     Password
                   </label>
                   <button
@@ -292,13 +304,13 @@ export default function SignIn() {
                       setIsForgotPassword(true);
                       setResetEmail(email);
                     }}
-                    className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                    className="text-xs font-medium text-[#3B4BDB] hover:underline cursor-pointer"
                   >
                     Forgot password?
                   </button>
                 </div>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                  <Lock className="w-4 h-4 text-[#6B6B66] absolute left-2.5 top-2 pointer-events-none" />
                   <input
                     type="password"
                     required
@@ -308,58 +320,22 @@ export default function SignIn() {
                       if (error) setError(null);
                     }}
                     placeholder="••••••••••••"
-                    className="w-full pl-9 pr-3.5 py-2 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    autoComplete="current-password"
+                    className="w-full pl-8 pr-2.5 h-8 bg-white border border-[#E6E6E3] rounded-[6px] text-[13px] text-[#1F1F1D] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#3B4BDB]"
                   />
                 </div>
               </div>
 
-              <button
+              <Button
                 type="submit"
+                variant="primary"
+                size="md"
                 disabled={loading}
-                className="w-full px-4 py-2.5 font-bold text-white bg-[#133926] hover:bg-[#1a4a33] rounded-xl shadow-md transition-all cursor-pointer text-xs"
+                className="w-full h-9"
               >
-                {loading ? 'Authenticating...' : 'Sign In to LeadOS'}
-              </button>
+                {loading ? 'Authenticating...' : 'Sign in to LeadOS'}
+              </Button>
             </form>
-
-            {/* Quick Demo Credentials for Testing */}
-            <div className="pt-3 border-t border-gray-100 dark:border-gray-800 text-[11px] space-y-1">
-              <span className="text-gray-400 font-bold block text-[10px] uppercase tracking-wider">
-                Authorized Team Accounts
-              </span>
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail("admin@aivalytics.io");
-                    setPassword("password123");
-                  }}
-                  className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-bold text-[10px] border border-purple-200 dark:border-purple-800"
-                >
-                  Admin Manager
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail("alex.rivera@aivalytics.io");
-                    setPassword("password123");
-                  }}
-                  className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] border border-emerald-200 dark:border-emerald-800"
-                >
-                  Alex (Rep)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail("sarah.chen@aivalytics.io");
-                    setPassword("password123");
-                  }}
-                  className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold text-[10px] border border-blue-200 dark:border-blue-800"
-                >
-                  Sarah (Rep)
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>
