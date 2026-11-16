@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import type { Lead, Stage } from '../types';
 import { DataTable, ALL_COLUMNS } from '../components/ui/DataTable';
+import { KanbanView } from '../components/ui/KanbanView';
+import { CalendarView } from '../components/ui/CalendarView';
 import { SidePanel } from '../components/ui/SidePanel';
 import { LeadPanel } from '../components/LeadPanel';
 import { LostReasonModal } from '../components/LostReasonModal';
@@ -19,8 +21,7 @@ import {
   Search,
   X,
   Check,
-  Download,
-  Compass
+  Download
 } from 'lucide-react';
 import {
   getUserViewPrefs,
@@ -111,7 +112,26 @@ export default function AllLeads() {
   };
 
   // Top Bar Segmented Control: Grid | Kanban | Calendar
-  const [viewMode, setViewMode] = useState<'grid' | 'kanban' | 'calendar'>('grid');
+  const urlMode = (searchParams.get('mode') as 'grid' | 'kanban' | 'calendar') || 'grid';
+  const [viewMode, setViewMode] = useState<'grid' | 'kanban' | 'calendar'>(urlMode);
+
+  useEffect(() => {
+    const m = searchParams.get('mode') as 'grid' | 'kanban' | 'calendar';
+    if (m && ['grid', 'kanban', 'calendar'].includes(m)) {
+      setViewMode(m);
+    }
+  }, [location.search]);
+
+  const handleViewModeChange = (mode: 'grid' | 'kanban' | 'calendar') => {
+    setViewMode(mode);
+    const params = new URLSearchParams(location.search);
+    if (mode === 'grid') {
+      params.delete('mode');
+    } else {
+      params.set('mode', mode);
+    }
+    navigate(`?${params.toString()}`);
+  };
 
   // Search query with 300ms debounce
   const [searchInput, setSearchInput] = useState('');
@@ -391,7 +411,7 @@ export default function AllLeads() {
               { value: 'calendar', label: 'Calendar' }
             ]}
             value={viewMode}
-            onChange={(val) => setViewMode(val as any)}
+            onChange={(val) => handleViewModeChange(val as any)}
           />
         </div>
 
@@ -742,10 +762,10 @@ export default function AllLeads() {
       )}
 
       {/* =====================================================
-          B. MAIN VIEW CONTENT (Grid view or placeholders)
+          B. MAIN VIEW CONTENT (Grid | Kanban | Calendar)
          ===================================================== */}
       <div className="flex-1 min-h-0 relative">
-        {viewMode === 'grid' ? (
+        {viewMode === 'grid' && (
           <DataTable
             leads={filteredLeads}
             selectedLeadIds={selectedLeadIds}
@@ -778,20 +798,27 @@ export default function AllLeads() {
             isAdmin={isAdmin}
             salespeople={salespeople}
           />
-        ) : (
-          // Coming in next step placeholder
-          <div className="w-full h-full flex items-center justify-center bg-white p-8">
-            <div className="text-center space-y-2">
-              <Compass className="w-8 h-8 text-[#6B6B66] mx-auto" />
-              <h3 className="text-sm font-semibold text-[#1F1F1D]">Coming in next step</h3>
-              <p className="text-xs text-[#6B6B66]">
-                {viewMode === 'kanban' ? 'Kanban view' : 'Calendar view'} is scheduled for Step 3.
-              </p>
-              <Button variant="secondary" size="sm" onClick={() => setViewMode('grid')}>
-                Switch back to Grid
-              </Button>
-            </div>
-          </div>
+        )}
+
+        {viewMode === 'kanban' && (
+          <KanbanView
+            leads={filteredLeads}
+            onOpenLead={handleOpenLead}
+            onUpdateStage={(id, stage) => updateLeadStage(id, stage)}
+            onRequestLostReason={(lead) => {
+              setLostTargetLead(lead);
+              setIsLostModalOpen(true);
+            }}
+            isAdmin={isAdmin}
+            onAddLeadInStage={() => setIsAddLeadModalOpen(true)}
+          />
+        )}
+
+        {viewMode === 'calendar' && (
+          <CalendarView
+            leads={filteredLeads}
+            onOpenLead={handleOpenLead}
+          />
         )}
       </div>
 

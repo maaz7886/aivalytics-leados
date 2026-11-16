@@ -5,7 +5,6 @@ import Today from "./pages/Today";
 import Dashboard from "./pages/Dashboard";
 import AllLeads from "./pages/AllLeads";
 import LeadInbox from "./pages/LeadInbox";
-import Pipeline from "./pages/Pipeline";
 import SalesTeam from "./pages/SalesTeam";
 import SalespersonWorkspace from "./pages/SalespersonWorkspace";
 import RepActivity from "./pages/RepActivity";
@@ -44,7 +43,7 @@ function App() {
             {/* 2. Leads Section */}
             <Route path="/inbox" element={<LeadInbox />} />
             <Route path="/leads" element={<AllLeads />} />
-            <Route path="/pipeline" element={<Pipeline />} />
+            <Route path="/pipeline" element={<Navigate to="/leads?mode=kanban" replace />} />
             <Route path="/import" element={<ImportCenter />} />
             <Route path="/import-history" element={<ImportHistory />} />
 
