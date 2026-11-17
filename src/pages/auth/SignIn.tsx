@@ -84,7 +84,7 @@ export default function SignIn() {
         return;
       } else {
         setLoading(false);
-        setError("Password must be at least 4 characters (e.g. Maaz@7886).");
+        setError("Invalid credentials. Please verify your email and password.");
         return;
       }
     }
@@ -138,24 +138,6 @@ export default function SignIn() {
     await handleSessionEstablished(cleanEmail);
   };
 
-  const handleQuickAdminSignIn = () => {
-    setEmail("maazpatel123@gmail.com");
-    setPassword("Maaz@7886");
-    const demoUserObj = {
-      user: {
-        id: "admin-maaz",
-        email: "maazpatel123@gmail.com",
-        role: "admin",
-        user_metadata: { name: "Maaz Patel" }
-      }
-    };
-    localStorage.setItem("aivalytics_demo_user", JSON.stringify(demoUserObj));
-    localStorage.setItem("aivalytics_active_user", JSON.stringify(adminUser));
-    setCurrentUser(adminUser);
-    setAdminWitnessRep(null);
-    navigate("/dashboard");
-  };
-
   const handleQuickRepSignIn = (rep: Salesperson) => {
     setEmail(rep.email);
     setPassword(`${rep.name}@123`);
@@ -178,9 +160,21 @@ export default function SignIn() {
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
-    // Verified Google sign-in: logs in as Maaz Patel (Admin)
-    setLoading(false);
-    await handleSessionEstablished("maazpatel123@gmail.com");
+    try {
+      const { error: oAuthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/dashboard'
+        }
+      });
+      if (oAuthError) {
+        setLoading(false);
+        setError("Please enter your work email and password to sign in.");
+      }
+    } catch {
+      setLoading(false);
+      setError("Please enter your work email and password to sign in.");
+    }
   };
 
   // 4. Forgot Password Flow
@@ -415,22 +409,12 @@ export default function SignIn() {
                 {loading ? 'Authenticating...' : 'Sign in to LeadOS'}
               </Button>
 
-              {/* Quick Sign-In Helpers */}
+              {/* Sales Rep Access Helpers (Admin credentials strictly hidden) */}
               <div className="pt-3 border-t border-[#E6E6E3] space-y-3">
-                {/* 1-Click Admin */}
-                <button
-                  type="button"
-                  onClick={handleQuickAdminSignIn}
-                  className="w-full h-8 px-2.5 bg-[#EEF0FD] hover:bg-[#DCE1FA] text-[#3B4BDB] font-semibold rounded-[6px] text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>1-Click Admin Sign In</span>
-                </button>
-
                 {/* 1-Click Rep Logins */}
                 <div className="space-y-1.5">
                   <div className="text-[11px] font-medium text-[#6B6B66] uppercase tracking-wider text-center">
-                    1-Click Sales Rep Access
+                    Sales Team Portal Access
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
                     {salespeople.map((rep) => (
@@ -447,16 +431,12 @@ export default function SignIn() {
                   </div>
                 </div>
 
-                {/* Credentials Reference Box */}
+                {/* Sales Team Password Helper (NO ADMIN DETAILS) */}
                 <div className="p-2.5 bg-[#F7F7F5] border border-[#E6E6E3] rounded-[6px] text-[11px] text-[#6B6B66] space-y-1">
-                  <div className="font-medium text-[#1F1F1D] mb-0.5">Team Credentials:</div>
-                  <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                    <div>Admin: <span className="font-mono text-[#1F1F1D]">Maaz@7886</span></div>
-                    <div>Universal: <span className="font-mono text-[#1F1F1D]">Sales@123</span></div>
-                    <div>Yameen: <span className="font-mono text-[#1F1F1D]">Yameen@123</span></div>
-                    <div>Hari: <span className="font-mono text-[#1F1F1D]">Hari@123</span></div>
-                    <div>Qurrat: <span className="font-mono text-[#1F1F1D]">Qurrat@123</span></div>
-                    <div>Jay: <span className="font-mono text-[#1F1F1D]">Jay@123</span></div>
+                  <div className="font-medium text-[#1F1F1D]">Sales Team Password:</div>
+                  <div className="font-mono text-[#1F1F1D] text-xs">Sales@123</div>
+                  <div className="text-[10px] text-[#8C8C85]">
+                    Admissions reps can sign in using their work email or by selecting their name above.
                   </div>
                 </div>
               </div>
