@@ -3,7 +3,6 @@ import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import { useApp, adminUser } from "../../context/AppContext";
-import type { Salesperson } from "../../types";
 import { getFriendlyErrorMessage } from "../../utils/friendlyError";
 import { ArrowLeft, CheckCircle2, AlertCircle, Mail, Lock } from "lucide-react";
 import { Button } from "../../components/ui/Button";
@@ -62,61 +61,52 @@ export default function SignIn() {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    // Check configured Admin credential
+    // 1. Check Admin credentials
     const isAdminEmail =
       cleanEmail === "maazpatel123@gmail.com" ||
       cleanEmail === "admin@aivalytics.io" ||
-      cleanEmail === "maaz@aivalytics.io" ||
-      cleanEmail.includes("admin") ||
-      cleanEmail.includes("maaz");
-
-    const isCorrectAdminPassword =
-      cleanPassword === "Maaz@7886" ||
-      cleanPassword.toLowerCase() === "maaz@7886" ||
-      cleanPassword === "Admin@123" ||
-      cleanPassword === "admin" ||
-      cleanPassword.length >= 4;
+      cleanEmail === "maaz@aivalytics.io";
 
     if (isAdminEmail) {
-      if (isCorrectAdminPassword) {
+      if (cleanPassword === "Maaz@7886") {
         setLoading(false);
         await handleSessionEstablished("maazpatel123@gmail.com");
         return;
       } else {
         setLoading(false);
-        setError("Invalid credentials. Please verify your email and password.");
+        setError("Invalid email or password. Please try again.");
         return;
       }
     }
 
-    // Check registered sales reps (by email, username, or display name)
+    // 2. Check registered sales reps (must provide valid rep password)
     const repMatch = salespeople.find(
       (s) =>
         s.email.toLowerCase() === cleanEmail ||
         s.email.toLowerCase().split('@')[0] === cleanEmail ||
         s.name.toLowerCase() === cleanEmail
     );
+
     if (repMatch) {
       const repKey = repMatch.name.toLowerCase().split(' ')[0];
       const validRepPasswords = [
         `${repKey}@123`,
         `${repKey}123`,
         'sales@123',
-        'sales123',
-        'maaz@7886',
-        'admin@123'
+        'sales123'
       ];
-      if (validRepPasswords.includes(cleanPassword.toLowerCase()) || cleanPassword.length >= 4) {
+      if (validRepPasswords.includes(cleanPassword.toLowerCase())) {
         setLoading(false);
         await handleSessionEstablished(repMatch.email);
         return;
       } else {
         setLoading(false);
-        setError(`Password for ${repMatch.name} should be ${repMatch.name}@123 or Sales@123.`);
+        setError("Invalid email or password. Please try again.");
         return;
       }
     }
 
+    // 3. Fallback to Supabase authentication if configured
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
@@ -129,31 +119,12 @@ export default function SignIn() {
         return;
       }
     } catch {
-      // Supabase is offline / unreachable: gracefully grant demo session
-      console.warn("Supabase unreachable, falling back to local demo authentication.");
+      // Supabase is offline
     }
 
-    // Fallback: gracefully establish session so user is never locked out
+    // Unrecognized credentials
     setLoading(false);
-    await handleSessionEstablished(cleanEmail);
-  };
-
-  const handleQuickRepSignIn = (rep: Salesperson) => {
-    setEmail(rep.email);
-    setPassword(`${rep.name}@123`);
-    const demoUserObj = {
-      user: {
-        id: rep.id,
-        email: rep.email,
-        role: "salesperson",
-        user_metadata: { name: rep.name }
-      }
-    };
-    localStorage.setItem("aivalytics_demo_user", JSON.stringify(demoUserObj));
-    localStorage.setItem("aivalytics_active_user", JSON.stringify(rep));
-    setCurrentUser(rep);
-    setAdminWitnessRep(null);
-    navigate("/today");
+    setError("Invalid email or password. Please try again.");
   };
 
   // 3. Google Sign-In
@@ -207,7 +178,7 @@ export default function SignIn() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#F7F7F5] px-4 py-8 select-none">
-      <div className="w-full max-w-[420px] p-6 bg-white border border-[#E6E6E3] rounded-[8px] shadow-xs space-y-5">
+      <div className="w-full max-w-[380px] p-6 bg-white border border-[#E6E6E3] rounded-[8px] shadow-xs space-y-5">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center space-y-1.5">
           <div className="w-9 h-9 rounded-[6px] bg-[#3B4BDB] text-white flex items-center justify-center font-bold text-sm shadow-xs">
@@ -408,38 +379,6 @@ export default function SignIn() {
               >
                 {loading ? 'Authenticating...' : 'Sign in to LeadOS'}
               </Button>
-
-              {/* Sales Rep Access Helpers (Admin credentials strictly hidden) */}
-              <div className="pt-3 border-t border-[#E6E6E3] space-y-3">
-                {/* 1-Click Rep Logins */}
-                <div className="space-y-1.5">
-                  <div className="text-[11px] font-medium text-[#6B6B66] uppercase tracking-wider text-center">
-                    Sales Team Portal Access
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {salespeople.map((rep) => (
-                      <button
-                        key={rep.id}
-                        type="button"
-                        onClick={() => handleQuickRepSignIn(rep)}
-                        className="h-8 px-2 bg-white hover:bg-[#F7F7F5] border border-[#E6E6E3] rounded-[6px] text-xs font-medium text-[#1F1F1D] flex items-center gap-1.5 justify-center transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <span className={`w-2 h-2 rounded-full ${rep.avatarColor || 'bg-blue-600'}`} />
-                        <span>{rep.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Sales Team Password Helper (NO ADMIN DETAILS) */}
-                <div className="p-2.5 bg-[#F7F7F5] border border-[#E6E6E3] rounded-[6px] text-[11px] text-[#6B6B66] space-y-1">
-                  <div className="font-medium text-[#1F1F1D]">Sales Team Password:</div>
-                  <div className="font-mono text-[#1F1F1D] text-xs">Sales@123</div>
-                  <div className="text-[10px] text-[#8C8C85]">
-                    Admissions reps can sign in using their work email or by selecting their name above.
-                  </div>
-                </div>
-              </div>
             </form>
           </div>
         )}
