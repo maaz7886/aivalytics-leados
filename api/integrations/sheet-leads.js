@@ -105,11 +105,10 @@ export default async function handler(req, res) {
 
     if (activeReps.length === 0) {
       activeReps = [
-        { name: 'Alex Rivera', email: 'alex.rivera@aivalytics.io', capacity: 30 },
-        { name: 'Sarah Chen', email: 'sarah.chen@aivalytics.io', capacity: 25 },
-        { name: 'Marcus Vance', email: 'marcus.vance@aivalytics.io', capacity: 25 },
-        { name: 'Priya Sharma', email: 'priya.sharma@aivalytics.io', capacity: 30 },
-        { name: 'David Kim', email: 'david.kim@aivalytics.io', capacity: 20 }
+        { name: 'Yameen', email: 'yameen@aivalytics.io', capacity: 35 },
+        { name: 'Hari', email: 'hari@aivalytics.io', capacity: 30 },
+        { name: 'Qurrat', email: 'qurrat@aivalytics.io', capacity: 30 },
+        { name: 'Jay', email: 'jay@aivalytics.io', capacity: 35 }
       ];
     }
 
@@ -272,7 +271,7 @@ export default async function handler(req, res) {
 
         // Fallback to first active rep if all are at capacity
         if (!assignedRep) {
-          assignedRep = activeReps[0]?.name || 'Alex Rivera';
+          assignedRep = activeReps[0]?.name || 'Yameen';
         }
 
         const newLeadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;

@@ -488,7 +488,7 @@ export default function LeadDetailModal({
                   Assigned Salesperson
                 </label>
                 <select
-                  value={lead.assignedSalesperson || 'Alex Rivera'}
+                  value={lead.assignedSalesperson || 'Yameen'}
                   onChange={(e) => {
                     assignLead(lead.id, e.target.value);
                     showNotification(`Assigned to ${e.target.value}`);

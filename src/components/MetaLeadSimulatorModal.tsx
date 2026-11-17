@@ -80,7 +80,7 @@ export default function MetaLeadSimulatorModal({ isOpen, onClose }: Props) {
         whyNow: 'Driven by recent Meta ad showcasing AI productivity stack.',
         expectedOutcome: comments || 'Master AI execution and automation workflows.',
         comments: comments || 'Ingested via Meta Ad Form Simulator.',
-        assignedSalesperson: 'Alex Rivera',
+        assignedSalesperson: 'Yameen',
         crmStage: 'Call Pending',
         leadTemperature: 'Hot',
         lastContacted: 'Just Now',

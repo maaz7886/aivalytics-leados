@@ -397,7 +397,7 @@ export default function LeadTable() {
                     </td>
                     <td className="p-3.5 text-xs">
                       <select
-                        value={lead.assignedSalesperson || 'Alex Rivera'}
+                        value={lead.assignedSalesperson || 'Yameen'}
                         onChange={(e) => {
                           e.stopPropagation();
                           if (assignLead) assignLead(lead.id, e.target.value);

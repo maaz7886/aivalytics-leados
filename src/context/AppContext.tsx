@@ -99,11 +99,22 @@ export function mapCrmStageToLifecycle(crmStage: Stage): {
   }
 }
 
+export function migrateRepName(oldName?: string | null): string {
+  if (!oldName) return 'Yameen';
+  const clean = oldName.trim();
+  if (clean === 'Alex Rivera') return 'Yameen';
+  if (clean === 'Sarah Chen') return 'Hari';
+  if (clean === 'Marcus Vance') return 'Qurrat';
+  if (clean === 'Priya Sharma' || clean === 'David Kim' || clean === 'Sam Miller') return 'Jay';
+  return clean;
+}
+
 export function normalizeLeadArchitecture(lead: Lead): Lead {
   const mapped = mapCrmStageToLifecycle(lead.crmStage || 'New Lead');
   const leadStage: LeadLifecycleStage = lead.leadStage || mapped.leadStage;
   const paymentState: PaymentState = lead.paymentState || mapped.paymentState;
   const lastActivityOutcome: ActivityOutcome = lead.lastActivityOutcome || mapped.activityOutcome || 'No answer';
+  const assigned = migrateRepName(lead.assignedSalesperson || 'Yameen');
 
   // Ensure next task exists for active leads
   let nextTask = lead.nextTask;
@@ -112,7 +123,7 @@ export function normalizeLeadArchitecture(lead: Lead): Lead {
     nextTask = {
       id: `task-init-${lead.id}`,
       leadId: lead.id,
-      owner: lead.assignedSalesperson || 'Alex Rivera',
+      owner: assigned,
       taskType: leadStage === 'New' ? 'Call' : leadStage === 'Payment Pending' ? 'Payment Follow-Up' : 'Call',
       dueDateTime: due,
       priority: lead.leadTemperature === 'Hot' ? 'Critical' : 'High',
@@ -123,6 +134,7 @@ export function normalizeLeadArchitecture(lead: Lead): Lead {
 
   return {
     ...lead,
+    assignedSalesperson: assigned,
     leadStage,
     paymentState,
     lastActivityOutcome,
@@ -179,7 +191,7 @@ const initialLeads: Lead[] = [
     preferredContactTime: '6_pm_–_9_pm',
     paymentLink: 'https://pages.razorpay.com/aivalytics-aipm-34999',
     aiRecommendation: 'Position EMI/installment option (₹11,666/mo) and focus on immediate earning potential uplift.',
-    assignedSalesperson: 'Alex Rivera',
+    assignedSalesperson: 'Yameen',
     crmStage: 'New Lead',
     leadTemperature: 'Hot',
     lastContacted: 'Not Contacted',
@@ -254,7 +266,7 @@ const initialLeads: Lead[] = [
         preferredContactTime: '',
         paymentLink: '',
         aiRecommendation: '',
-    assignedSalesperson: 'Alex Rivera',
+    assignedSalesperson: 'Yameen',
     crmStage: 'Qualified',
     leadTemperature: 'Hot',
     lastContacted: '2026-09-13 10:15',
@@ -342,7 +354,7 @@ const initialLeads: Lead[] = [
       {
         id: 'note-01',
         date: '2026-09-13 10:15',
-        salesperson: 'Alex Rivera',
+        salesperson: 'Yameen',
         rawNotes: 'Interested in switching within six months. Currently earning well. Main concern is whether the program will be advanced enough. Needs to discuss with spouse. Follow-up Saturday.',
         aiAnalysis: {
           trueDesiredOutcome: 'External career transition + AI upskilling',
@@ -398,7 +410,7 @@ const initialLeads: Lead[] = [
         preferredContactTime: '',
         paymentLink: '',
         aiRecommendation: '',
-    assignedSalesperson: 'Sam Miller',
+    assignedSalesperson: 'Hari',
     crmStage: 'Did Not Receive Call',
     leadTemperature: 'Warm',
     lastContacted: '2026-09-12 18:30',
@@ -503,7 +515,7 @@ const initialLeads: Lead[] = [
         preferredContactTime: '',
         paymentLink: '',
         aiRecommendation: '',
-    assignedSalesperson: 'Alex Rivera',
+    assignedSalesperson: 'Qurrat',
     crmStage: 'Payment Pending',
     leadTemperature: 'Hot',
     lastContacted: '2026-09-13 09:30',
@@ -547,7 +559,7 @@ const initialLeads: Lead[] = [
       {
         id: 'note-vikram-01',
         date: '2026-09-13 09:30',
-        salesperson: 'Alex Rivera',
+        salesperson: 'Qurrat',
         rawNotes: 'Confirmed budget approval. Requested company GST invoice format. Sent payment link.',
         aiAnalysis: {
           trueDesiredOutcome: 'New AI revenue stream for consulting practice',
@@ -575,7 +587,7 @@ const initialTasks: Task[] = [
     priority: 'Critical',
     status: 'Pending',
     description: 'Discovery Call: Address PM experience vs AI agent execution layer positioning.',
-    assignedTo: 'Alex Rivera'
+    assignedTo: 'Yameen'
   },
   {
     id: 'task-102',
@@ -586,7 +598,7 @@ const initialTasks: Task[] = [
     priority: 'High',
     status: 'Pending',
     description: 'Send GTM AI Agent Outbound demo video over WhatsApp.',
-    assignedTo: 'Sam Miller'
+    assignedTo: 'Hari'
   },
   {
     id: 'task-103',
@@ -597,7 +609,7 @@ const initialTasks: Task[] = [
     priority: 'Critical',
     status: 'Pending',
     description: 'Verify Razorpay seat reservation payment link status & share GST invoice.',
-    assignedTo: 'Alex Rivera'
+    assignedTo: 'Qurrat'
   }
 ];
 
@@ -721,7 +733,7 @@ const generateInitialCallActivities = (): CallActivity[] => {
       outcome: 'Connected',
       notes: 'Spoke regarding Saturday cohort syllabus depth, fee structure, and AI-PM hands-on project deliverables. Very positive conversation.',
       durationSeconds: 240,
-      salesperson: 'Alex Rivera'
+      salesperson: 'Yameen'
     },
     {
       id: 'call-seed-2',
@@ -733,7 +745,7 @@ const generateInitialCallActivities = (): CallActivity[] => {
       outcome: 'Interested',
       notes: 'Reviewed current role as PM at TechCorp. Discussed transition timeline for next 3-6 months. Scheduled Follow-Up 1.',
       durationSeconds: 180,
-      salesperson: 'Alex Rivera'
+      salesperson: 'Yameen'
     },
     {
       id: 'call-seed-3',
@@ -745,7 +757,7 @@ const generateInitialCallActivities = (): CallActivity[] => {
       outcome: 'Did Not Pick The Call',
       notes: 'Rang 4 times with no answer. Sent cohort brochure and introductory video via WhatsApp.',
       durationSeconds: 45,
-      salesperson: 'Alex Rivera'
+      salesperson: 'Hari'
     },
     {
       id: 'call-seed-4',
@@ -757,7 +769,7 @@ const generateInitialCallActivities = (): CallActivity[] => {
       outcome: 'Call Later',
       notes: 'In executive meeting. Requested callback around 4:30 PM. Marked as callback.',
       durationSeconds: 60,
-      salesperson: 'Alex Rivera'
+      salesperson: 'Qurrat'
     },
     {
       id: 'call-seed-5',
@@ -769,7 +781,7 @@ const generateInitialCallActivities = (): CallActivity[] => {
       outcome: 'Connected',
       notes: 'Reviewed budget and sponsorship. Wants invoice sent to HR department for upskilling reimbursement.',
       durationSeconds: 310,
-      salesperson: 'Alex Rivera'
+      salesperson: 'Jay'
     },
     {
       id: 'call-seed-6',
@@ -781,7 +793,7 @@ const generateInitialCallActivities = (): CallActivity[] => {
       outcome: 'Qualified',
       notes: '11 years exp, lead PM in healthcare tech. Fits the criteria for AI transformation lead perfectly.',
       durationSeconds: 260,
-      salesperson: 'Alex Rivera'
+      salesperson: 'Yameen'
     },
     {
       id: 'call-seed-7',
@@ -793,7 +805,7 @@ const generateInitialCallActivities = (): CallActivity[] => {
       outcome: 'Did Not Pick The Call',
       notes: 'Unanswered call. Follow-up 1 queued for tomorrow morning.',
       durationSeconds: 30,
-      salesperson: 'Alex Rivera'
+      salesperson: 'Hari'
     }
   ];
 };
@@ -815,9 +827,9 @@ export const adminUser: Salesperson = {
 
 export const initialSalespeople: Salesperson[] = [
   {
-    id: 'rep-alex-rivera',
-    name: 'Alex Rivera',
-    email: 'alex.rivera@aivalytics.io',
+    id: 'rep-yameen',
+    name: 'Yameen',
+    email: 'yameen@aivalytics.io',
     phone: '+91 98765 43210',
     role: 'Salesperson',
     title: 'Senior Account Executive',
@@ -829,9 +841,9 @@ export const initialSalespeople: Salesperson[] = [
     bio: 'Specializes in high-intent AI-PM candidates & enterprise conversions.'
   },
   {
-    id: 'rep-sarah-chen',
-    name: 'Sarah Chen',
-    email: 'sarah.chen@aivalytics.io',
+    id: 'rep-hari',
+    name: 'Hari',
+    email: 'hari@aivalytics.io',
     phone: '+91 98765 43211',
     role: 'Salesperson',
     title: 'Admissions & Growth Lead',
@@ -843,9 +855,9 @@ export const initialSalespeople: Salesperson[] = [
     bio: 'Expert in candidate qualification, AI-GTM admissions and budget handling.'
   },
   {
-    id: 'rep-marcus-vance',
-    name: 'Marcus Vance',
-    email: 'marcus.vance@aivalytics.io',
+    id: 'rep-qurrat',
+    name: 'Qurrat',
+    email: 'qurrat@aivalytics.io',
     phone: '+91 98765 43212',
     role: 'Salesperson',
     title: 'Career Consultant & Advisor',
@@ -857,9 +869,9 @@ export const initialSalespeople: Salesperson[] = [
     bio: 'Focuses on working professionals with 5+ years experience and salary uplift counseling.'
   },
   {
-    id: 'rep-priya-sharma',
-    name: 'Priya Sharma',
-    email: 'priya.sharma@aivalytics.io',
+    id: 'rep-jay',
+    name: 'Jay',
+    email: 'jay@aivalytics.io',
     phone: '+91 98765 43213',
     role: 'Salesperson',
     title: 'Lead Executive - PM Programs',
@@ -869,20 +881,6 @@ export const initialSalespeople: Salesperson[] = [
     avatarColor: 'bg-rose-600',
     joinedDate: '2026-03-01',
     bio: 'Dedicated to rapid WhatsApp follow-ups and evening callback batches.'
-  },
-  {
-    id: 'rep-david-kim',
-    name: 'David Kim',
-    email: 'david.kim@aivalytics.io',
-    phone: '+91 98765 43214',
-    role: 'Salesperson',
-    title: 'Technical Program Advisor',
-    status: 'Active',
-    dailyCallTarget: 20,
-    dailyLeadCapacity: 25,
-    avatarColor: 'bg-amber-600',
-    joinedDate: '2026-03-10',
-    bio: 'Handles technical objections, curriculum deep dives, and fellowship candidates.'
   }
 ];
 
@@ -1342,11 +1340,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasOld = parsed.some(
+            (p: any) =>
+              p.name === 'Alex Rivera' ||
+              p.name === 'Sarah Chen' ||
+              p.name === 'Marcus Vance' ||
+              p.name === 'Priya Sharma' ||
+              p.name === 'David Kim' ||
+              p.id === 'rep-alex-rivera'
+          );
+          if (!hasOld) return parsed;
+        }
       } catch (e) {
         console.error('Error loading saved salespeople:', e);
       }
     }
+    localStorage.setItem('AIVALYTICS_SALESPEOPLE', JSON.stringify(initialSalespeople));
     return initialSalespeople;
   });
 
@@ -1354,14 +1364,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('aivalytics_active_user');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (['Alex Rivera', 'Sarah Chen', 'Marcus Vance', 'Priya Sharma', 'David Kim'].includes(parsed.name)) {
+          const migratedName = migrateRepName(parsed.name);
+          const match = initialSalespeople.find((s) => s.name === migratedName) || initialSalespeople[0];
+          localStorage.setItem('aivalytics_active_user', JSON.stringify(match));
+          return match;
+        }
+        return parsed;
       } catch {}
     }
     const demo = localStorage.getItem('aivalytics_demo_user');
     if (demo) {
       try {
         const parsed = JSON.parse(demo);
-        const match = initialSalespeople.find((s) => s.email === parsed.email);
+        const match = initialSalespeople.find(
+          (s) => s.email.toLowerCase() === parsed.email.toLowerCase() ||
+                 s.name.toLowerCase() === parsed.email.toLowerCase().split('@')[0]
+        );
         if (match) return match;
         if (parsed.role === 'Admin') return adminUser;
       } catch {}
@@ -1598,7 +1618,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nextLeads = prev.map((l) => {
         const shouldAssign = leadIds
           ? leadIds.includes(l.id)
-          : (!l.assignedSalesperson || l.assignedSalesperson === 'Unassigned' || l.assignedSalesperson === 'Alex Rivera');
+          : (!l.assignedSalesperson || l.assignedSalesperson === 'Unassigned');
         if (shouldAssign) {
           // Find next active rep with capacity available
           let chosenRep = activeReps[repIdx % activeReps.length];
@@ -1687,7 +1707,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   ? note.rawNotes.split('[Outcome:')[1].split(']')[0].trim()
                   : (lead.crmStage || 'Connected'),
                 notes: note.rawNotes || 'Call logged',
-                salesperson: note.salesperson || 'Alex Rivera'
+                salesperson: note.salesperson || 'Yameen'
               });
             });
           }
@@ -1811,7 +1831,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addCallNote = (leadId: string, rawNotes: string) => {
-    const callerName = currentUser?.name || 'Alex Rivera';
+    const callerName = currentUser?.name || 'Yameen';
     const newNote = {
       id: `note-${Date.now()}`,
       date: new Date().toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }),
@@ -1854,7 +1874,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     note?: string
   ) => {
     const todayStr = new Date().toISOString().substring(0, 10);
-    const callerName = currentUser?.name || 'Alex Rivera';
+    const callerName = currentUser?.name || 'Yameen';
     const newNote = note?.trim()
       ? {
           id: `note-${Date.now()}`,
@@ -1994,7 +2014,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   ) => {
     const targetLead = masterLeads.find((l) => l.id === leadId);
-    const callerName = currentUser?.name || 'Alex Rivera';
+    const callerName = currentUser?.name || 'Yameen';
     const now = new Date().toISOString();
 
     let firstCallAt = targetLead?.firstCallAt;
@@ -2217,7 +2237,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
     durationSeconds: number = 0
   ) => {
-    const callerName = currentUser?.name || 'Alex Rivera';
+    const callerName = currentUser?.name || 'Yameen';
     const timestamp = new Date().toISOString();
 
     let createdTask: NextTask | undefined;
@@ -2315,7 +2335,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     callDurationSeconds: number = 300,
     callNotes: string = ''
   ) => {
-    const callerName = currentUser?.name || 'Alex Rivera';
+    const callerName = currentUser?.name || 'Yameen';
     const timestamp = new Date().toISOString();
     const newMeeting: MentorMeeting = {
       id: `mentor-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -2409,7 +2429,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     callDurationSeconds: number = 0,
     callNotes: string = ''
   ) => {
-    const callerName = currentUser?.name || 'Alex Rivera';
+    const callerName = currentUser?.name || 'Yameen';
     const timestamp = new Date().toISOString();
     const newDemo: DemoSession = {
       id: `demo-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -2500,7 +2520,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     callDurationSeconds: number = 0,
     callNotes: string = ''
   ) => {
-    const callerName = currentUser?.name || 'Alex Rivera';
+    const callerName = currentUser?.name || 'Yameen';
     const timestamp = new Date().toISOString();
     const newSale: DirectSale = {
       id: `sale-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,

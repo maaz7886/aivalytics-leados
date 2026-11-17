@@ -192,7 +192,7 @@ export default function CsvImportModal({ isOpen, onClose }: CsvImportModalProps)
         whyNow: 'Committed via Excel bulk lead import.',
         expectedOutcome: 'Achieve AI productivity and career progression.',
         comments: `Bulk imported from Excel file ${fileName || 'Worksheet.xlsx'}.`,
-        assignedSalesperson: 'Alex Rivera',
+        assignedSalesperson: 'Yameen',
         crmStage: 'New Lead' as Stage,
         leadTemperature: fitScore > 85 ? 'Hot' : 'Warm',
         lastContacted: 'Not Contacted',

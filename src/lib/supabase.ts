@@ -77,7 +77,7 @@ export function mapLeadToDb(lead: Partial<Lead>): any {
     preferred_contact_time: lead.preferredContactTime || '',
     payment_link: lead.paymentLink || '',
     ai_recommendation: lead.aiRecommendation || '',
-    assigned_salesperson: lead.assignedSalesperson || 'Alex Rivera',
+    assigned_salesperson: lead.assignedSalesperson || 'Yameen',
     crm_stage: lead.crmStage || 'New Lead',
     lead_temperature: lead.leadTemperature || 'Cold',
     last_contacted: lead.lastContacted || 'Not Contacted',
@@ -157,7 +157,7 @@ export function mapDbToLead(d: any): Lead {
     preferredContactTime: d.preferred_contact_time || '',
     paymentLink: d.payment_link || '',
     aiRecommendation: d.ai_recommendation || '',
-    assignedSalesperson: d.assigned_salesperson || 'Alex Rivera',
+    assignedSalesperson: d.assigned_salesperson || 'Yameen',
     assignedAt: d.assigned_at || undefined,
     firstCallAt: d.first_call_at || undefined,
     timeToFirstCallSeconds: d.time_to_first_call_seconds ? Number(d.time_to_first_call_seconds) : undefined,
@@ -380,7 +380,7 @@ export async function fetchTasksFromSupabase(): Promise<Task[] | null> {
       priority: t.priority || 'Medium',
       status: t.status || 'Pending',
       description: t.description || '',
-      assignedTo: t.assigned_to || 'Alex Rivera'
+      assignedTo: t.assigned_to || 'Yameen'
     }));
   } catch (err) {
     console.error('Supabase Fetch Tasks Error:', err);
@@ -401,7 +401,7 @@ export async function upsertTaskInSupabase(task: Task): Promise<boolean> {
       priority: task.priority || 'Medium',
       status: task.status || 'Pending',
       description: task.description || task.title || '',
-      assigned_to: task.assignedTo || 'Alex Rivera'
+      assigned_to: task.assignedTo || 'Yameen'
     };
 
     let { error } = await supabase.from('tasks').upsert(payload);

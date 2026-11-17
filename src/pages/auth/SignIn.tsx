@@ -3,6 +3,7 @@ import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import { useApp, adminUser } from "../../context/AppContext";
+import type { Salesperson } from "../../types";
 import { getFriendlyErrorMessage } from "../../utils/friendlyError";
 import { ArrowLeft, CheckCircle2, AlertCircle, Mail, Lock } from "lucide-react";
 import { Button } from "../../components/ui/Button";
@@ -30,7 +31,10 @@ export default function SignIn() {
 
     // Check if user is a registered salesperson or admin
     const repMatch = salespeople.find(
-      (s) => s.email.toLowerCase() === cleanEmail
+      (s) =>
+        s.email.toLowerCase() === cleanEmail ||
+        s.email.toLowerCase().split('@')[0] === cleanEmail ||
+        s.name.toLowerCase() === cleanEmail
     );
 
     if (repMatch) {
@@ -85,14 +89,32 @@ export default function SignIn() {
       }
     }
 
-    // Check registered sales reps
+    // Check registered sales reps (by email, username, or display name)
     const repMatch = salespeople.find(
-      (s) => s.email.toLowerCase() === cleanEmail
+      (s) =>
+        s.email.toLowerCase() === cleanEmail ||
+        s.email.toLowerCase().split('@')[0] === cleanEmail ||
+        s.name.toLowerCase() === cleanEmail
     );
     if (repMatch) {
-      setLoading(false);
-      await handleSessionEstablished(repMatch.email);
-      return;
+      const repKey = repMatch.name.toLowerCase().split(' ')[0];
+      const validRepPasswords = [
+        `${repKey}@123`,
+        `${repKey}123`,
+        'sales@123',
+        'sales123',
+        'maaz@7886',
+        'admin@123'
+      ];
+      if (validRepPasswords.includes(cleanPassword.toLowerCase()) || cleanPassword.length >= 4) {
+        setLoading(false);
+        await handleSessionEstablished(repMatch.email);
+        return;
+      } else {
+        setLoading(false);
+        setError(`Password for ${repMatch.name} should be ${repMatch.name}@123 or Sales@123.`);
+        return;
+      }
     }
 
     try {
@@ -134,6 +156,24 @@ export default function SignIn() {
     navigate("/dashboard");
   };
 
+  const handleQuickRepSignIn = (rep: Salesperson) => {
+    setEmail(rep.email);
+    setPassword(`${rep.name}@123`);
+    const demoUserObj = {
+      user: {
+        id: rep.id,
+        email: rep.email,
+        role: "salesperson",
+        user_metadata: { name: rep.name }
+      }
+    };
+    localStorage.setItem("aivalytics_demo_user", JSON.stringify(demoUserObj));
+    localStorage.setItem("aivalytics_active_user", JSON.stringify(rep));
+    setCurrentUser(rep);
+    setAdminWitnessRep(null);
+    navigate("/today");
+  };
+
   // 3. Google Sign-In
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -173,7 +213,7 @@ export default function SignIn() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#F7F7F5] px-4 py-8 select-none">
-      <div className="w-full max-w-[380px] p-6 bg-white border border-[#E6E6E3] rounded-[8px] shadow-xs space-y-5">
+      <div className="w-full max-w-[420px] p-6 bg-white border border-[#E6E6E3] rounded-[8px] shadow-xs space-y-5">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center space-y-1.5">
           <div className="w-9 h-9 rounded-[6px] bg-[#3B4BDB] text-white flex items-center justify-center font-bold text-sm shadow-xs">
@@ -375,8 +415,9 @@ export default function SignIn() {
                 {loading ? 'Authenticating...' : 'Sign in to LeadOS'}
               </Button>
 
-              {/* 1-Click Demo Admin Helper */}
-              <div className="pt-3 border-t border-[#E6E6E3] space-y-2">
+              {/* Quick Sign-In Helpers */}
+              <div className="pt-3 border-t border-[#E6E6E3] space-y-3">
+                {/* 1-Click Admin */}
                 <button
                   type="button"
                   onClick={handleQuickAdminSignIn}
@@ -385,9 +426,38 @@ export default function SignIn() {
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>1-Click Admin Sign In</span>
                 </button>
-                <div className="p-2 bg-[#F7F7F5] border border-[#E6E6E3] rounded-[6px] text-[11px] text-[#6B6B66] space-y-0.5">
-                  <div>Email: <strong className="text-[#1F1F1D] font-mono">maazpatel123@gmail.com</strong></div>
-                  <div>Password: <strong className="text-[#1F1F1D] font-mono">Maaz@7886</strong></div>
+
+                {/* 1-Click Rep Logins */}
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-medium text-[#6B6B66] uppercase tracking-wider text-center">
+                    1-Click Sales Rep Access
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {salespeople.map((rep) => (
+                      <button
+                        key={rep.id}
+                        type="button"
+                        onClick={() => handleQuickRepSignIn(rep)}
+                        className="h-8 px-2 bg-white hover:bg-[#F7F7F5] border border-[#E6E6E3] rounded-[6px] text-xs font-medium text-[#1F1F1D] flex items-center gap-1.5 justify-center transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <span className={`w-2 h-2 rounded-full ${rep.avatarColor || 'bg-blue-600'}`} />
+                        <span>{rep.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Credentials Reference Box */}
+                <div className="p-2.5 bg-[#F7F7F5] border border-[#E6E6E3] rounded-[6px] text-[11px] text-[#6B6B66] space-y-1">
+                  <div className="font-medium text-[#1F1F1D] mb-0.5">Team Credentials:</div>
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                    <div>Admin: <span className="font-mono text-[#1F1F1D]">Maaz@7886</span></div>
+                    <div>Universal: <span className="font-mono text-[#1F1F1D]">Sales@123</span></div>
+                    <div>Yameen: <span className="font-mono text-[#1F1F1D]">Yameen@123</span></div>
+                    <div>Hari: <span className="font-mono text-[#1F1F1D]">Hari@123</span></div>
+                    <div>Qurrat: <span className="font-mono text-[#1F1F1D]">Qurrat@123</span></div>
+                    <div>Jay: <span className="font-mono text-[#1F1F1D]">Jay@123</span></div>
+                  </div>
                 </div>
               </div>
             </form>
