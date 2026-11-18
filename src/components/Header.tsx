@@ -1,8 +1,10 @@
 // src/components/Header.tsx
-import { useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Search, Eye, X } from 'lucide-react';
+import { Search, Eye, X, Database } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
+import { checkDatabaseConnection } from '../lib/supabase';
 
 interface HeaderProps {
   onOpenSearch?: () => void;
@@ -16,6 +18,33 @@ export default function Header({ onOpenSearch }: HeaderProps) {
     adminWitnessRep,
     setAdminWitnessRep
   } = useApp();
+
+  const [dbStatus, setDbStatus] = useState<{ connected: boolean; latencyMs?: number; checking: boolean }>({
+    connected: false,
+    checking: true
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const testConnection = async () => {
+      const res = await checkDatabaseConnection();
+      if (isMounted) {
+        setDbStatus({
+          connected: res.connected,
+          latencyMs: res.latencyMs,
+          checking: false
+        });
+      }
+    };
+    testConnection();
+
+    // Periodic health check every 45 seconds
+    const interval = setInterval(testConnection, 45000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Simple breadcrumb generator
   const getBreadcrumb = () => {
@@ -77,8 +106,45 @@ export default function Header({ onOpenSearch }: HeaderProps) {
         </div>
       )}
 
-      {/* Right: Search Pill & Rep Switcher */}
+      {/* Right: DB Status Pill, Search Pill & Rep Switcher */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Real-time DB Connection Badge */}
+        <Link
+          to="/integrations"
+          title={
+            dbStatus.checking
+              ? "Checking database connection..."
+              : dbStatus.connected
+              ? `Cloud Database Connected (${dbStatus.latencyMs ?? 0}ms). Realtime sync active.`
+              : "Cloud Database Disconnected. Click to configure Supabase."
+          }
+          className={`flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-medium border transition-colors ${
+            dbStatus.checking
+              ? 'bg-[#F7F7F5] border-[#E6E6E3] text-[#6B6B66]'
+              : dbStatus.connected
+              ? 'bg-[#DDF4E4] border-[#C3ECD0] text-[#17673A] hover:bg-[#c8e6d2]'
+              : 'bg-[#FEE4E2] border-[#FDA29B] text-[#B42318] hover:bg-[#fed3cf]'
+          }`}
+        >
+          <Database className="w-3 h-3 shrink-0" />
+          <span className="hidden sm:inline">
+            {dbStatus.checking
+              ? 'Checking DB...'
+              : dbStatus.connected
+              ? `DB Live (${dbStatus.latencyMs ?? 0}ms)`
+              : 'DB Offline'}
+          </span>
+          <span
+            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              dbStatus.checking
+                ? 'bg-amber-400'
+                : dbStatus.connected
+                ? 'bg-emerald-600'
+                : 'bg-red-500'
+            }`}
+          />
+        </Link>
+
         <button
           onClick={onOpenSearch}
           className="hidden sm:flex items-center gap-2 px-2.5 py-1 h-7 bg-[#F7F7F5] hover:bg-[#F3F4F6] border border-[#E6E6E3] rounded-[6px] text-xs text-[#6B6B66] cursor-pointer"

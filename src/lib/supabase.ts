@@ -16,7 +16,66 @@ const SUPABASE_ANON_KEY =
 
 export const isSupabaseConfigured = true;
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentSupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+export const supabase: any = new Proxy({}, {
+  get: (_, prop) => (currentSupabaseClient as any)[prop]
+});
+
+// Database Health Check: test real-time connectivity to PostgreSQL
+export async function checkDatabaseConnection(): Promise<{ connected: boolean; latencyMs?: number; error?: string }> {
+  const start = Date.now();
+  try {
+    const { error } = await currentSupabaseClient.from('leads').select('id').limit(1);
+    if (error) {
+      // 42P01 means table does not exist yet in Postgres, but the host connected!
+      if (error.code === '42P01') {
+        return {
+          connected: true,
+          latencyMs: Date.now() - start,
+          error: 'Connected to Supabase, but "leads" table is missing. Run schema.sql in Supabase SQL editor.'
+        };
+      }
+      return { connected: false, error: error.message };
+    }
+    return { connected: true, latencyMs: Date.now() - start };
+  } catch (err: any) {
+    return { connected: false, error: err?.message || 'Host unreachable' };
+  }
+}
+
+// Update Database Credentials at runtime (persisted to localStorage)
+export async function updateDatabaseCredentials(newUrl: string, newKey: string): Promise<{ success: boolean; message: string; latencyMs?: number }> {
+  const cleanUrl = newUrl.trim();
+  const cleanKey = newKey.trim();
+  if (!cleanUrl || !cleanKey) {
+    return { success: false, message: 'Both Supabase URL and Anon Key are required.' };
+  }
+  try {
+    localStorage.setItem('VITE_SUPABASE_URL', cleanUrl);
+    localStorage.setItem('VITE_SUPABASE_ANON_KEY', cleanKey);
+    currentSupabaseClient = createClient(cleanUrl, cleanKey);
+    const health = await checkDatabaseConnection();
+    if (health.connected) {
+      return { success: true, message: 'Successfully connected to database!', latencyMs: health.latencyMs };
+    } else {
+      return { success: false, message: health.error || 'Could not connect to database.' };
+    }
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Connection failed.' };
+  }
+}
+
+// Get Active Database Config
+export function getDatabaseCredentials() {
+  const customUrl = localStorage.getItem('VITE_SUPABASE_URL');
+  const customKey = localStorage.getItem('VITE_SUPABASE_ANON_KEY');
+  return {
+    url: customUrl || import.meta.env.VITE_SUPABASE_URL || SUPABASE_URL,
+    key: customKey || import.meta.env.VITE_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY,
+    isCustom: Boolean(customUrl)
+  };
+}
 
 // Helper to check user auth
 export async function getUser() {

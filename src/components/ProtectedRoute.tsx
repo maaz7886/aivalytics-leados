@@ -30,7 +30,7 @@ export default function ProtectedRoute() {
     };
     getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (session) setSession(session);
     });
     return () => subscription.unsubscribe();
