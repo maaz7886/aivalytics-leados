@@ -16,6 +16,8 @@ export interface Salesperson {
   avatarColor: string;
   joinedDate: string;
   bio?: string;
+  programFocus?: 'AI-PM' | 'AI-Builder' | 'All';
+  allowedPrograms?: string[]; // e.g. ['ai-pm'], ['ai-builder'], or ['ai-pm', 'ai-builder']
 }
 
 export type Stage =

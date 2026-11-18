@@ -99,12 +99,36 @@ export function mapCrmStageToLifecycle(crmStage: Stage): {
   }
 }
 
+export function isAiPmProgram(programId?: string, programName?: string): boolean {
+  const pId = (programId || '').toLowerCase();
+  const pName = (programName || '').toLowerCase();
+  return (
+    pId === 'ai-pm' ||
+    pName.includes('ai-pm') ||
+    pName.includes('ai pm') ||
+    pName.includes('project management') ||
+    pName.includes('product management')
+  );
+}
+
+export function isAiBuilderWebinarProgram(programId?: string, programName?: string): boolean {
+  const pId = (programId || '').toLowerCase();
+  const pName = (programName || '').toLowerCase();
+  return (
+    pId === 'ai-builder' ||
+    pId === 'workshop-3day' ||
+    pName.includes('builder') ||
+    pName.includes('webinar') ||
+    pName.includes('workshop')
+  );
+}
+
 export function migrateRepName(oldName?: string | null): string {
   if (!oldName) return 'Yameen';
   const clean = oldName.trim();
-  if (clean === 'Alex Rivera') return 'Yameen';
+  if (clean === 'Alex Rivera' || clean.toLowerCase() === 'yamin') return 'Yameen';
   if (clean === 'Sarah Chen') return 'Hari';
-  if (clean === 'Marcus Vance') return 'Qurrat';
+  if (clean === 'Marcus Vance' || clean.toLowerCase() === 'qurrat') return 'Khurram';
   if (clean === 'Priya Sharma' || clean === 'David Kim' || clean === 'Sam Miller') return 'Jay';
   return clean;
 }
@@ -384,8 +408,8 @@ const initialLeads: Lead[] = [
     metaAd: 'Ad_02_AI_Outbound_Agents',
     campaignId: 'cmp_992102199',
     dateCaptured: '2026-09-12 18:10',
-    programId: 'ai-gtm',
-    programName: 'AI-Native GTM',
+    programId: 'ai-builder',
+    programName: 'AI-Native Builder (Free Webinar)',
     professionalStatus: 'Working Professional',
     currentRole: 'Growth Marketing Lead',
     currentCompany: 'GTM Scale Studio',
@@ -398,18 +422,18 @@ const initialLeads: Lead[] = [
     desiredRole: 'Head of AI Growth & GTM',
     expectedTimeline: '1–3 months',
     mainChallenge: 'CAC is skyrocketing. Traditional outbound and content strategies are yielding diminishing returns.',
-    whyNow: 'Wants to deploy autonomous AI agents for research, copywriting, and outbound lead enrichment.',
+    whyNow: 'Wants to deploy autonomous AI agents for research, copywriting, and outbound lead enrichment after attending free webinar.',
     expectedOutcome: 'Build an end-to-end automated GTM engine using AI agents and n8n workflows.',
-    comments: 'Very enthusiastic during initial ad inquiry.',
+    comments: 'Attended AI Native Builder free webinar. Very enthusiastic during initial inquiry.',
     investment: '',
-        education: '',
-        priority: 'P2',
-        qualificationStatus: '',
-        objection: '',
-        preferredBatch: '',
-        preferredContactTime: '',
-        paymentLink: '',
-        aiRecommendation: '',
+    education: '',
+    priority: 'P2',
+    qualificationStatus: '',
+    objection: '',
+    preferredBatch: '',
+    preferredContactTime: '',
+    paymentLink: '',
+    aiRecommendation: '',
     assignedSalesperson: 'Hari',
     crmStage: 'Did Not Receive Call',
     leadTemperature: 'Warm',
@@ -816,13 +840,15 @@ export const adminUser: Salesperson = {
   email: 'maazpatel123@gmail.com',
   phone: '+91 99999 88888',
   role: 'Admin',
-  title: 'Founder & Admin',
+  title: 'Founder & Head of Admissions (AI Native PM)',
   status: 'Active',
-  dailyCallTarget: 10,
-  dailyLeadCapacity: 50,
+  dailyCallTarget: 50,
+  dailyLeadCapacity: 100,
   avatarColor: 'bg-[#3B4BDB]',
   joinedDate: '2025-11-01',
-  bio: 'Full management access across all sales reps, lead pools, and automation.'
+  bio: 'Full management access across all sales reps, lead pools, and program ecosystem routing.',
+  programFocus: 'All',
+  allowedPrograms: ['ai-pm', 'ai-builder']
 };
 
 export const initialSalespeople: Salesperson[] = [
@@ -832,13 +858,15 @@ export const initialSalespeople: Salesperson[] = [
     email: 'yameen@aivalytics.io',
     phone: '+91 98765 43210',
     role: 'Salesperson',
-    title: 'Senior Account Executive',
+    title: 'Admissions Specialist — AI Native PM',
     status: 'Active',
     dailyCallTarget: 30,
     dailyLeadCapacity: 35,
     avatarColor: 'bg-emerald-600',
     joinedDate: '2026-01-15',
-    bio: 'Specializes in high-intent AI-PM candidates & enterprise conversions.'
+    bio: 'Dedicated to AI-Native Project Management (AI Native PM) candidate conversions.',
+    programFocus: 'AI-PM',
+    allowedPrograms: ['ai-pm']
   },
   {
     id: 'rep-hari',
@@ -846,27 +874,31 @@ export const initialSalespeople: Salesperson[] = [
     email: 'hari@aivalytics.io',
     phone: '+91 98765 43211',
     role: 'Salesperson',
-    title: 'Admissions & Growth Lead',
+    title: 'Admissions & Growth Lead — AI Native Builder (Webinar)',
     status: 'Active',
     dailyCallTarget: 25,
     dailyLeadCapacity: 30,
     avatarColor: 'bg-purple-600',
     joinedDate: '2026-02-01',
-    bio: 'Expert in candidate qualification, AI-GTM admissions and budget handling.'
+    bio: 'Specialist in AI Native Builder admissions and free webinar attendee follow-ups.',
+    programFocus: 'AI-Builder',
+    allowedPrograms: ['ai-builder']
   },
   {
-    id: 'rep-qurrat',
-    name: 'Qurrat',
-    email: 'qurrat@aivalytics.io',
+    id: 'rep-khurram',
+    name: 'Khurram',
+    email: 'khurram@aivalytics.io',
     phone: '+91 98765 43212',
     role: 'Salesperson',
-    title: 'Career Consultant & Advisor',
+    title: 'Career Consultant — AI Native Builder (Webinar)',
     status: 'Active',
     dailyCallTarget: 25,
     dailyLeadCapacity: 30,
     avatarColor: 'bg-blue-600',
     joinedDate: '2026-02-15',
-    bio: 'Focuses on working professionals with 5+ years experience and salary uplift counseling.'
+    bio: 'Dedicated to AI Native Builder webinar conversions and fast-track enrollments.',
+    programFocus: 'AI-Builder',
+    allowedPrograms: ['ai-builder']
   },
   {
     id: 'rep-jay',
@@ -874,13 +906,15 @@ export const initialSalespeople: Salesperson[] = [
     email: 'jay@aivalytics.io',
     phone: '+91 98765 43213',
     role: 'Salesperson',
-    title: 'Lead Executive - PM Programs',
+    title: 'Admissions Executive — AI Native Builder (Webinar)',
     status: 'Active',
     dailyCallTarget: 30,
     dailyLeadCapacity: 35,
     avatarColor: 'bg-rose-600',
     joinedDate: '2026-03-01',
-    bio: 'Dedicated to rapid WhatsApp follow-ups and evening callback batches.'
+    bio: 'Dedicated to AI Native Builder free webinar participant outreach and closing.',
+    programFocus: 'AI-Builder',
+    allowedPrograms: ['ai-builder']
   }
 ];
 
@@ -1610,37 +1644,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const now = new Date().toISOString();
-    const performer = currentUser?.name || 'System Auto-Assign';
+    const performer = currentUser?.name || 'Admin Program Router';
     const toUpdate: Lead[] = [];
 
+    let pmIdx = 0;
+    let builderIdx = 0;
+
     setMasterLeads((prev) => {
-      let repIdx = 0;
       const nextLeads = prev.map((l) => {
         const shouldAssign = leadIds
           ? leadIds.includes(l.id)
           : (!l.assignedSalesperson || l.assignedSalesperson === 'Unassigned');
         if (shouldAssign) {
-          // Find next active rep with capacity available
-          let chosenRep = activeReps[repIdx % activeReps.length];
-          for (let i = 0; i < activeReps.length; i++) {
-            const candidate = activeReps[(repIdx + i) % activeReps.length];
+          const isPm = isAiPmProgram(l.programId, l.programName);
+
+          // Filter eligible reps who have access to this program ecosystem
+          const eligibleReps = activeReps.filter((r) => {
+            const allowed = r.allowedPrograms || (r.name === 'Yameen' ? ['ai-pm'] : ['ai-builder']);
+            return isPm ? allowed.includes('ai-pm') : allowed.includes('ai-builder');
+          });
+
+          const candidatePool = eligibleReps.length > 0 ? eligibleReps : activeReps;
+          const currentIdx = isPm ? pmIdx : builderIdx;
+
+          // Find candidate with capacity available
+          let chosenRep = candidatePool[currentIdx % candidatePool.length];
+          for (let i = 0; i < candidatePool.length; i++) {
+            const candidate = candidatePool[(currentIdx + i) % candidatePool.length];
             const cap = candidate.dailyLeadCapacity || 30;
             const count = assignedTodayCount[candidate.name] || 0;
             if (count < cap) {
               chosenRep = candidate;
-              repIdx = repIdx + i;
+              if (isPm) pmIdx = pmIdx + i;
+              else builderIdx = builderIdx + i;
               break;
             }
           }
-          repIdx++;
+
+          if (isPm) pmIdx++;
+          else builderIdx++;
+
           assignedTodayCount[chosenRep.name] = (assignedTodayCount[chosenRep.name] || 0) + 1;
           const updated = { ...l, assignedSalesperson: chosenRep.name, assignedAt: now };
           toUpdate.push(updated);
           insertTimelineEventToDb({
             lead_id: l.id,
             event_type: 'lead_assigned',
-            title: 'Auto-Assigned (Round Robin)',
-            description: `Auto-assigned to ${chosenRep.name} (Today's load: ${assignedTodayCount[chosenRep.name]}/${chosenRep.dailyLeadCapacity || 30})`,
+            title: `Assigned to ${chosenRep.name}`,
+            description: `Program access routing: ${isPm ? 'AI Native PM' : 'AI Native Builder (Webinar)'} assigned to ${chosenRep.name}`,
             performed_by_name: performer
           });
           return updated;

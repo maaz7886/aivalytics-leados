@@ -81,10 +81,17 @@ export default function SignIn() {
 
     // 2. Check registered sales reps (must provide valid rep password)
     const repMatch = salespeople.find(
-      (s) =>
-        s.email.toLowerCase() === cleanEmail ||
-        s.email.toLowerCase().split('@')[0] === cleanEmail ||
-        s.name.toLowerCase() === cleanEmail
+      (s) => {
+        const sEmail = s.email.toLowerCase();
+        const sName = s.name.toLowerCase();
+        const sPrefix = sEmail.split('@')[0];
+        if (cleanEmail === sEmail || cleanEmail === sPrefix || cleanEmail === sName) return true;
+        // Aliases for Khurram / Qurrat
+        if ((sName.includes('khurram') || sName.includes('qurrat')) && (cleanEmail === 'khurram' || cleanEmail === 'qurrat' || cleanEmail === 'khurram@aivalytics.io' || cleanEmail === 'qurrat@aivalytics.io')) return true;
+        // Aliases for Yameen / Yamin
+        if ((sName.includes('yameen') || sName.includes('yamin')) && (cleanEmail === 'yamin' || cleanEmail === 'yameen' || cleanEmail === 'yamin@aivalytics.io' || cleanEmail === 'yameen@aivalytics.io')) return true;
+        return false;
+      }
     );
 
     if (repMatch) {
@@ -92,6 +99,14 @@ export default function SignIn() {
       const validRepPasswords = [
         `${repKey}@123`,
         `${repKey}123`,
+        'khurram@123',
+        'khurram123',
+        'qurrat@123',
+        'qurrat123',
+        'yamin@123',
+        'yamin123',
+        'yameen@123',
+        'yameen123',
         'sales@123',
         'sales123'
       ];

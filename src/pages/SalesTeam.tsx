@@ -15,6 +15,7 @@ import {
   Shuffle,
   Search,
   Edit2,
+  ShieldCheck,
   X
 } from 'lucide-react';
 
@@ -60,10 +61,32 @@ export default function SalesTeam() {
   const [repDailyTarget, setRepDailyTarget] = useState(30);
   const [repCapacity, setRepCapacity] = useState(35);
   const [repStatus, setRepStatus] = useState<'Active' | 'Inactive'>('Active');
+  const [repAllowedPrograms, setRepAllowedPrograms] = useState<string[]>(['ai-builder']);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleToggleProgramAccess = (rep: Salesperson, programKey: string) => {
+    const current = rep.allowedPrograms || (rep.name === 'Yameen' ? ['ai-pm'] : ['ai-builder']);
+    const hasAccess = current.includes(programKey);
+    const updated = hasAccess
+      ? current.filter((p) => p !== programKey)
+      : [...current, programKey];
+
+    if (updated.length === 0) {
+      showToast(`${rep.name} must have access to at least one program ecosystem.`);
+      return;
+    }
+
+    updateSalesperson(rep.id, { allowedPrograms: updated });
+    const progLabel = programKey === 'ai-pm' ? 'AI Native PM' : 'AI Native Builder (Webinar)';
+    showToast(
+      !hasAccess
+        ? `Granted ${progLabel} ecosystem access to ${rep.name}.`
+        : `Revoked ${progLabel} access from ${rep.name}.`
+    );
   };
 
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -84,6 +107,7 @@ export default function SalesTeam() {
     setRepDailyTarget(30);
     setRepCapacity(35);
     setRepStatus('Active');
+    setRepAllowedPrograms(['ai-builder']);
     setEditingRep(null);
     setIsAddModalOpen(true);
   };
@@ -97,6 +121,7 @@ export default function SalesTeam() {
     setRepDailyTarget(rep.dailyCallTarget || 30);
     setRepCapacity(rep.dailyLeadCapacity || 35);
     setRepStatus(rep.status || 'Active');
+    setRepAllowedPrograms(rep.allowedPrograms || (rep.name === 'Yameen' ? ['ai-pm'] : ['ai-builder']));
     setIsAddModalOpen(true);
   };
 
@@ -112,7 +137,8 @@ export default function SalesTeam() {
         title: repTitle,
         dailyCallTarget: Number(repDailyTarget),
         dailyLeadCapacity: Number(repCapacity),
-        status: repStatus
+        status: repStatus,
+        allowedPrograms: repAllowedPrograms
       });
       showToast(`Updated details for ${repName}`);
     } else {
@@ -126,7 +152,8 @@ export default function SalesTeam() {
         status: repStatus,
         role: 'Salesperson',
         joinedDate: todayStr,
-        avatarColor: 'bg-[#3B4BDB]'
+        avatarColor: 'bg-[#3B4BDB]',
+        allowedPrograms: repAllowedPrograms
       });
       showToast(`Added ${repName} to sales team roster`);
     }
@@ -311,6 +338,14 @@ export default function SalesTeam() {
       {/* TAB 1: TEAM ROSTER */}
       {activeTab === 'roster' && (
         <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-4">
+          {/* Admin Program Ecosystem Access Banner */}
+          <div className="p-3 bg-[#EEF0FD] border border-[#C7D0FA] rounded-md flex items-start gap-2.5 text-xs text-[#1F1F1D]">
+            <ShieldCheck className="w-4 h-4 text-[#3B4BDB] shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <strong className="text-[#3B4BDB]">Admin Program Ecosystem Access:</strong> Currently, only <strong>Yamin</strong> and <strong>Admin Maaz</strong> have access to <strong>AI Native PM</strong> leads, while <strong>Hari</strong>, <strong>Jay</strong>, and <strong>Khurram</strong> handle <strong>AI Native Builder (Free Webinar)</strong> leads. Click either badge in the <em>Program Access</em> column below to instantly grant or revoke access to either ecosystem for any salesperson.
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative w-full sm:w-64">
               <Search className="w-3.5 h-3.5 text-[#6B6B66] absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -333,6 +368,7 @@ export default function SalesTeam() {
               <thead>
                 <tr className="bg-[#F7F7F5] text-[#6B6B66] font-medium text-[12px] border-b border-[#E6E6E3]">
                   <th className="py-2.5 px-3">Salesperson</th>
+                  <th className="py-2.5 px-3">Program Access</th>
                   <th className="py-2.5 px-3">Phone & Email</th>
                   <th className="py-2.5 px-3">Daily Target</th>
                   <th className="py-2.5 px-3">Today's Dials</th>
@@ -349,6 +385,7 @@ export default function SalesTeam() {
                   ).length;
                   const target = rep.dailyCallTarget || 30;
                   const progressPct = Math.min(100, Math.round((repCallsToday / target) * 100));
+                  const repPrograms = rep.allowedPrograms || (rep.name === 'Yameen' ? ['ai-pm'] : ['ai-builder']);
 
                   return (
                     <tr key={rep.id} className="hover:bg-[#F3F4F6] transition-colors h-11">
@@ -364,6 +401,48 @@ export default function SalesTeam() {
                             <div className="font-medium text-[#1F1F1D]">{rep.name}</div>
                             <div className="text-[11px] text-[#6B6B66]">{rep.title}</div>
                           </div>
+                        </div>
+                      </td>
+
+                      <td className="py-2 px-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* AI Native PM Pill */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleProgramAccess(rep, 'ai-pm')}
+                            title="Click to toggle AI Native PM access for this rep"
+                            className={`px-2 py-0.5 rounded-[4px] text-[11px] font-medium border transition-all cursor-pointer flex items-center gap-1.5 ${
+                              repPrograms.includes('ai-pm')
+                                ? 'bg-[#EEF0FD] border-[#C7D0FA] text-[#3B4BDB] hover:bg-[#dfe4fb]'
+                                : 'bg-[#F7F7F5] border-[#E6E6E3] text-[#9CA3AF] hover:bg-[#E6E6E3] hover:text-[#1F1F1D]'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                repPrograms.includes('ai-pm') ? 'bg-[#3B4BDB]' : 'bg-[#D1D5DB]'
+                              }`}
+                            />
+                            <span>AI Native PM</span>
+                          </button>
+
+                          {/* AI Native Builder Pill */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleProgramAccess(rep, 'ai-builder')}
+                            title="Click to toggle AI Native Builder / Webinar access for this rep"
+                            className={`px-2 py-0.5 rounded-[4px] text-[11px] font-medium border transition-all cursor-pointer flex items-center gap-1.5 ${
+                              repPrograms.includes('ai-builder')
+                                ? 'bg-[#DDF4E4] border-[#C3ECD0] text-[#17673A] hover:bg-[#c9e8d3]'
+                                : 'bg-[#F7F7F5] border-[#E6E6E3] text-[#9CA3AF] hover:bg-[#E6E6E3] hover:text-[#1F1F1D]'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                repPrograms.includes('ai-builder') ? 'bg-[#17673A]' : 'bg-[#D1D5DB]'
+                              }`}
+                            />
+                            <span>AI Builder (Webinar)</span>
+                          </button>
                         </div>
                       </td>
 
@@ -747,6 +826,44 @@ export default function SalesTeam() {
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-medium text-[#1F1F1D] block mb-1 text-[12px]">
+                  Program Ecosystem Access (Admin Controlled)
+                </label>
+                <div className="p-3 bg-[#F7F7F5] border border-[#E6E6E3] rounded-md space-y-2">
+                  <label className="flex items-center gap-2 text-[12px] text-[#1F1F1D] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={repAllowedPrograms.includes('ai-pm')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setRepAllowedPrograms([...repAllowedPrograms, 'ai-pm']);
+                        } else {
+                          setRepAllowedPrograms(repAllowedPrograms.filter((p) => p !== 'ai-pm'));
+                        }
+                      }}
+                      className="rounded text-[#3B4BDB] focus:ring-[#3B4BDB]"
+                    />
+                    <span><strong>AI Native PM</strong> (AI-Native Project Management)</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-[12px] text-[#1F1F1D] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={repAllowedPrograms.includes('ai-builder')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setRepAllowedPrograms([...repAllowedPrograms, 'ai-builder']);
+                        } else {
+                          setRepAllowedPrograms(repAllowedPrograms.filter((p) => p !== 'ai-builder'));
+                        }
+                      }}
+                      className="rounded text-[#3B4BDB] focus:ring-[#3B4BDB]"
+                    />
+                    <span><strong>AI Native Builder</strong> (Free Webinar & 3-Day Workshop)</span>
+                  </label>
                 </div>
               </div>
             </div>

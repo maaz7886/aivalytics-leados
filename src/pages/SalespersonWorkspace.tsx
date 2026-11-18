@@ -1,7 +1,7 @@
 // src/pages/SalespersonWorkspace.tsx
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useApp, isAiPmProgram } from '../context/AppContext';
 import type { Lead, ActivityOutcome, Stage } from '../types';
 import { SidePanel } from '../components/ui/SidePanel';
 import { LeadPanel } from '../components/LeadPanel';
@@ -90,8 +90,15 @@ export default function SalespersonWorkspace() {
   const todayStr = new Date().toISOString().substring(0, 10);
 
   const leadsPool = allLeads && allLeads.length > 0 ? allLeads : leads;
-  // Rep-scoped leads
-  const repLeads = leadsPool.filter((l) => l.assignedSalesperson === rep.name);
+  // Rep-scoped leads filtered by program ecosystem authorization
+  const repPrograms = rep.allowedPrograms || (rep.name === 'Yameen' ? ['ai-pm'] : ['ai-builder']);
+  const repLeads = leadsPool.filter((l) => {
+    if (l.assignedSalesperson !== rep.name) return false;
+    const isPm = isAiPmProgram(l.programId, l.programName);
+    if (isPm && !repPrograms.includes('ai-pm')) return false;
+    if (!isPm && !repPrograms.includes('ai-builder')) return false;
+    return true;
+  });
 
   // Calls logged by this rep
   const repCallActivities = callActivities.filter((c) => c.salesperson === rep.name);
@@ -459,7 +466,7 @@ export default function SalespersonWorkspace() {
       {/* Top Header Row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-[20px] font-semibold text-[#1F1F1D] tracking-tight">
               My Day
             </h1>
@@ -469,6 +476,16 @@ export default function SalespersonWorkspace() {
             <span className="text-[12px] text-[#6B6B66]">
               {rep.title || 'Admissions Specialist'}
             </span>
+            {repPrograms.includes('ai-pm') && (
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-[4px] bg-[#EEF0FD] text-[#3B4BDB] border border-[#C7D0FA]">
+                AI Native PM
+              </span>
+            )}
+            {repPrograms.includes('ai-builder') && (
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-[4px] bg-[#DDF4E4] text-[#17673A] border border-[#C3ECD0]">
+                AI Builder (Webinar)
+              </span>
+            )}
           </div>
           <p className="text-[13px] text-[#6B6B66] mt-0.5">
             Daily calling queue, priority follow-ups, and student admissions outreach.

@@ -386,11 +386,20 @@ export function ingestLeadRows(
       // ==========================================
       const newLeadId = `lead-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-      // Assignment
+      // Assignment (Program-aware routing)
       let assignedOwner = 'Unassigned';
+      const isPmLead =
+        (programId && programId.toLowerCase().includes('pm')) ||
+        (programName && programName.toLowerCase().includes('pm'));
+
       if (options.assignedOwner === 'round-robin') {
-        if (activeReps.length > 0) {
-          assignedOwner = activeReps[roundRobinIdx % activeReps.length].name;
+        const eligibleReps = activeReps.filter((r) => {
+          const allowed = r.allowedPrograms || (r.name === 'Yameen' ? ['ai-pm'] : ['ai-builder']);
+          return isPmLead ? allowed.includes('ai-pm') : allowed.includes('ai-builder');
+        });
+        const pool = eligibleReps.length > 0 ? eligibleReps : activeReps;
+        if (pool.length > 0) {
+          assignedOwner = pool[roundRobinIdx % pool.length].name;
           roundRobinIdx++;
         }
       } else if (options.assignedOwner && options.assignedOwner !== 'unassigned') {

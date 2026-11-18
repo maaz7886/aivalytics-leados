@@ -306,7 +306,7 @@ function setupLeadOSSync() {
               </h2>
             </div>
             <p className="text-[12px] text-[#6B6B66] mt-0.5">
-              Connects all salespeople (Yameen, Hari, Qurrat, Jay) and Admin (Maaz) into one shared database. Every lead action, stage change, or call note broadcasts instantly to all connected screens.
+              Connects all salespeople (Yameen, Hari, Khurram, Jay) and Admin (Maaz) into one shared database. Every lead action, stage change, or call note broadcasts instantly to all connected screens.
             </p>
           </div>
 
@@ -343,7 +343,7 @@ function setupLeadOSSync() {
                 PostgreSQL Cloud Database is LIVE & Connected ({dbHealth.latencyMs}ms latency)
               </p>
               <p className="mt-0.5 text-[11px] text-[#17673A]/90">
-                Real-time WebSocket replication is active on table <code className="bg-[#c8e6d2] px-1 py-0.5 rounded">leads</code>. Any change made by Yameen, Hari, Qurrat, or Jay automatically syncs to your Admin dashboard without refreshing.
+                Real-time WebSocket replication is active on table <code className="bg-[#c8e6d2] px-1 py-0.5 rounded">leads</code>. Any change made by Yameen, Hari, Khurram, or Jay automatically syncs to your Admin dashboard without refreshing.
               </p>
             </div>
           </div>
