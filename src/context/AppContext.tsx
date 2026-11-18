@@ -138,7 +138,13 @@ export function normalizeLeadArchitecture(lead: Lead): Lead {
   const leadStage: LeadLifecycleStage = lead.leadStage || mapped.leadStage;
   const paymentState: PaymentState = lead.paymentState || mapped.paymentState;
   const lastActivityOutcome: ActivityOutcome = lead.lastActivityOutcome || mapped.activityOutcome || 'No answer';
-  const assigned = migrateRepName(lead.assignedSalesperson || 'Yameen');
+  let assigned = migrateRepName(lead.assignedSalesperson || 'Yameen');
+
+  // Strict Program Access Rule: AI Native PM leads only route to authorized reps (Yameen / Maaz)
+  const isPm = isAiPmProgram(lead.programId, lead.programName);
+  if (isPm && ['Hari', 'Jay', 'Khurram', 'Qurrat'].includes(assigned)) {
+    assigned = 'Yameen';
+  }
 
   // Ensure next task exists for active leads
   let nextTask = lead.nextTask;
@@ -408,8 +414,8 @@ const initialLeads: Lead[] = [
     metaAd: 'Ad_02_AI_Outbound_Agents',
     campaignId: 'cmp_992102199',
     dateCaptured: '2026-09-12 18:10',
-    programId: 'ai-builder',
-    programName: 'AI-Native Builder (Free Webinar)',
+    programId: 'ai-pm',
+    programName: 'AI-Native Project Management',
     professionalStatus: 'Working Professional',
     currentRole: 'Growth Marketing Lead',
     currentCompany: 'GTM Scale Studio',
@@ -422,9 +428,9 @@ const initialLeads: Lead[] = [
     desiredRole: 'Head of AI Growth & GTM',
     expectedTimeline: '1–3 months',
     mainChallenge: 'CAC is skyrocketing. Traditional outbound and content strategies are yielding diminishing returns.',
-    whyNow: 'Wants to deploy autonomous AI agents for research, copywriting, and outbound lead enrichment after attending free webinar.',
+    whyNow: 'Wants to deploy autonomous AI agents for research, copywriting, and outbound lead enrichment.',
     expectedOutcome: 'Build an end-to-end automated GTM engine using AI agents and n8n workflows.',
-    comments: 'Attended AI Native Builder free webinar. Very enthusiastic during initial inquiry.',
+    comments: 'Inquiry for AI-Native Project & Workflow Management.',
     investment: '',
     education: '',
     priority: 'P2',
@@ -434,7 +440,7 @@ const initialLeads: Lead[] = [
     preferredContactTime: '',
     paymentLink: '',
     aiRecommendation: '',
-    assignedSalesperson: 'Hari',
+    assignedSalesperson: 'Yameen',
     crmStage: 'Did Not Receive Call',
     leadTemperature: 'Warm',
     lastContacted: '2026-09-12 18:30',
@@ -513,8 +519,8 @@ const initialLeads: Lead[] = [
     metaAd: 'Ad_01_AI_Transformation_Leader',
     campaignId: 'cmp_771239102',
     dateCaptured: '2026-09-11 09:15',
-    programId: 'ai-fellowship',
-    programName: 'AI Fellowship',
+    programId: 'ai-pm',
+    programName: 'AI-Native Project Management',
     professionalStatus: 'Founder',
     currentRole: 'Managing Director',
     currentCompany: 'Mehta Consulting Group',
@@ -531,15 +537,15 @@ const initialLeads: Lead[] = [
     expectedOutcome: 'Master enterprise AI architecture, governance, and custom agent deployment.',
     comments: 'High net worth lead. Extremely interested in peer executive network.',
     investment: '',
-        education: '',
-        priority: 'P2',
-        qualificationStatus: '',
-        objection: '',
-        preferredBatch: '',
-        preferredContactTime: '',
-        paymentLink: '',
-        aiRecommendation: '',
-    assignedSalesperson: 'Qurrat',
+    education: '',
+    priority: 'P2',
+    qualificationStatus: '',
+    objection: '',
+    preferredBatch: '',
+    preferredContactTime: '',
+    paymentLink: '',
+    aiRecommendation: '',
+    assignedSalesperson: 'Yameen',
     crmStage: 'Payment Pending',
     leadTemperature: 'Hot',
     lastContacted: '2026-09-13 09:30',
@@ -1384,7 +1390,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               p.name === 'David Kim' ||
               p.id === 'rep-alex-rivera'
           );
-          if (!hasOld) return parsed;
+          if (!hasOld) {
+            return parsed.map((p: any) => {
+              if (p.allowedPrograms && Array.isArray(p.allowedPrograms) && p.allowedPrograms.length > 0) {
+                return p;
+              }
+              const defaultAllowed = p.name === 'Yameen' ? ['ai-pm'] : ['ai-builder'];
+              return { ...p, allowedPrograms: defaultAllowed };
+            });
+          }
         }
       } catch (e) {
         console.error('Error loading saved salespeople:', e);
@@ -1425,23 +1439,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [salespersonFilter, setSalespersonFilter] = useState<string>('All');
 
+  // Compute authorized leads pool based on program ecosystem permissions:
+  // Admin Maaz has full access. Yameen has AI Native PM access.
+  // Hari, Jay, and Khurram have AI Native Builder access (until Admin grants PM access).
+  const authorizedAllLeads = React.useMemo(() => {
+    let repToCheck: Salesperson | undefined;
+    if (currentUser?.role === 'Salesperson') {
+      repToCheck = salespeople.find((s) => s.id === currentUser.id || s.name === currentUser.name) || currentUser;
+    } else if (currentUser?.role === 'Admin' && adminWitnessRep) {
+      repToCheck = salespeople.find((s) => s.name === adminWitnessRep);
+    }
+
+    // If Admin in general view (not witnessing a specific rep), admin has complete visibility over all programs
+    if (!repToCheck) {
+      return masterLeads;
+    }
+
+    const allowed = repToCheck.allowedPrograms && repToCheck.allowedPrograms.length > 0
+      ? repToCheck.allowedPrograms
+      : (repToCheck.name === 'Yameen' ? ['ai-pm'] : ['ai-builder']);
+    const hasAiPm = allowed.includes('ai-pm');
+    const hasAiBuilder = allowed.includes('ai-builder');
+
+    return masterLeads.filter((l) => {
+      const isPm = isAiPmProgram(l.programId, l.programName);
+      if (isPm) {
+        return hasAiPm;
+      }
+      const isBuilder = isAiBuilderWebinarProgram(l.programId, l.programName);
+      if (isBuilder) {
+        return hasAiBuilder;
+      }
+      return hasAiBuilder;
+    });
+  }, [masterLeads, currentUser, adminWitnessRep, salespeople]);
+
   // Dynamically compute scoped leads based on logged-in salesperson or admin witness mode
   const leads = React.useMemo(() => {
-    // 1. If logged in as Salesperson, strictly isolate to their assigned leads
+    // 1. If logged in as Salesperson, strictly isolate to their assigned leads from authorized pool
     if (currentUser?.role === 'Salesperson') {
-      return masterLeads.filter((l) => l.assignedSalesperson === currentUser.name);
+      return authorizedAllLeads.filter((l) => l.assignedSalesperson === currentUser.name);
     }
     // 2. If logged in as Admin and in Witness Mode for a rep
     if (currentUser?.role === 'Admin' && adminWitnessRep) {
-      return masterLeads.filter((l) => l.assignedSalesperson === adminWitnessRep);
+      return authorizedAllLeads.filter((l) => l.assignedSalesperson === adminWitnessRep);
     }
     // 3. If Admin selected a rep filter in team/kanban
     if (salespersonFilter && salespersonFilter !== 'All') {
-      return masterLeads.filter((l) => l.assignedSalesperson === salespersonFilter);
+      return authorizedAllLeads.filter((l) => l.assignedSalesperson === salespersonFilter);
     }
-    // 4. Default: all master leads
-    return masterLeads;
-  }, [masterLeads, currentUser, adminWitnessRep, salespersonFilter]);
+    // 4. Default: all authorized leads (all leads for admin)
+    return authorizedAllLeads;
+  }, [authorizedAllLeads, currentUser, adminWitnessRep, salespersonFilter]);
 
   // Keep selectedLeadId pointing to an available lead in current scope
   useEffect(() => {
@@ -2943,7 +2992,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         leads,
-        allLeads: masterLeads,
+        allLeads: authorizedAllLeads,
         adminWitnessRep,
         setAdminWitnessRep,
         selectedLeadId,

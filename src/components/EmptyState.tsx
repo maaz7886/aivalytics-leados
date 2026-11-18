@@ -21,20 +21,21 @@ export const EmptyState: React.FC<Props> = ({
   className = ''
 }) => {
   return (
-    <div className={`p-8 text-center flex flex-col items-center justify-center rounded-2xl bg-gray-50/60 dark:bg-gray-800/40 border border-dashed border-gray-200 dark:border-gray-700 ${className}`}>
-      <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-[#133926] dark:text-emerald-400 flex items-center justify-center mb-3 shadow-2xs">
-        <Icon className="w-6 h-6" />
+    <div className={`py-6 px-4 text-center flex flex-col items-center justify-center rounded-[8px] bg-[#FAFAF9] border border-[#E6E6E3] ${className}`}>
+      <div className="w-8 h-8 rounded-full bg-[#DDF4E4] border border-[#C3ECD0] text-[#17673A] flex items-center justify-center mb-2 shadow-xs">
+        <Icon className="w-4 h-4 text-[#17673A]" />
       </div>
-      <h3 className="text-sm font-black text-gray-900 dark:text-gray-100 tracking-tight">
+      <h3 className="text-[13px] font-semibold text-[#1F1F1D] tracking-tight">
         {title}
       </h3>
-      <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mt-1 leading-relaxed">
+      <p className="text-[12px] text-[#6B6B66] max-w-md mt-0.5 leading-relaxed">
         {description}
       </p>
       {actionText && onAction && (
         <button
+          type="button"
           onClick={onAction}
-          className="mt-4 px-4 py-2 bg-[#133926] hover:bg-[#1a4a33] text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+          className="mt-3 px-3 py-1.5 bg-[#3B4BDB] hover:bg-[#2F3CB8] text-white rounded-[6px] text-xs font-medium shadow-xs transition-colors cursor-pointer"
         >
           {actionText}
         </button>
