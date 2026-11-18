@@ -25,7 +25,9 @@ import {
   MessageSquare,
   Search,
   Kanban,
-  Zap
+  Zap,
+  Flame,
+  CreditCard
 } from 'lucide-react';
 
 export default function SalespersonWorkspace() {
@@ -95,8 +97,8 @@ export default function SalespersonWorkspace() {
   const repCallActivities = callActivities.filter((c) => c.salesperson === rep.name);
   const repTodayCalls = repCallActivities.filter((c) => c.timestamp.startsWith(todayStr));
 
-  // --- 4 ACTION QUEUES ---
-  // 1. Overdue Follow-ups (SLA breach risk)
+  // --- 5 ACTION QUEUES (Exact Playbook Structure) ---
+  // 1. Overdue Follow-ups (SLA breach risk · Clear first thing in the morning)
   const overdueQueue = repLeads.filter((l) => {
     if (
       l.crmStage === 'Not Interested' ||
@@ -113,8 +115,8 @@ export default function SalespersonWorkspace() {
     return Boolean(taskOverdue || followUpOverdue);
   });
 
-  // 2. Today's Scheduled Calls
-  const todayScheduledQueue = repLeads.filter((l) => {
+  // 2. Hot Leads (High-priority leads with strong fit scores & purchase intent)
+  const hotLeadsQueue = repLeads.filter((l) => {
     if (
       l.crmStage === 'Not Interested' ||
       l.crmStage === 'Unqualified' ||
@@ -123,6 +125,41 @@ export default function SalespersonWorkspace() {
     )
       return false;
     if (overdueQueue.some((o) => o.id === l.id)) return false;
+    const isHot = l.leadTemperature === 'Hot';
+    const isHighFit = (l.fitScore || 0) >= 80;
+    const isHighIntent = (l.intentScore || 0) >= 80;
+    return Boolean(isHot || isHighFit || isHighIntent);
+  });
+
+  // 3. New Leads (Fresh inbound form submissions · Contact as soon as they arrive)
+  const newLeadsQueue = repLeads.filter((l) => {
+    if (
+      l.crmStage === 'Not Interested' ||
+      l.crmStage === 'Unqualified' ||
+      l.crmStage === 'Converted' ||
+      l.leadStage === 'Closed Lost'
+    )
+      return false;
+    if (overdueQueue.some((o) => o.id === l.id)) return false;
+    if (hotLeadsQueue.some((o) => o.id === l.id)) return false;
+    const calls = l.numberOfCalls || 0;
+    const isNew =
+      l.crmStage === 'New Lead' || l.leadStage === 'New' || l.lastContacted === 'Not Contacted';
+    return calls === 0 || isNew;
+  });
+
+  // 4. Today's Callbacks (Dial at candidate's requested time)
+  const todayCallbacksQueue = repLeads.filter((l) => {
+    if (
+      l.crmStage === 'Not Interested' ||
+      l.crmStage === 'Unqualified' ||
+      l.crmStage === 'Converted' ||
+      l.leadStage === 'Closed Lost'
+    )
+      return false;
+    if (overdueQueue.some((o) => o.id === l.id)) return false;
+    if (hotLeadsQueue.some((o) => o.id === l.id)) return false;
+    if (newLeadsQueue.some((o) => o.id === l.id)) return false;
     const isTodayTask =
       l.nextTask &&
       !l.nextTask.completionStatus?.toLowerCase().includes('complete') &&
@@ -131,8 +168,8 @@ export default function SalespersonWorkspace() {
     return Boolean(isTodayTask || isTodayFollowUp);
   });
 
-  // 3. Fresh Untouched Leads (<15m SLA)
-  const freshUntouchedQueue = repLeads.filter((l) => {
+  // 5. Payment Pending (Check on candidates with active payment links)
+  const paymentPendingQueue = repLeads.filter((l) => {
     if (
       l.crmStage === 'Not Interested' ||
       l.crmStage === 'Unqualified' ||
@@ -141,15 +178,19 @@ export default function SalespersonWorkspace() {
     )
       return false;
     if (overdueQueue.some((o) => o.id === l.id)) return false;
-    if (todayScheduledQueue.some((o) => o.id === l.id)) return false;
-    const calls = l.numberOfCalls || 0;
-    const isNew =
-      l.crmStage === 'New Lead' || l.leadStage === 'New' || l.lastContacted === 'Not Contacted';
-    return calls === 0 || isNew;
+    if (hotLeadsQueue.some((o) => o.id === l.id)) return false;
+    if (newLeadsQueue.some((o) => o.id === l.id)) return false;
+    if (todayCallbacksQueue.some((o) => o.id === l.id)) return false;
+    return (
+      l.crmStage === 'Payment Pending' ||
+      l.paymentState === 'Payment link sent' ||
+      (l.paymentStatus && l.paymentStatus.toLowerCase().includes('pending')) ||
+      (l.paymentLink && l.paymentStatus !== 'Paid')
+    );
   });
 
-  // 4. Active Pipeline / High-Intent Nurture
-  const activePipelineQueue = repLeads.filter((l) => {
+  // Remaining active pipeline leads (Nurture)
+  const otherActiveQueue = repLeads.filter((l) => {
     if (
       l.crmStage === 'Not Interested' ||
       l.crmStage === 'Unqualified' ||
@@ -158,23 +199,20 @@ export default function SalespersonWorkspace() {
     )
       return false;
     if (overdueQueue.some((o) => o.id === l.id)) return false;
-    if (todayScheduledQueue.some((o) => o.id === l.id)) return false;
-    if (freshUntouchedQueue.some((o) => o.id === l.id)) return false;
-    return (
-      l.leadTemperature === 'Hot' ||
-      l.crmStage === 'Interested' ||
-      l.crmStage === 'Qualified' ||
-      l.crmStage === 'Payment Pending' ||
-      l.crmStage === 'Details Sent on WhatsApp' ||
-      (l.paymentState && l.paymentState !== 'No payment request')
-    );
+    if (hotLeadsQueue.some((o) => o.id === l.id)) return false;
+    if (newLeadsQueue.some((o) => o.id === l.id)) return false;
+    if (todayCallbacksQueue.some((o) => o.id === l.id)) return false;
+    if (paymentPendingQueue.some((o) => o.id === l.id)) return false;
+    return true;
   });
 
   const fullPriorityQueue = [
     ...overdueQueue,
-    ...todayScheduledQueue,
-    ...freshUntouchedQueue,
-    ...activePipelineQueue
+    ...hotLeadsQueue,
+    ...newLeadsQueue,
+    ...todayCallbacksQueue,
+    ...paymentPendingQueue,
+    ...otherActiveQueue
   ];
 
   // Daily target metrics
@@ -275,7 +313,7 @@ export default function SalespersonWorkspace() {
   // Helper for rendering a single lead card inside the priority queues
   const renderQueueItem = (
     lead: Lead,
-    urgencyType: 'overdue' | 'today' | 'fresh' | 'active',
+    urgencyType: 'overdue' | 'today' | 'fresh' | 'active' | 'hot' | 'payment',
     urgencyText: string
   ) => {
     const cleanPhone = (lead.phone || '').replace(/\D/g, '');
@@ -320,16 +358,22 @@ export default function SalespersonWorkspace() {
               className={`text-[11px] font-medium px-2 py-0.5 rounded-md inline-flex items-center gap-1 ${
                 urgencyType === 'overdue'
                   ? 'bg-[#FDF2F2] text-[#B42318] border border-[#FECDCA]'
-                  : urgencyType === 'today'
-                  ? 'bg-[#FFF0D6] text-[#8A4B00] border border-[#FFE0A3]'
+                  : urgencyType === 'hot'
+                  ? 'bg-[#FEF3F2] text-[#B42318] border border-[#FDA29B]'
                   : urgencyType === 'fresh'
                   ? 'bg-[#E3EBFF] text-[#1E3FA8] border border-[#BFD5FF]'
+                  : urgencyType === 'today'
+                  ? 'bg-[#FFF0D6] text-[#8A4B00] border border-[#FFE0A3]'
+                  : urgencyType === 'payment'
+                  ? 'bg-[#DDF4E4] text-[#17673A] border border-[#C3ECD0]'
                   : 'bg-[#F7F7F5] text-[#1F1F1D] border border-[#E6E6E3]'
               }`}
             >
               {urgencyType === 'overdue' && <AlertCircle className="w-3 h-3" />}
+              {urgencyType === 'hot' && <Flame className="w-3 h-3 text-[#B42318]" />}
+              {urgencyType === 'fresh' && <Zap className="w-3 h-3 text-[#3B4BDB]" />}
               {urgencyType === 'today' && <Clock className="w-3 h-3" />}
-              {urgencyType === 'fresh' && <Zap className="w-3 h-3" />}
+              {urgencyType === 'payment' && <CreditCard className="w-3 h-3 text-[#17673A]" />}
               {urgencyText}
             </span>
           </div>
@@ -625,7 +669,7 @@ export default function SalespersonWorkspace() {
         </button>
       </div>
 
-      {/* TAB 1: 4 ACTION QUEUES */}
+      {/* TAB 1: 5 ACTION QUEUES (Exact Playbook Structure) */}
       {activeTab === 'queue' && (
         <div className="space-y-6">
           {/* Queue 1: Overdue Follow-ups */}
@@ -638,15 +682,15 @@ export default function SalespersonWorkspace() {
                 </h3>
               </div>
               <span className="text-[11px] font-medium text-[#B42318] bg-[#FDF2F2] border border-[#FECDCA] px-2 py-0.5 rounded-md">
-                SLA Breach Risk · Immediate Action
+                SLA Breach Risk · Clear First Thing in the Morning
               </span>
             </div>
 
             {overdueQueue.length === 0 ? (
               <EmptyState
                 icon={CheckCircle2}
-                title="No calls due right now. Great job!"
-                description="You are fully caught up on all scheduled callbacks and next actions."
+                title="No overdue callbacks. Great job!"
+                description="You are fully caught up on all scheduled callbacks and past-due tasks."
                 className="py-6"
               />
             ) : (
@@ -658,95 +702,147 @@ export default function SalespersonWorkspace() {
             )}
           </div>
 
-          {/* Queue 2: Today's Scheduled Calls */}
+          {/* Queue 2: Hot Leads */}
+          <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Flame className="w-4 h-4 text-[#B42318]" />
+                <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
+                  2. Hot Leads ({hotLeadsQueue.length})
+                </h3>
+              </div>
+              <span className="text-[11px] font-medium text-[#B42318] bg-[#FEF3F2] border border-[#FDA29B] px-2 py-0.5 rounded-md">
+                High Priority · Strong Fit Score (≥80)
+              </span>
+            </div>
+
+            {hotLeadsQueue.length === 0 ? (
+              <EmptyState
+                icon={CheckCircle2}
+                title="No hot leads pending in queue"
+                description="High-intent and high-fit candidates are currently engaged."
+                className="py-6"
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {hotLeadsQueue.map((lead) =>
+                  renderQueueItem(lead, 'hot', 'Hot Lead')
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Queue 3: New Leads */}
+          <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-[#3B4BDB]" />
+                <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
+                  3. New Leads ({newLeadsQueue.length})
+                </h3>
+              </div>
+              <span className="text-[11px] font-medium text-[#1E3FA8] bg-[#E3EBFF] border border-[#BFD5FF] px-2 py-0.5 rounded-md">
+                Fresh Inbound Submissions · Contact Immediately (&lt;15m SLA)
+              </span>
+            </div>
+
+            {newLeadsQueue.length === 0 ? (
+              <EmptyState
+                icon={CheckCircle2}
+                title="All fresh leads contacted!"
+                description="Every incoming lead assigned to you has been contacted promptly."
+                className="py-6"
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {newLeadsQueue.map((lead) =>
+                  renderQueueItem(lead, 'fresh', 'New Form Fill')
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Queue 4: Today's Callbacks */}
           <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[#DC8A00]" />
                 <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
-                  2. Today's Scheduled Calls ({todayScheduledQueue.length})
+                  4. Today's Callbacks ({todayCallbacksQueue.length})
                 </h3>
               </div>
               <span className="text-[11px] font-medium text-[#8A4B00] bg-[#FFF0D6] border border-[#FFE0A3] px-2 py-0.5 rounded-md tabular-nums font-mono">
-                Due Today ({todayStr})
+                Dial at Candidate's Requested Time · Due Today ({todayStr})
               </span>
             </div>
 
-            {todayScheduledQueue.length === 0 ? (
+            {todayCallbacksQueue.length === 0 ? (
               <EmptyState
                 icon={Calendar}
                 title="No scheduled callbacks remaining for today"
-                description="Your calendar for today is clear. Review incoming leads or nurture active pipeline."
+                description="Your calendar for today is clear. Check incoming leads or nurture active pipeline."
                 className="py-6"
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {todayScheduledQueue.map((lead) =>
+                {todayCallbacksQueue.map((lead) =>
                   renderQueueItem(lead, 'today', 'Due Today')
                 )}
               </div>
             )}
           </div>
 
-          {/* Queue 3: Fresh Untouched Leads */}
+          {/* Queue 5: Payment Pending */}
           <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-[#3B4BDB]" />
+                <CreditCard className="w-4 h-4 text-[#17673A]" />
                 <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
-                  3. Fresh Untouched Leads ({freshUntouchedQueue.length})
-                </h3>
-              </div>
-              <span className="text-[11px] font-medium text-[#1E3FA8] bg-[#E3EBFF] border border-[#BFD5FF] px-2 py-0.5 rounded-md">
-                Fast Response SLA (&lt;15m)
-              </span>
-            </div>
-
-            {freshUntouchedQueue.length === 0 ? (
-              <EmptyState
-                icon={CheckCircle2}
-                title="All fresh leads engaged!"
-                description="Every incoming lead assigned to you has been contacted promptly."
-                className="py-6"
-              />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {freshUntouchedQueue.map((lead) =>
-                  renderQueueItem(lead, 'fresh', 'Fresh Ingestion')
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Queue 4: Active Pipeline / High-Intent Nurture */}
-          <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-3.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[#17673A]" />
-                <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
-                  4. Active Pipeline & High-Intent Nurture ({activePipelineQueue.length})
+                  5. Payment Pending ({paymentPendingQueue.length})
                 </h3>
               </div>
               <span className="text-[11px] font-medium text-[#17673A] bg-[#DDF4E4] border border-[#C3ECD0] px-2 py-0.5 rounded-md">
-                Hot Candidates & Deal Closing
+                Active Payment Links · Check Completion Status
               </span>
             </div>
 
-            {activePipelineQueue.length === 0 ? (
+            {paymentPendingQueue.length === 0 ? (
               <EmptyState
-                icon={TrendingUp}
-                title="No active pipeline follow-ups pending"
-                description="All warm prospects have scheduled next steps. Check incoming leads or upcoming webinars."
+                icon={CheckCircle2}
+                title="No pending payments"
+                description="No active payment links awaiting student completion."
                 className="py-6"
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {activePipelineQueue.map((lead) =>
-                  renderQueueItem(lead, 'active', 'High Intent')
+                {paymentPendingQueue.map((lead) =>
+                  renderQueueItem(lead, 'payment', 'Payment Pending')
                 )}
               </div>
             )}
           </div>
+
+          {/* Other Active Pipeline Nurture (if any) */}
+          {otherActiveQueue.length > 0 && (
+            <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-[#6B6B66]" />
+                  <h3 className="text-[14px] font-semibold text-[#1F1F1D]">
+                    6. Active Pipeline & Nurture ({otherActiveQueue.length})
+                  </h3>
+                </div>
+                <span className="text-[11px] font-medium text-[#6B6B66] bg-[#F7F7F5] border border-[#E6E6E3] px-2 py-0.5 rounded-md">
+                  Contacted Candidates · In-Discussion
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {otherActiveQueue.map((lead) =>
+                  renderQueueItem(lead, 'active', 'In Nurture')
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
