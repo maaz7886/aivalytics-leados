@@ -61,6 +61,20 @@ export const RepLeadUploadModal: React.FC<RepLeadUploadModalProps> = ({
   const [selectedProgramId, setSelectedProgramId] = useState<string>(defaultProgram);
   const [selectedStage, setSelectedStage] = useState<Stage>('New Lead');
 
+  // Keep selectedProgramId synchronized with the selected rep's allowed ecosystem
+  React.useEffect(() => {
+    if (targetRep) {
+      const allowed = targetRep.allowedPrograms && targetRep.allowedPrograms.length > 0
+        ? targetRep.allowedPrograms
+        : (targetRep.name === 'Yameen' ? ['ai-pm'] : ['ai-builder']);
+      if (allowed.includes('ai-builder') && !allowed.includes('ai-pm')) {
+        setSelectedProgramId('ai-builder');
+      } else {
+        setSelectedProgramId('ai-pm');
+      }
+    }
+  }, [targetRep]);
+
   if (!isOpen || !targetRep) return null;
 
   const normalizePhone = (raw: string): string => {
@@ -365,8 +379,15 @@ export const RepLeadUploadModal: React.FC<RepLeadUploadModalProps> = ({
                 onChange={(e) => setSelectedProgramId(e.target.value)}
                 className="w-full h-8 text-[12px] bg-white border border-[#E6E6E3] rounded-md px-2 font-medium text-[#1F1F1D] outline-none focus:border-[#3B4BDB]"
               >
-                <option value="ai-pm">AI-Native Project Management (₹49,999)</option>
-                <option value="ai-builder">3-Day AI Builder Workshop / Free Webinar (₹6,999)</option>
+                {repPrograms.includes('ai-pm') && (
+                  <option value="ai-pm">AI-Native Project Management (₹49,999)</option>
+                )}
+                {repPrograms.includes('ai-builder') && (
+                  <option value="ai-builder">3-Day AI Builder Workshop / Free Webinar (₹6,999)</option>
+                )}
+                {!repPrograms.includes('ai-pm') && !repPrograms.includes('ai-builder') && (
+                  <option value="ai-builder">3-Day AI Builder Workshop / Free Webinar (₹6,999)</option>
+                )}
               </select>
             </div>
 
