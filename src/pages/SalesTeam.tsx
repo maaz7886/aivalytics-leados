@@ -7,6 +7,7 @@ import { SidePanel } from '../components/ui/SidePanel';
 import { LeadPanel } from '../components/LeadPanel';
 import { StageChip } from '../components/ui/StageChip';
 import { Button } from '../components/ui/Button';
+import { RepLeadUploadModal } from '../components/RepLeadUploadModal';
 import { formatPhoneNumber } from '../utils/tableFormatters';
 import {
   Users,
@@ -16,6 +17,7 @@ import {
   Search,
   Edit2,
   ShieldCheck,
+  UploadCloud,
   X
 } from 'lucide-react';
 
@@ -47,6 +49,13 @@ export default function SalesTeam() {
   const [editingRep, setEditingRep] = useState<Salesperson | null>(null);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
+  const [uploadRep, setUploadRep] = useState<Salesperson | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
+  const handleOpenUploadModal = (rep: Salesperson) => {
+    setUploadRep(rep);
+    setIsUploadModalOpen(true);
+  };
 
   // Bulk Reassignment state
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
@@ -482,11 +491,23 @@ export default function SalesTeam() {
 
                       <td className="py-2 px-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Dedicated Upload Leads for this specific Salesperson */}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleOpenUploadModal(rep)}
+                            className="h-7 text-[12px] px-2.5 flex items-center gap-1.5 bg-[#EEF0FD] text-[#3B4BDB] border-[#C7D0FA] hover:bg-[#dfe4fb] font-semibold cursor-pointer"
+                            title={`Upload Excel or CSV leads directly for ${rep.name}`}
+                          >
+                            <UploadCloud className="w-3.5 h-3.5 text-[#3B4BDB]" />
+                            <span>Upload Leads</span>
+                          </Button>
+
                           <Button
                             variant="secondary"
                             size="sm"
                             onClick={() => navigate(`/workspace/${rep.id}`)}
-                            className="h-7 text-[12px] px-2.5"
+                            className="h-7 text-[12px] px-2.5 cursor-pointer"
                           >
                             Workspace
                           </Button>
@@ -494,7 +515,7 @@ export default function SalesTeam() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleOpenEditModal(rep)}
-                            className="h-7 text-[12px] px-2 text-[#6B6B66] hover:text-[#1F1F1D]"
+                            className="h-7 text-[12px] px-2 text-[#6B6B66] hover:text-[#1F1F1D] cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </Button>
@@ -901,6 +922,19 @@ export default function SalesTeam() {
           }}
         />
       </SidePanel>
+
+      {/* Direct Rep Lead Upload Modal (Excel / CSV) */}
+      <RepLeadUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => {
+          setIsUploadModalOpen(false);
+          setUploadRep(null);
+        }}
+        targetRep={uploadRep}
+        onSuccess={(count, repName) => {
+          showToast(`Successfully assigned ${count} leads directly to ${repName}! Now live in their workspace.`);
+        }}
+      />
     </div>
   );
 }
