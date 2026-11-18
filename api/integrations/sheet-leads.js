@@ -11,7 +11,7 @@ const SUPABASE_URL =
 const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyZW1ld3Z1dGZtZmthd3V1Y2tsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyODc3MDIsImV4cCI6MjEwNDg2MzcwMn0.nXKrHJqqcvTq_HpTunoKjKo8a9IgNgj49G3eoRPBOo8';
+  'sb_publishable_DuGbn8VxUaGxKoQf32SEAA_W32ov9Lg';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
