@@ -171,76 +171,78 @@ export default function Sidebar({
           )}
         </div>
 
-        {/* SECTION 2: LEADS & SAVED VIEWS */}
-        <div className="space-y-0.5">
-          {!collapsed && (
-            <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[#6B6B66] mb-1">
-              Leads
-            </div>
-          )}
-
-          {/* All Leads primary link */}
-          <Link
-            to="/leads"
-            title="All Leads"
-            className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
-              isActive('/leads')
-                ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
-                : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
-            }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <LayoutGrid className={`w-4 h-4 shrink-0 ${isActive('/leads') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
-              {!collapsed && <span className="truncate">All leads</span>}
-            </div>
+        {/* SECTION 2: LEADS & SAVED VIEWS (Admin Only) */}
+        {!isSalesperson && (
+          <div className="space-y-0.5">
             {!collapsed && (
-              <span className="text-[11px] tabular-nums text-[#6B6B66] font-medium">
-                {viewCounts.all}
-              </span>
+              <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[#6B6B66] mb-1">
+                Leads
+              </div>
             )}
-          </Link>
 
-          {/* Saved Views (Airtable-style nested items) */}
-          {!collapsed && (
-            <div className="pl-4 pt-1 space-y-0.5 border-l border-[#E6E6E3] ml-3 mt-1">
-              {[
-                { id: 'unassigned', label: 'Unassigned', icon: Inbox, count: viewCounts.unassigned },
-                { id: 'today', label: 'My follow-ups today', icon: Clock, count: viewCounts.todayFollowups },
-                { id: 'overdue', label: 'Overdue', icon: AlertCircle, count: viewCounts.overdue, isAlert: viewCounts.overdue > 0 },
-                { id: 'hot', label: 'Hot leads', icon: Flame, count: viewCounts.hot },
-                { id: 'payment_pending', label: 'Payment pending', icon: CreditCard, count: viewCounts.paymentPending },
-                { id: 'enrolled', label: 'Enrolled', icon: CheckCircle2, count: viewCounts.enrolled },
-                { id: 'lost', label: 'Lost', icon: XCircle, count: viewCounts.lost }
-              ].map((view) => {
-                const isViewActive = isActive('/leads', view.id);
-                const Icon = view.icon;
-                return (
-                  <Link
-                    key={view.id}
-                    to={`/leads?view=${view.id}`}
-                    className={`flex items-center justify-between px-2 py-1 rounded-[4px] text-[12px] transition-colors ${
-                      isViewActive
-                        ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
-                        : 'text-[#6B6B66] hover:text-[#1F1F1D] hover:bg-[#F3F4F6]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <Icon className={`w-3.5 h-3.5 shrink-0 ${view.isAlert ? 'text-[#B42318]' : ''}`} />
-                      <span className="truncate">{view.label}</span>
-                    </div>
-                    <span
-                      className={`text-[10px] tabular-nums font-medium ${
-                        view.isAlert ? 'text-[#B42318] font-bold' : 'text-[#6B6B66]'
+            {/* All Leads primary link */}
+            <Link
+              to="/leads"
+              title="All Leads"
+              className={`flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors ${
+                isActive('/leads')
+                  ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                  : 'text-[#1F1F1D] hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <LayoutGrid className={`w-4 h-4 shrink-0 ${isActive('/leads') ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'}`} />
+                {!collapsed && <span className="truncate">All leads</span>}
+              </div>
+              {!collapsed && (
+                <span className="text-[11px] tabular-nums text-[#6B6B66] font-medium">
+                  {viewCounts.all}
+                </span>
+              )}
+            </Link>
+
+            {/* Saved Views (Airtable-style nested items) */}
+            {!collapsed && (
+              <div className="pl-4 pt-1 space-y-0.5 border-l border-[#E6E6E3] ml-3 mt-1">
+                {[
+                  { id: 'unassigned', label: 'Unassigned', icon: Inbox, count: viewCounts.unassigned },
+                  { id: 'today', label: 'My follow-ups today', icon: Clock, count: viewCounts.todayFollowups },
+                  { id: 'overdue', label: 'Overdue', icon: AlertCircle, count: viewCounts.overdue, isAlert: viewCounts.overdue > 0 },
+                  { id: 'hot', label: 'Hot leads', icon: Flame, count: viewCounts.hot },
+                  { id: 'payment_pending', label: 'Payment pending', icon: CreditCard, count: viewCounts.paymentPending },
+                  { id: 'enrolled', label: 'Enrolled', icon: CheckCircle2, count: viewCounts.enrolled },
+                  { id: 'lost', label: 'Lost', icon: XCircle, count: viewCounts.lost }
+                ].map((view) => {
+                  const isViewActive = isActive('/leads', view.id);
+                  const Icon = view.icon;
+                  return (
+                    <Link
+                      key={view.id}
+                      to={`/leads?view=${view.id}`}
+                      className={`flex items-center justify-between px-2 py-1 rounded-[4px] text-[12px] transition-colors ${
+                        isViewActive
+                          ? 'bg-[#EEF0FD] text-[#3B4BDB] font-semibold'
+                          : 'text-[#6B6B66] hover:text-[#1F1F1D] hover:bg-[#F3F4F6]'
                       }`}
                     >
-                      {view.count}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                      <div className="flex items-center gap-2 truncate">
+                        <Icon className={`w-3.5 h-3.5 shrink-0 ${view.isAlert ? 'text-[#B42318]' : ''}`} />
+                        <span className="truncate">{view.label}</span>
+                      </div>
+                      <span
+                        className={`text-[10px] tabular-nums font-medium ${
+                          view.isAlert ? 'text-[#B42318] font-bold' : 'text-[#6B6B66]'
+                        }`}
+                      >
+                        {view.count}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* SECTION 3: TEAM (Admin Only) */}
         {!isSalesperson && (

@@ -1492,6 +1492,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return authorizedAllLeads;
   }, [authorizedAllLeads, currentUser, adminWitnessRep, salespersonFilter]);
 
+  // Context-level allLeads:
+  // "all leads should not be visible for all sales people. It should be only visible to the admin itself."
+  // For Salesperson: strictly limited to their assigned leads ('leads')
+  // For Admin: full authorized lead pool
+  const contextAllLeads = React.useMemo(() => {
+    if (currentUser?.role === 'Salesperson') {
+      return leads;
+    }
+    return authorizedAllLeads;
+  }, [currentUser, leads, authorizedAllLeads]);
+
   // Keep selectedLeadId pointing to an available lead in current scope
   useEffect(() => {
     if (leads.length > 0 && !leads.some((l) => l.id === selectedLeadId)) {
@@ -1625,6 +1636,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const assignLead = (leadId: string, salespersonName: string) => {
+    // Admin Authority Rule: Only Admin has authority to assign/reassign leads
+    if (currentUser?.role !== 'Admin') {
+      console.warn('Unauthorized: Only Admin has authority to assign leads.');
+      return;
+    }
     const now = new Date().toISOString();
     const performer = currentUser?.name || 'Admin';
     setMasterLeads((prev) =>
@@ -1647,6 +1663,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const bulkAssignLeads = (leadIds: string[], salespersonName: string) => {
+    // Admin Authority Rule: Only Admin has authority to bulk assign leads
+    if (currentUser?.role !== 'Admin') {
+      console.warn('Unauthorized: Only Admin has authority to bulk assign leads.');
+      return;
+    }
     const now = new Date().toISOString();
     const performer = currentUser?.name || 'Admin';
     const toUpdate: Lead[] = [];
@@ -2992,7 +3013,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         leads,
-        allLeads: authorizedAllLeads,
+        allLeads: contextAllLeads,
         adminWitnessRep,
         setAdminWitnessRep,
         selectedLeadId,

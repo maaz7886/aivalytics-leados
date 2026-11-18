@@ -183,15 +183,27 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ onOpenSearch }
           <span className="text-[10px] font-medium mt-0.5">Today</span>
         </Link>
 
-        <Link
-          to="/leads"
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${
-            isLeadsActive ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'
-          }`}
-        >
-          <LayoutGrid className="w-5 h-5" />
-          <span className="text-[10px] font-medium mt-0.5">Leads</span>
-        </Link>
+        {!isSalesperson ? (
+          <Link
+            to="/leads"
+            className={`flex flex-col items-center justify-center flex-1 py-1 ${
+              isLeadsActive ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'
+            }`}
+          >
+            <LayoutGrid className="w-5 h-5" />
+            <span className="text-[10px] font-medium mt-0.5">Leads</span>
+          </Link>
+        ) : (
+          <Link
+            to="/programs"
+            className={`flex flex-col items-center justify-center flex-1 py-1 ${
+              location.pathname === '/programs' ? 'text-[#3B4BDB]' : 'text-[#6B6B66]'
+            }`}
+          >
+            <BookOpen className="w-5 h-5" />
+            <span className="text-[10px] font-medium mt-0.5">Programs</span>
+          </Link>
+        )}
 
         <button
           onClick={onOpenSearch}

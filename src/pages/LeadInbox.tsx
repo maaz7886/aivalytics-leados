@@ -1,5 +1,6 @@
 // src/pages/LeadInbox.tsx
 import { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import type { Lead } from '../types';
 import LeadDetailModal from '../components/LeadDetailModal';
@@ -15,8 +16,14 @@ export default function LeadInbox() {
     bulkAssignLeads,
     autoDistributeRoundRobin,
     roundRobinEnabled,
-    setRoundRobinEnabled
+    setRoundRobinEnabled,
+    currentUser
   } = useApp();
+
+  // Rule: Unassigned lead triage inbox is only accessible to Admin
+  if (currentUser?.role === 'Salesperson') {
+    return <Navigate to="/today" replace />;
+  }
 
   const leadsPool = allLeads || leads;
 

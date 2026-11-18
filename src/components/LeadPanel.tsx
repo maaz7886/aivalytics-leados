@@ -56,6 +56,8 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
     leads,
     updateLead,
     updateLeadStage,
+    assignLead,
+    salespeople = [],
     addLead,
     logCall,
     callActivities,
@@ -341,7 +343,32 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           <StageChip stage={lead.crmStage} />
           <TempTag temperature={((lead as any).temperature || (lead as any).leadTemperature || 'Warm') as any} />
-          <Avatar name={lead.assignedSalesperson || 'Unassigned'} size={24} />
+          
+          {/* Assigned Owner / Salesperson with Admin Assignment Authority */}
+          <div className="flex items-center gap-1.5">
+            <Avatar name={lead.assignedSalesperson || 'Unassigned'} size={24} />
+            {currentUser?.role === 'Admin' ? (
+              <select
+                aria-label="Assign Salesperson"
+                value={lead.assignedSalesperson || ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    assignLead(lead.id, e.target.value);
+                  }
+                }}
+                className="h-7 text-xs bg-white border border-[#E6E6E3] hover:border-[#3B4BDB] rounded px-2 font-medium text-[#1F1F1D] cursor-pointer outline-none shadow-2xs"
+              >
+                <option value="">Unassigned</option>
+                {salespeople.map((rep) => (
+                  <option key={rep.id} value={rep.name}>
+                    {rep.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-xs font-medium text-[#6B6B66]">{lead.assignedSalesperson || 'Unassigned'}</span>
+            )}
+          </div>
 
           <button
             onClick={() => navigate(`/lead/${lead.id}`)}
@@ -865,6 +892,30 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
                   title="Click to edit"
                 >
                   {lead.city || '—'}
+                </div>
+              )}
+            </div>
+
+            {/* Assigned Salesperson / Owner */}
+            <div>
+              <div className="text-[11px] text-[#6B6B66]">Assigned Rep</div>
+              {currentUser?.role === 'Admin' ? (
+                <select
+                  aria-label="Reassign Salesperson"
+                  value={lead.assignedSalesperson || ''}
+                  onChange={(e) => assignLead(lead.id, e.target.value)}
+                  className="mt-0.5 h-6 text-xs bg-white border border-[#E6E6E3] hover:border-[#3B4BDB] rounded px-1.5 font-medium text-[#1F1F1D] cursor-pointer outline-none w-full"
+                >
+                  <option value="">Unassigned</option>
+                  {salespeople.map((rep) => (
+                    <option key={rep.id} value={rep.name}>
+                      {rep.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="font-medium text-[#1F1F1D] truncate mt-0.5">
+                  {lead.assignedSalesperson || 'Unassigned'}
                 </div>
               )}
             </div>

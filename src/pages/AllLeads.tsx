@@ -1,6 +1,6 @@
 // src/pages/AllLeads.tsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import type { Lead, Stage } from '../types';
 import { DataTable, ALL_COLUMNS } from '../components/ui/DataTable';
@@ -71,6 +71,12 @@ export default function AllLeads() {
   const urlLeadId = searchParams.get('lead');
 
   const isAdmin = currentUser?.role === 'Admin';
+
+  // Rule: "all leads should not be visible for all sales people. It should be only visible to the admin itself."
+  if (!isAdmin) {
+    return <Navigate to="/today" replace />;
+  }
+
   const currentUserId = currentUser?.id || 'default_user';
 
   // Stored preferences per view
