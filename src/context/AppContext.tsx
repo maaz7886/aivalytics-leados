@@ -1228,8 +1228,8 @@ interface AppContextType {
   simulateAiPrep: (leadId: string) => void;
   // Sales Team & Role Management
   salespeople: Salesperson[];
-  currentUser: Salesperson;
-  setCurrentUser: (user: Salesperson) => void;
+  currentUser: Salesperson | null;
+  setCurrentUser: (user: Salesperson | null) => void;
   salespersonFilter: string;
   setSalespersonFilter: (filter: string) => void;
   roundRobinEnabled: boolean;
@@ -1408,33 +1408,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return initialSalespeople;
   });
 
-  const [currentUser, setCurrentUserState] = useState<Salesperson>(() => {
+  const [currentUser, setCurrentUserState] = useState<Salesperson | null>(() => {
     const saved = localStorage.getItem('aivalytics_active_user');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (['Alex Rivera', 'Sarah Chen', 'Marcus Vance', 'Priya Sharma', 'David Kim'].includes(parsed.name)) {
-          const migratedName = migrateRepName(parsed.name);
-          const match = initialSalespeople.find((s) => s.name === migratedName) || initialSalespeople[0];
-          localStorage.setItem('aivalytics_active_user', JSON.stringify(match));
-          return match;
+        if (parsed && parsed.email && (parsed.role === 'Admin' || parsed.role === 'Salesperson')) {
+          if (['Alex Rivera', 'Sarah Chen', 'Marcus Vance', 'Priya Sharma', 'David Kim'].includes(parsed.name)) {
+            const migratedName = migrateRepName(parsed.name);
+            const match = initialSalespeople.find((s) => s.name === migratedName) || initialSalespeople[0];
+            localStorage.setItem('aivalytics_active_user', JSON.stringify(match));
+            return match;
+          }
+          return parsed;
         }
-        return parsed;
       } catch {}
     }
-    const demo = localStorage.getItem('aivalytics_demo_user');
-    if (demo) {
-      try {
-        const parsed = JSON.parse(demo);
-        const match = initialSalespeople.find(
-          (s) => s.email.toLowerCase() === parsed.email.toLowerCase() ||
-                 s.name.toLowerCase() === parsed.email.toLowerCase().split('@')[0]
-        );
-        if (match) return match;
-        if (parsed.role === 'Admin') return adminUser;
-      } catch {}
-    }
-    return adminUser;
+    // Clean up any legacy demo key so unauthenticated sessions are never treated as Admin
+    localStorage.removeItem('aivalytics_demo_user');
+    return null;
   });
 
   const [salespersonFilter, setSalespersonFilter] = useState<string>('All');
@@ -1452,7 +1444,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // If Admin in general view (not witnessing a specific rep), admin has complete visibility over all programs
     if (!repToCheck) {
-      return masterLeads;
+      return currentUser?.role === 'Admin' ? masterLeads : [];
     }
 
     const allowed = repToCheck.allowedPrograms && repToCheck.allowedPrograms.length > 0
@@ -1598,10 +1590,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('AIVALYTICS_ROUND_ROBIN', String(val));
   };
 
-  const setCurrentUser = (user: Salesperson) => {
+  const setCurrentUser = (user: Salesperson | null) => {
     setCurrentUserState(user);
-    localStorage.setItem('aivalytics_active_user', JSON.stringify(user));
-    localStorage.setItem('aivalytics_demo_user', JSON.stringify({ email: user.email, role: user.role }));
+    if (user) {
+      localStorage.setItem('aivalytics_active_user', JSON.stringify(user));
+      localStorage.removeItem('aivalytics_demo_user');
+    } else {
+      localStorage.removeItem('aivalytics_active_user');
+      localStorage.removeItem('aivalytics_demo_user');
+    }
   };
 
   const addSalesperson = (repData: Omit<Salesperson, 'id'>) => {
@@ -1622,7 +1619,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('AIVALYTICS_SALESPEOPLE', JSON.stringify(updated));
       return updated;
     });
-    if (currentUser.id === id) {
+    if (currentUser && currentUser.id === id) {
       setCurrentUser({ ...currentUser, ...updates });
     }
   };

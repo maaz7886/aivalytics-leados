@@ -31,7 +31,7 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ onOpenSearch }
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser } = useApp();
+  const { currentUser, setCurrentUser } = useApp();
 
   const isSalesperson = currentUser?.role === 'Salesperson';
 
@@ -41,6 +41,7 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({ onOpenSearch }
     } catch {}
     localStorage.removeItem('aivalytics_demo_user');
     localStorage.removeItem('aivalytics_active_user');
+    setCurrentUser(null);
     navigate('/auth/signin');
   };
 

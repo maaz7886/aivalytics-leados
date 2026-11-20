@@ -36,14 +36,16 @@ export default function SignIn() {
         s.name.toLowerCase() === cleanEmail
     );
 
+    const params = new URLSearchParams(window.location.search);
+    const redirectUrl = params.get('redirect');
+    const validRedirect = redirectUrl && redirectUrl.startsWith('/') && !redirectUrl.startsWith('/auth') ? redirectUrl : null;
+
     if (repMatch) {
       setCurrentUser(repMatch);
-      localStorage.setItem("aivalytics_active_user", JSON.stringify(repMatch));
-      navigate("/today");
+      navigate(validRedirect || "/today");
     } else {
       setCurrentUser(adminUser);
-      localStorage.setItem("aivalytics_active_user", JSON.stringify(adminUser));
-      navigate("/dashboard");
+      navigate(validRedirect || "/dashboard");
     }
   };
 

@@ -227,7 +227,7 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
       nextTask: {
         id: `task-${Date.now()}`,
         leadId: lead.id,
-        owner: lead.assignedSalesperson || currentUser.name,
+        owner: lead.assignedSalesperson || currentUser?.name || 'Sales Rep',
         taskType: 'Call',
         dueDateTime: newDueDate,
         priority: 'High',
@@ -292,7 +292,7 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
       nextTask: {
         id: `task-upsell-${Date.now()}`,
         leadId: `upsell-${Date.now()}-${lead.id}`,
-        owner: lead.assignedSalesperson || currentUser.name,
+        owner: lead.assignedSalesperson || currentUser?.name || 'Sales Rep',
         taskType: 'Call',
         dueDateTime: new Date(Date.now() + 86400000).toISOString().substring(0, 16).replace('T', ' '),
         priority: 'Critical',

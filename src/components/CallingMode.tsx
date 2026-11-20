@@ -202,7 +202,7 @@ export const CallingMode: React.FC<CallingModeProps> = ({
       nextTask: {
         id: `task-upsell-${Date.now()}`,
         leadId: `upsell-${Date.now()}-${currentLead.id}`,
-        owner: currentLead.assignedSalesperson || currentUser.name,
+        owner: currentLead.assignedSalesperson || currentUser?.name || 'Sales Rep',
         taskType: 'Call',
         dueDateTime: new Date(Date.now() + 86400000).toISOString().substring(0, 16).replace('T', ' '),
         priority: 'Critical',

@@ -1,42 +1,19 @@
 // src/components/ProtectedRoute.tsx
-import { Navigate, Outlet } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-import { useEffect, useState } from "react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useApp } from "../context/AppContext";
 
 export default function ProtectedRoute() {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { currentUser } = useApp();
+  const location = useLocation();
 
-  useEffect(() => {
-    const getSession = async () => {
-      try {
-        const storedUser = localStorage.getItem("aivalytics_demo_user") || localStorage.getItem("aivalytics_active_user");
-        if (storedUser) {
-          setSession(JSON.parse(storedUser));
-          setLoading(false);
-          return;
-        }
+  // Strict check: User must be signed in with valid credentials
+  // If not logged in, always redirect to /auth/signin and require ID + password
+  if (!currentUser || !currentUser.email) {
+    const redirectParam = location.pathname !== '/'
+      ? `?redirect=${encodeURIComponent(location.pathname + location.search)}`
+      : '';
+    return <Navigate to={`/auth/signin${redirectParam}`} replace />;
+  }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          setSession(session);
-        }
-      } catch (e) {
-        const storedUser = localStorage.getItem("aivalytics_demo_user") || localStorage.getItem("aivalytics_active_user");
-        if (storedUser) setSession(JSON.parse(storedUser));
-      } finally {
-        setLoading(false);
-      }
-    };
-    getSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-      if (session) setSession(session);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (loading) return null;
-
-  return session ? <Outlet /> : <Navigate to="/auth/signin" replace />;
+  return <Outlet />;
 }

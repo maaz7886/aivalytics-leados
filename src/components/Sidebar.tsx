@@ -45,7 +45,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, allLeads, leads } = useApp();
+  const { currentUser, setCurrentUser, allLeads, leads } = useApp();
 
   const isSalesperson = currentUser?.role === 'Salesperson';
   const leadsPool = allLeads || leads || [];
@@ -60,6 +60,7 @@ export default function Sidebar({
     } catch {}
     localStorage.removeItem('aivalytics_demo_user');
     localStorage.removeItem('aivalytics_active_user');
+    setCurrentUser(null);
     navigate('/auth/signin');
   };
 
