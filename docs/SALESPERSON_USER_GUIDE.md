@@ -18,20 +18,11 @@ flowchart LR
     C --> D["Program-Scoped Calling Queue Loaded"]
 ```
 
-### 1.1 Representative Accounts & Program Focus
-
-| Name | Role & Title | Assigned Program Ecosystem | Work Email |
-| :--- | :--- | :--- | :--- |
-| **Yamin** | Admissions Specialist | **AI-Native Project Management (AI-PM)** | `yameen@aivalytics.io` |
-| **Hari** | Admissions & Growth Lead | **3-Day AI Builder Workshop (Free Webinar)** | `hari@aivalytics.io` |
-| **Khurram** | Career Consultant | **3-Day AI Builder Workshop (Free Webinar)** | `khurram@aivalytics.io` |
-| **Jay** | Admissions Executive | **3-Day AI Builder Workshop (Free Webinar)** | `jay@aivalytics.io` |
-
-### 1.2 Sign-In Steps
+### Sign-In Steps
 1. Navigate to [https://aivalytics-leados.vercel.app/auth/signin](https://aivalytics-leados.vercel.app/auth/signin).
 2. Enter your registered work email and your assigned password.
 3. Click **Sign in to LeadOS**.
-4. You will land directly on your **My Day** workspace (`/today`).
+4. You will land directly on your personal **My Day** workspace (`/today`).
 
 > [!IMPORTANT]
 > **Strict Security & Lead Privacy**: As a salesperson, you only see leads assigned specifically to you within your authorized program. System administration tools, global team rosters, and database configurations are restricted to Admin.
