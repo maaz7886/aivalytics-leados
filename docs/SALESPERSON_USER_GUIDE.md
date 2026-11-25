@@ -18,18 +18,18 @@ flowchart LR
     C --> D["Program-Scoped Calling Queue Loaded"]
 ```
 
-### 1.1 Representative Credentials
+### 1.1 Representative Accounts & Program Focus
 
-| Name | Role & Title | Assigned Program Ecosystem | Login Email | Default Password |
-| :--- | :--- | :--- | :--- | :--- |
-| **Yamin** | Admissions Specialist | **AI-Native Project Management (AI-PM)** | `yameen@aivalytics.io` | `Yamin@123` |
-| **Hari** | Admissions & Growth Lead | **3-Day AI Builder Workshop (Free Webinar)** | `hari@aivalytics.io` | `Hari@123` |
-| **Khurram** | Career Consultant | **3-Day AI Builder Workshop (Free Webinar)** | `khurram@aivalytics.io` | `Khurram@123` |
-| **Jay** | Admissions Executive | **3-Day AI Builder Workshop (Free Webinar)** | `jay@aivalytics.io` | `Jay@123` |
+| Name | Role & Title | Assigned Program Ecosystem | Work Email |
+| :--- | :--- | :--- | :--- |
+| **Yamin** | Admissions Specialist | **AI-Native Project Management (AI-PM)** | `yameen@aivalytics.io` |
+| **Hari** | Admissions & Growth Lead | **3-Day AI Builder Workshop (Free Webinar)** | `hari@aivalytics.io` |
+| **Khurram** | Career Consultant | **3-Day AI Builder Workshop (Free Webinar)** | `khurram@aivalytics.io` |
+| **Jay** | Admissions Executive | **3-Day AI Builder Workshop (Free Webinar)** | `jay@aivalytics.io` |
 
 ### 1.2 Sign-In Steps
 1. Navigate to [https://aivalytics-leados.vercel.app/auth/signin](https://aivalytics-leados.vercel.app/auth/signin).
-2. Enter your registered work email and password.
+2. Enter your registered work email and your assigned password.
 3. Click **Sign in to LeadOS**.
 4. You will land directly on your **My Day** workspace (`/today`).
 
