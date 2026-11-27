@@ -42,7 +42,8 @@ export default function SignIn() {
 
     if (repMatch) {
       setCurrentUser(repMatch);
-      navigate(validRedirect || "/today");
+      const isRepAllowedRedirect = validRedirect && (validRedirect.startsWith('/today') || validRedirect.startsWith('/programs'));
+      navigate(isRepAllowedRedirect ? validRedirect : "/today");
     } else {
       setCurrentUser(adminUser);
       navigate(validRedirect || "/dashboard");

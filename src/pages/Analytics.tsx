@@ -1,5 +1,6 @@
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useApp } from '../context/AppContext';
+import { TrendingUp, IndianRupee, Target, Award, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 
 export default function Analytics() {
   const { leads, allLeads, currentUser } = useApp();
@@ -126,58 +127,76 @@ export default function Analytics() {
     { name: 'Experience Unqualified', value: Math.round((unqual / totalReasons) * 100) },
   ];
 
-  const COLORS = ['#ef4444', '#f59e0b', '#6b7280', '#3b82f6', '#8b5cf6'];
+  const COLORS = ['#B42318', '#D97706', '#6B6B66', '#3B4BDB', '#7C3AED'];
 
-  const Card = ({ title, children }: any) => (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-      <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-6">{title}</h2>
+  const Card = ({ title, icon: Icon, children }: { title: string; icon?: React.ComponentType<{ className?: string }>; children: React.ReactNode }) => (
+    <div className="bg-white p-5 rounded-[8px] border border-[#E6E6E3]">
+      <div className="flex items-center gap-2 mb-5 pb-3 border-b border-[#E6E6E3]">
+        {Icon && <Icon className="w-4 h-4 text-[#3B4BDB]" />}
+        <h2 className="text-[14px] font-semibold text-[#1F1F1D] tracking-tight">{title}</h2>
+      </div>
       {children}
     </div>
   );
 
+  const metricCards = [
+    { label: 'Pipeline Revenue', value: `₹${Math.round(pipelineRevenue).toLocaleString('en-IN')}`, icon: TrendingUp, badge: 'Active Pipeline' },
+    { label: 'Collected Revenue', value: `₹${Math.round(collectedRevenue).toLocaleString('en-IN')}`, icon: IndianRupee, badge: 'Realized' },
+    { label: 'Avg Deal Value', value: avgDealValue, icon: Target, badge: 'Per Cohort' },
+    { label: 'Conversion / Win Rate', value: winRate, icon: Award, badge: `${converted} converted` }
+  ];
+
   return (
-    <div className="space-y-6 pb-12">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 pb-12 bg-white text-[#1F1F1D]">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-          <span>📈</span> Executive Analytics & Performance
+        <h1 className="text-[20px] font-semibold text-[#1F1F1D] tracking-tight">
+          Reports & Analytics
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Live synchronized funnel metrics, real-time attribution, and candidate qualification objection analysis.
+        <p className="text-[13px] text-[#6B6B66] mt-0.5">
+          Live synchronized funnel metrics, real-time campaign attribution, and candidate objection analysis.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { t: 'Pipeline Revenue', v: `₹${Math.round(pipelineRevenue).toLocaleString('en-IN')}` },
-          { t: 'Collected Revenue', v: `₹${Math.round(collectedRevenue).toLocaleString('en-IN')}` },
-          { t: 'Avg Deal Value', v: avgDealValue },
-          { t: 'Conversion / Win Rate', v: winRate }
-        ].map((s) => (
-          <div key={s.t} className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm">
-            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">{s.t}</div>
-            <div className="text-3xl font-black text-gray-900 dark:text-gray-100">{s.v}</div>
-          </div>
-        ))}
+      {/* 4 KPI Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {metricCards.map((m) => {
+          const Icon = m.icon;
+          return (
+            <div key={m.label} className="p-4 bg-[#FAFAF9] border border-[#E6E6E3] rounded-[8px] space-y-2">
+              <div className="flex items-center justify-between text-[12px] text-[#6B6B66]">
+                <span className="font-medium">{m.label}</span>
+                <Icon className="w-3.5 h-3.5 text-[#3B4BDB]" />
+              </div>
+              <div className="text-[24px] font-semibold text-[#1F1F1D] tabular-nums font-mono">
+                {m.value}
+              </div>
+              <div className="text-[11px] font-medium text-[#6B6B66]">
+                {m.badge}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
+      {/* Funnel & Objections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="Funnel Drop-Off Analytics (Live Data)">
+        <Card title="Funnel Drop-Off Analytics (Live Data)" icon={BarChart3}>
           <div className="space-y-4">
             {funnelData.map((stage, idx) => (
-              <div key={stage.stage} className="relative">
-                <div className="flex justify-between text-sm font-bold mb-1">
-                  <span className="text-gray-700 dark:text-gray-300">{stage.stage}</span>
-                  <span className="text-gray-900 dark:text-gray-100">{stage.count} leads</span>
+              <div key={stage.stage} className="space-y-1.5">
+                <div className="flex justify-between text-[13px]">
+                  <span className="font-medium text-[#1F1F1D]">{stage.stage}</span>
+                  <span className="font-semibold text-[#1F1F1D] tabular-nums font-mono">{stage.count} leads</span>
                 </div>
-                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-4 overflow-hidden relative">
+                <div className="w-full bg-[#F7F7F5] border border-[#E6E6E3] rounded-full h-3 overflow-hidden relative">
                   <div
-                    className="bg-[#133926] h-full rounded-full absolute left-0 top-0 transition-all"
-                    style={{ width: `${funnelData[0].count > 0 ? (stage.count / funnelData[0].count) * 100 : 0}%` }}
+                    className="bg-[#3B4BDB] h-full rounded-full transition-all"
+                    style={{ width: `${funnelData[0].count > 0 ? Math.max((stage.count / funnelData[0].count) * 100, stage.count > 0 ? 3 : 0) : 0}%` }}
                   />
                 </div>
                 {idx > 0 && (
-                  <div className="text-[10px] text-gray-400 font-bold uppercase text-right mt-1">
-                    {stage.conv} of total • {stage.drop} drop-off
+                  <div className="text-[11px] text-[#6B6B66] text-right tabular-nums">
+                    {stage.conv} of total · {stage.drop} drop-off
                   </div>
                 )}
               </div>
@@ -185,62 +204,84 @@ export default function Analytics() {
           </div>
         </Card>
 
-        <Card title="Candidate Objection Analysis (Real Form Qualifiers)">
+        <Card title="Candidate Objection Analysis (Lost Reasons)" icon={PieChartIcon}>
           <div className="h-64 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={lostReasons}
                   innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
+                  outerRadius={84}
+                  paddingAngle={4}
                   dataKey="value"
                 >
                   {lostReasons.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#FFFFFF',
+                    borderColor: '#E6E6E3',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    color: '#1F1F1D'
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-4 pt-3 border-t border-[#E6E6E3]">
             {lostReasons.map((r, i) => (
-              <div key={r.name} className="flex items-center gap-2 text-xs font-bold text-gray-600 dark:text-gray-400">
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[i] }} />
-                <span>{r.name} ({r.value}%)</span>
+              <div key={r.name} className="flex items-center gap-2 text-[12px] font-medium text-[#1F1F1D]">
+                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[i] }} />
+                <span className="truncate">{r.name}</span>
+                <span className="ml-auto text-[#6B6B66] tabular-nums font-mono">{r.value}%</span>
               </div>
             ))}
           </div>
         </Card>
       </div>
 
-      <Card title="Campaign Attribution & CAC (Live Ingestion Data)">
+      {/* Campaign Attribution Table */}
+      <Card title="Campaign Attribution & CAC (Sources & Ads)">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-[13px] border-collapse">
             <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700 text-gray-500 uppercase tracking-wider text-xs">
-                <th className="pb-3 font-bold">Campaign / Ingestion Source</th>
-                <th className="pb-3 font-bold">Leads Ingested</th>
-                <th className="pb-3 font-bold">Qualified</th>
-                <th className="pb-3 font-bold">Paid Students</th>
-                <th className="pb-3 font-bold">Est. CPL</th>
-                <th className="pb-3 font-bold">Est. CAC</th>
-                <th className="pb-3 font-bold">Realized Revenue</th>
+              <tr className="border-b border-[#E6E6E3] bg-[#FAFAF9] text-[#6B6B66] text-[11px] uppercase tracking-wider">
+                <th className="py-2.5 px-3 font-semibold">Campaign / Source</th>
+                <th className="py-2.5 px-3 font-semibold">Leads</th>
+                <th className="py-2.5 px-3 font-semibold">Qualified</th>
+                <th className="py-2.5 px-3 font-semibold">Paid Students</th>
+                <th className="py-2.5 px-3 font-semibold">Est. CPL</th>
+                <th className="py-2.5 px-3 font-semibold">Est. CAC</th>
+                <th className="py-2.5 px-3 font-semibold text-right">Realized Revenue</th>
               </tr>
             </thead>
-            <tbody>
-              {campaignAttribution.map((c) => (
-                <tr key={c.campaign} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/20 text-xs">
-                  <td className="py-3 font-mono font-bold text-[#133926] dark:text-emerald-400">{c.campaign}</td>
-                  <td className="py-3 font-black text-gray-900 dark:text-gray-100">{c.leads}</td>
-                  <td className="py-3 text-gray-600 dark:text-gray-300 font-semibold">{c.qualified}</td>
-                  <td className="py-3 text-gray-600 dark:text-gray-300 font-semibold">{c.customers}</td>
-                  <td className="py-3 text-gray-600 dark:text-gray-400">₹{c.cpl}</td>
-                  <td className="py-3 font-bold text-rose-600 dark:text-rose-400">{c.cac > 0 ? `₹${c.cac}` : 'N/A'}</td>
-                  <td className="py-3 font-black text-emerald-700 dark:text-emerald-400">₹{c.revenue.toLocaleString('en-IN')}</td>
+            <tbody className="divide-y divide-[#E6E6E3]">
+              {campaignAttribution.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-[13px] text-[#6B6B66]">
+                    No campaign attribution data available yet.
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                campaignAttribution.map((c) => (
+                  <tr key={c.campaign} className="hover:bg-[#FAFAF9] transition-colors">
+                    <td className="py-2.5 px-3 font-mono text-[12px] font-medium text-[#3B4BDB]">{c.campaign}</td>
+                    <td className="py-2.5 px-3 font-semibold text-[#1F1F1D] tabular-nums font-mono">{c.leads}</td>
+                    <td className="py-2.5 px-3 text-[#6B6B66] tabular-nums font-mono">{c.qualified}</td>
+                    <td className="py-2.5 px-3 text-[#6B6B66] tabular-nums font-mono">{c.customers}</td>
+                    <td className="py-2.5 px-3 text-[#6B6B66] tabular-nums font-mono">₹{c.cpl}</td>
+                    <td className="py-2.5 px-3 font-medium text-[#B42318] tabular-nums font-mono">
+                      {c.cac > 0 ? `₹${c.cac}` : 'N/A'}
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold text-[#17673A] text-right tabular-nums font-mono">
+                      ₹{c.revenue.toLocaleString('en-IN')}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

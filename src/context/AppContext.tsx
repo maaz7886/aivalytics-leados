@@ -1409,7 +1409,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [currentUser, setCurrentUserState] = useState<Salesperson | null>(() => {
-    const saved = localStorage.getItem('aivalytics_active_user');
+    // Always clear persistent localStorage auth keys so pasting links in a new tab/session requires login
+    localStorage.removeItem('aivalytics_active_user');
+    localStorage.removeItem('aivalytics_demo_user');
+
+    const saved = sessionStorage.getItem('aivalytics_active_user');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -1417,15 +1421,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (['Alex Rivera', 'Sarah Chen', 'Marcus Vance', 'Priya Sharma', 'David Kim'].includes(parsed.name)) {
             const migratedName = migrateRepName(parsed.name);
             const match = initialSalespeople.find((s) => s.name === migratedName) || initialSalespeople[0];
-            localStorage.setItem('aivalytics_active_user', JSON.stringify(match));
+            sessionStorage.setItem('aivalytics_active_user', JSON.stringify(match));
             return match;
           }
           return parsed;
         }
       } catch {}
     }
-    // Clean up any legacy demo key so unauthenticated sessions are never treated as Admin
-    localStorage.removeItem('aivalytics_demo_user');
     return null;
   });
 
@@ -1592,12 +1594,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setCurrentUser = (user: Salesperson | null) => {
     setCurrentUserState(user);
+    localStorage.removeItem('aivalytics_active_user');
+    localStorage.removeItem('aivalytics_demo_user');
     if (user) {
-      localStorage.setItem('aivalytics_active_user', JSON.stringify(user));
-      localStorage.removeItem('aivalytics_demo_user');
+      sessionStorage.setItem('aivalytics_active_user', JSON.stringify(user));
     } else {
-      localStorage.removeItem('aivalytics_active_user');
-      localStorage.removeItem('aivalytics_demo_user');
+      sessionStorage.removeItem('aivalytics_active_user');
     }
   };
 

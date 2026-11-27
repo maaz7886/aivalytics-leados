@@ -1,6 +1,6 @@
 // src/pages/Dashboard.tsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import type { Lead, Stage } from '../types';
 import { SidePanel } from '../components/ui/SidePanel';
@@ -24,6 +24,7 @@ import {
 
 export default function Dashboard() {
   const {
+    currentUser,
     leads,
     allLeads,
     todayCallActivities,
@@ -224,6 +225,13 @@ export default function Dashboard() {
   };
 
   const activeDrillDownRecords = getActiveRecords();
+
+  if (!currentUser) {
+    return <Navigate to="/auth/signin?redirect=/dashboard" replace />;
+  }
+  if (currentUser.role !== 'Admin') {
+    return <Navigate to="/today" replace />;
+  }
 
   return (
     <div className="space-y-6 pb-12">
