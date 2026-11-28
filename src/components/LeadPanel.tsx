@@ -128,6 +128,12 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
   // Notes tab state
   const [newNoteText, setNewNoteText] = useState('');
 
+  // Quick Remarks & Follow-up Date/Time state
+  const [remarksText, setRemarksText] = useState('');
+  const [remarksSaved, setRemarksSaved] = useState(false);
+  const [followUpInput, setFollowUpInput] = useState('');
+  const [followUpSaved, setFollowUpSaved] = useState(false);
+
   // Sync inline edit fields when lead changes
   useEffect(() => {
     if (lead) {
@@ -136,6 +142,9 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
       setFieldCity(lead.city || '');
       setFieldProgram(lead.programName || 'AI-Native Project Management');
       setQualAnswers(lead.customFields || {});
+      setRemarksText(lead.comments || '');
+      const rawFollowUp = lead.nextTask?.dueDateTime || lead.nextFollowUp || '';
+      setFollowUpInput(rawFollowUp ? rawFollowUp.replace(' ', 'T').slice(0, 16) : '');
     }
   }, [lead]);
 
@@ -596,6 +605,197 @@ export const LeadPanel: React.FC<LeadPanelProps> = ({
             </div>
           </form>
         )}
+
+        {/* 3b. INTEREST STATUS, CONTACT STATUS, REMARKS & FOLLOW-UP */}
+        <div className="border border-[#E6E6E3] rounded-[8px] p-3.5 bg-white space-y-3.5 text-xs">
+          {/* 1. Interest Status & 2. Contact Status */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Interest Status */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-[#6B6B66] uppercase tracking-wider block">
+                Interest Status
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateLead(lead.id, {
+                      crmStage: 'Interested',
+                      leadTemperature: 'Hot',
+                      lastActivityOutcome: 'Interested'
+                    })
+                  }
+                  className={`h-8 px-2 rounded-[6px] text-xs font-medium border transition-colors cursor-pointer ${
+                    lead.crmStage === 'Interested' || lead.lastActivityOutcome === 'Interested'
+                      ? 'bg-[#DDF4E4] text-[#17673A] border-[#17673A]/40 font-semibold'
+                      : 'bg-[#FAFAF9] text-[#6B6B66] border-[#E6E6E3] hover:bg-[#F3F4F6]'
+                  }`}
+                >
+                  Interested
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateLead(lead.id, {
+                      crmStage: 'Not Interested',
+                      leadTemperature: 'Cold',
+                      lastActivityOutcome: 'Not interested'
+                    })
+                  }
+                  className={`h-8 px-2 rounded-[6px] text-xs font-medium border transition-colors cursor-pointer ${
+                    lead.crmStage === 'Not Interested' || lead.lastActivityOutcome === 'Not interested'
+                      ? 'bg-[#FEE4E2] text-[#B42318] border-[#B42318]/40 font-semibold'
+                      : 'bg-[#FAFAF9] text-[#6B6B66] border-[#E6E6E3] hover:bg-[#F3F4F6]'
+                  }`}
+                >
+                  Not Interested
+                </button>
+              </div>
+            </div>
+
+            {/* Contact Status */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-[#6B6B66] uppercase tracking-wider block">
+                Contact Status
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+                    updateLead(lead.id, {
+                      lastContacted: nowStr,
+                      crmStage: lead.crmStage === 'New Lead' ? 'Connected' : lead.crmStage
+                    });
+                  }}
+                  className={`h-8 px-2 rounded-[6px] text-xs font-medium border transition-colors cursor-pointer ${
+                    lead.lastContacted && lead.lastContacted !== 'Not Contacted'
+                      ? 'bg-[#EEF0FD] text-[#3B4BDB] border-[#3B4BDB]/40 font-semibold'
+                      : 'bg-[#FAFAF9] text-[#6B6B66] border-[#E6E6E3] hover:bg-[#F3F4F6]'
+                  }`}
+                >
+                  Contacted
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateLead(lead.id, {
+                      lastContacted: 'Not Contacted'
+                    })
+                  }
+                  className={`h-8 px-2 rounded-[6px] text-xs font-medium border transition-colors cursor-pointer ${
+                    !lead.lastContacted || lead.lastContacted === 'Not Contacted'
+                      ? 'bg-[#FEF3C7] text-[#92400E] border-[#D97706]/40 font-semibold'
+                      : 'bg-[#FAFAF9] text-[#6B6B66] border-[#E6E6E3] hover:bg-[#F3F4F6]'
+                  }`}
+                >
+                  Not Contacted
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Remarks / Comments */}
+          <div className="space-y-1.5 pt-2 border-t border-[#E6E6E3]">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-semibold text-[#6B6B66] uppercase tracking-wider">
+                Remarks / Comments
+              </label>
+              {remarksSaved && (
+                <span className="text-[11px] font-medium text-[#17673A]">Saved ✓</span>
+              )}
+            </div>
+            <textarea
+              rows={2}
+              value={remarksText}
+              onChange={(e) => setRemarksText(e.target.value)}
+              placeholder="Add conversation notes or remarks about this customer..."
+              className="w-full p-2 bg-[#FAFAF9] border border-[#E6E6E3] rounded-[6px] text-xs text-[#1F1F1D] placeholder-[#9CA3AF] resize-none outline-none focus:bg-white focus:border-[#3B4BDB]"
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                'Customer is very much interested.',
+                'Requested to call back tomorrow.',
+                'Asked for more details on WhatsApp.',
+                'Call was not answered.',
+                'Interested, but needs some time to decide.'
+              ].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() =>
+                    setRemarksText((prev) => (prev.trim() ? `${prev.trim()}\n${preset}` : preset))
+                  }
+                  className="px-2 py-0.5 rounded-[4px] bg-[#F7F7F5] hover:bg-[#EEF0FD] hover:text-[#3B4BDB] border border-[#E6E6E3] text-[11px] text-[#6B6B66] transition-colors cursor-pointer"
+                >
+                  + {preset}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  updateLead(lead.id, { comments: remarksText.trim() });
+                  setRemarksSaved(true);
+                  setTimeout(() => setRemarksSaved(false), 2000);
+                }}
+                className="h-7 text-xs"
+              >
+                Save Remarks
+              </Button>
+            </div>
+          </div>
+
+          {/* 4. Follow-up Date and Time */}
+          <div className="space-y-1.5 pt-2 border-t border-[#E6E6E3]">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-semibold text-[#6B6B66] uppercase tracking-wider">
+                Follow-up Date & Preferred Time
+              </label>
+              {followUpSaved && (
+                <span className="text-[11px] font-medium text-[#17673A]">Scheduled ✓</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="datetime-local"
+                value={followUpInput}
+                onChange={(e) => setFollowUpInput(e.target.value)}
+                className="flex-1 h-8 px-2 bg-[#FAFAF9] border border-[#E6E6E3] rounded-[6px] text-xs text-[#1F1F1D] outline-none focus:bg-white focus:border-[#3B4BDB]"
+              />
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  if (!followUpInput) return;
+                  const formatted = followUpInput.replace('T', ' ');
+                  updateLead(lead.id, {
+                    nextFollowUp: formatted,
+                    nextTask: {
+                      id: lead.nextTask?.id || `task-${Date.now()}`,
+                      leadId: lead.id,
+                      owner: lead.assignedSalesperson || currentUser?.name || 'Sales Rep',
+                      taskType: 'Call',
+                      dueDateTime: formatted,
+                      priority: 'High',
+                      completionStatus: 'Pending',
+                      notes: remarksText.trim() || lead.nextTask?.notes || 'Scheduled follow-up call'
+                    }
+                  });
+                  setFollowUpSaved(true);
+                  setTimeout(() => setFollowUpSaved(false), 2000);
+                }}
+                className="h-8 text-xs shrink-0"
+              >
+                Save Follow-up
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {/* SALES FUNNEL & CONVERSION PLAYBOOK (AI Builder vs AI-PM) */}
         <div className="border border-[#E6E6E3] rounded-[8px] p-3 text-xs space-y-2.5 bg-[#F7F7F5]/50">
