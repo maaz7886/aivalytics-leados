@@ -89,16 +89,42 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
     <div className="w-full h-full overflow-x-auto overflow-y-hidden bg-[#F7F7F5] p-3 flex gap-3 select-none">
       {KANBAN_STAGES.map((stage) => {
         const stageLeads = leads.filter((l) => {
-          if (stage === 'Converted') {
-            return l.crmStage === 'Converted' || l.enrollmentStatus === 'Enrolled';
+          const s = (l.crmStage || 'New Lead').trim();
+          if (stage === 'New Lead') {
+            return s === 'New Lead' || s === 'New';
           }
-          if (stage === 'Lost') {
-            return l.crmStage === 'Lost' || l.crmStage === 'Not Interested' || l.crmStage === 'Unqualified';
+          if (stage === 'Call Pending') {
+            return (
+              s === 'Call Pending' ||
+              s === 'Did Not Pick The Call' ||
+              s === 'Follow-Up Needed' ||
+              s === 'Contacting'
+            );
+          }
+          if (stage === 'Connected') {
+            return s === 'Connected' || s === 'Discovery Call Scheduled';
+          }
+          if (stage === 'Interested') {
+            return (
+              s === 'Interested' ||
+              s === 'Mentor Session Scheduled' ||
+              s === 'Demo Session Scheduled' ||
+              s === 'Joined Session'
+            );
+          }
+          if (stage === 'Qualified') {
+            return s === 'Qualified' || s === 'Details Sent on WhatsApp';
           }
           if (stage === 'Payment Pending') {
-            return l.crmStage === 'Payment Pending' || l.crmStage === 'Payment Discussion';
+            return s === 'Payment Pending' || s === 'Payment Discussion';
           }
-          return l.crmStage === stage;
+          if (stage === 'Converted') {
+            return s === 'Converted' || l.enrollmentStatus === 'Enrolled';
+          }
+          if (stage === 'Lost') {
+            return s === 'Lost' || s === 'Not Interested' || s === 'Unqualified';
+          }
+          return s === stage;
         });
 
         const totalPotential = stageLeads.reduce(

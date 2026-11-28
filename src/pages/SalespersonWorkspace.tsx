@@ -1,11 +1,13 @@
 // src/pages/SalespersonWorkspace.tsx
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import { useApp, isAiPmProgram } from '../context/AppContext';
 import type { Lead, ActivityOutcome, Stage } from '../types';
 import { SidePanel } from '../components/ui/SidePanel';
 import { LeadPanel } from '../components/LeadPanel';
 import { CallingMode } from '../components/CallingMode';
+import { KanbanView } from '../components/ui/KanbanView';
+import { LostReasonModal } from '../components/LostReasonModal';
 import { StageChip } from '../components/ui/StageChip';
 import { TempTag } from '../components/ui/TempTag';
 import { Button } from '../components/ui/Button';
@@ -32,7 +34,7 @@ import {
 
 export default function SalespersonWorkspace() {
   const { repId } = useParams<{ repId: string }>();
-  const navigate = useNavigate();
+  const location = useLocation();
   const {
     salespeople,
     leads,
@@ -40,7 +42,9 @@ export default function SalespersonWorkspace() {
     callActivities,
     currentUser,
     logCall,
-    recordActivity
+    recordActivity,
+    updateLeadStage,
+    updateLead
   } = useApp();
 
   const rep =
@@ -55,9 +59,24 @@ export default function SalespersonWorkspace() {
       avatarColor: 'bg-[#3B4BDB]'
     };
 
-  const [activeTab, setActiveTab] = useState<'queue' | 'leads' | 'calls'>('queue');
+  const initialTab = new URLSearchParams(location.search).get('tab');
+  const [activeTab, setActiveTab] = useState<'queue' | 'leads' | 'kanban' | 'calls'>(
+    initialTab === 'kanban' || initialTab === 'leads' || initialTab === 'calls' ? initialTab : 'queue'
+  );
+
+  useEffect(() => {
+    const t = new URLSearchParams(location.search).get('tab');
+    if (t === 'kanban' || t === 'leads' || t === 'calls' || t === 'queue') {
+      setActiveTab(t);
+    }
+  }, [location.search]);
+
   const [stageFilter, setStageFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Lost Reason modal state (for Kanban drag-to-Lost)
+  const [lostTargetLead, setLostTargetLead] = useState<Lead | null>(null);
+  const [isLostModalOpen, setIsLostModalOpen] = useState(false);
 
   // Side Panel state
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -494,13 +513,13 @@ export default function SalespersonWorkspace() {
 
         <div className="flex items-center gap-2.5">
           <Button
-            variant="secondary"
+            variant={activeTab === 'kanban' ? 'primary' : 'secondary'}
             size="md"
-            onClick={() => navigate('/leads?mode=kanban')}
+            onClick={() => setActiveTab(activeTab === 'kanban' ? 'queue' : 'kanban')}
             className="flex items-center gap-1.5 text-[13px]"
           >
-            <Kanban className="w-4 h-4 text-[#6B6B66]" />
-            <span>Kanban Pipeline</span>
+            <Kanban className={`w-4 h-4 ${activeTab === 'kanban' ? 'text-white' : 'text-[#6B6B66]'}`} />
+            <span>{activeTab === 'kanban' ? 'Back to Queue' : 'Kanban Pipeline'}</span>
           </Button>
 
           <Button
@@ -664,6 +683,22 @@ export default function SalespersonWorkspace() {
         >
           <ClipboardList className="w-4 h-4" />
           <span>All Assigned Leads</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-white text-[11px] tabular-nums font-mono font-semibold border border-[#E6E6E3]">
+            {repLeads.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('kanban')}
+          className={`px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors flex items-center gap-2 cursor-pointer ${
+            activeTab === 'kanban'
+              ? 'bg-[#EEF0FD] text-[#3B4BDB]'
+              : 'text-[#6B6B66] hover:bg-[#F3F4F6]'
+          }`}
+        >
+          <Kanban className="w-4 h-4" />
+          <span>Kanban Pipeline</span>
           <span className="px-1.5 py-0.2 rounded-full bg-white text-[11px] tabular-nums font-mono font-semibold border border-[#E6E6E3]">
             {repLeads.length}
           </span>
@@ -1024,6 +1059,22 @@ export default function SalespersonWorkspace() {
         </div>
       )}
 
+      {/* TAB 2B: KANBAN PIPELINE (Rep-Scoped Drag & Drop Board) */}
+      {activeTab === 'kanban' && (
+        <div className="bg-white border border-[#E6E6E3] rounded-lg overflow-hidden h-[calc(100vh-310px)] min-h-[540px]">
+          <KanbanView
+            leads={repLeads}
+            onOpenLead={handleOpenLeadPanel}
+            onUpdateStage={(id, stage) => updateLeadStage(id, stage)}
+            onRequestLostReason={(lead) => {
+              setLostTargetLead(lead);
+              setIsLostModalOpen(true);
+            }}
+            isAdmin={currentUser?.role === 'Admin'}
+          />
+        </div>
+      )}
+
       {/* TAB 3: CALL ACTIVITIES LOG */}
       {activeTab === 'calls' && (
         <div className="bg-white border border-[#E6E6E3] rounded-lg p-4 space-y-4">
@@ -1094,6 +1145,27 @@ export default function SalespersonWorkspace() {
           }}
         />
       </SidePanel>
+
+      {/* Lost Reason Modal (triggered when dragging Kanban card to Lost) */}
+      <LostReasonModal
+        isOpen={isLostModalOpen}
+        leadName={lostTargetLead?.fullName || 'Candidate'}
+        onClose={() => {
+          setIsLostModalOpen(false);
+          setLostTargetLead(null);
+        }}
+        onConfirm={(reason, notes) => {
+          if (lostTargetLead) {
+            updateLead(lostTargetLead.id, {
+              crmStage: 'Lost',
+              objection: reason,
+              comments: (lostTargetLead.comments ? `${lostTargetLead.comments}\n` : '') + `[Lost Reason: ${reason}] ${notes || ''}`
+            });
+          }
+          setIsLostModalOpen(false);
+          setLostTargetLead(null);
+        }}
+      />
 
       {/* Calling Mode (Distraction-Free Power Dialer Modal) */}
       {isCallingModeOpen && (

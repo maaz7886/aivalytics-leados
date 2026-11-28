@@ -23,6 +23,15 @@ import Settings from "./pages/Settings";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { useApp } from "./context/AppContext";
+
+function PipelineRedirect() {
+  const { currentUser } = useApp();
+  if (currentUser?.role === 'Salesperson') {
+    return <Navigate to="/today?tab=kanban" replace />;
+  }
+  return <Navigate to="/leads?mode=kanban" replace />;
+}
 
 function App() {
   return (
@@ -43,7 +52,7 @@ function App() {
             {/* 2. Leads Section */}
             <Route path="/inbox" element={<LeadInbox />} />
             <Route path="/leads" element={<AllLeads />} />
-            <Route path="/pipeline" element={<Navigate to="/leads?mode=kanban" replace />} />
+            <Route path="/pipeline" element={<PipelineRedirect />} />
             <Route path="/import" element={<ImportCenter />} />
             <Route path="/import-history" element={<ImportHistory />} />
 
