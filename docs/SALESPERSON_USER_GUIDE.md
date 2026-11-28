@@ -2,20 +2,20 @@
 
 > **Platform URL:** [https://aivalytics-leados.vercel.app](https://aivalytics-leados.vercel.app)  
 > **Direct Workspace Link:** [https://aivalytics-leados.vercel.app/today](https://aivalytics-leados.vercel.app/today)  
-> **Target Audience:** Admissions & Growth Team (**Yamin, Hari, Khurram, Jay**)  
-> **Version:** 2.4 (Strict Program Scoping & Power Calling Mode)
+> **Target Audience:** Admissions & Growth Representatives  
+> **Version:** 2.5 (Personal Workspace, Kanban Pipeline & Power Calling Mode)
 
 ---
 
 ## 1. Quick Start & Login
 
-Every sales representative has an isolated, secure account. Authentication is mandatory; shared links (`/today`) will always prompt for credentials if you are not currently signed in.
+Every sales representative has a dedicated, secure account. Authentication is required whenever you open LeadOS in a new tab or browser session.
 
 ```mermaid
 flowchart LR
     A["Open Platform URL"] --> B["Enter Work Email & Password"]
     B --> C["Automatic Redirect to Personal Workspace (/today)"]
-    C --> D["Program-Scoped Calling Queue Loaded"]
+    C --> D["Assigned Calling Queue & Kanban Loaded"]
 ```
 
 ### Sign-In Steps
@@ -25,37 +25,38 @@ flowchart LR
 4. You will land directly on your personal **My Day** workspace (`/today`).
 
 > [!IMPORTANT]
-> **Strict Security & Lead Privacy**: As a salesperson, you only see leads assigned specifically to you within your authorized program. System administration tools, global team rosters, and database configurations are restricted to Admin.
+> **Data Privacy**: Your workspace displays only the leads assigned to you within your program focus, keeping your calling queue clean and distraction-free.
 
 ---
 
 ## 2. Navigating Your Workspace
 
-The salesperson interface is focused solely on high-speed admissions execution:
+Your workspace is built for fast, focused admissions outreach:
 
 ```
-┌─────────────────────────┬────────────────────────────────────────────────────────┐
-│  AIValytics LeadOS      │ Top Metrics: Today's Calls | Connect Rate | Revenue     │
-├─────────────────────────┼────────────────────────────────────────────────────────┤
-│  TODAY                  │ [Priority Action Queue]  [All Assigned Leads]  [Calls] │
-│  📅 My Day (/today)     │                                                        │
-│                         │  1. Overdue Follow-ups (0)                             │
-│  ENABLEMENT             │  2. Hot Leads (High Fit Score ≥ 80)                    │
-│  📖 Programs & scripts  │  3. New Leads (<15m Response SLA)                      │
-│                         │  4. Today's Callbacks                                  │
-│  [👤 Rep Name] [Logout] │  5. Payment Pending                                    │
-└─────────────────────────┴────────────────────────────────────────────────────────┘
+┌─────────────────────────┬───────────────────────────────────────────────────────────────────────┐
+│  AIValytics LeadOS      │ Top Metrics: Today's Calls | Connected Calls | Revenue | Overdue      │
+├─────────────────────────┼───────────────────────────────────────────────────────────────────────┤
+│  TODAY                  │ [Priority Queue]  [All Assigned Leads]  [Kanban Pipeline]  [Call Log] │
+│  📅 My Day (/today)     │                                                                       │
+│                         │  1. Overdue Follow-ups                                                │
+│  ENABLEMENT             │  2. Hot Leads (High Fit Score ≥ 80)                                   │
+│  📖 Programs & scripts  │  3. New Leads (<15m Response SLA)                                     │
+│                         │  4. Today's Callbacks                                                 │
+│  [👤 Rep Name] [Logout] │  5. Payment Pending                                                   │
+└─────────────────────────┴───────────────────────────────────────────────────────────────────────┘
 ```
 
-* **My Day (`/today`)**: Your core cockpit containing your daily target metrics, 5 priority queues, full assigned leads directory, and call history.
+* **My Day (`/today`)**: Your primary cockpit containing daily target metrics, 5 priority queues, your assigned leads table, your drag-and-drop Kanban Pipeline, and your call activity log.
 * **Programs & scripts (`/programs`)**: Pitch scripts, curriculum syllabus links, objection handling playbooks, and webinar replays.
-* **Start Calling Mode**: Top-right blue button to enter the full-screen **Power Dialer**.
+* **Kanban Pipeline**: Top-right button (or tab) to switch between your Priority Queue and visual Kanban board.
+* **Start Calling Mode**: Top-right blue button to launch the distraction-free **Power Dialer**.
 
 ---
 
 ## 3. The 5 Priority Action Queues
 
-On `/today`, your leads are algorithmically categorized into five prioritized queues. Work through them **from top to bottom**:
+On `/today`, your leads are automatically sorted into five prioritized queues. Work through them **from top to bottom**:
 
 ```mermaid
 flowchart TD
@@ -77,27 +78,41 @@ flowchart TD
    * **Why**: Candidates you promised to call back whose scheduled time has passed.
    * **Rule**: Clear all overdue items before 11:00 AM every morning.
 2. **Hot Leads (Orange Badge)**:
-   * **Why**: High-intent candidates with strong experience and background match (Fit Score $\ge 80$).
+   * **Why**: High-intent candidates with strong experience and background match (Fit Score ≥ 80).
    * **Rule**: Pitch cohort admission and 1-on-1 strategy sessions directly.
 3. **New Leads (Blue Badge)**:
-   * **Why**: Fresh Meta form fills or direct Excel uploads from Admin.
-   * **Rule**: Contact within **15 minutes** of submission to maximize conversion.
+   * **Why**: Newly assigned inbound leads.
+   * **Rule**: Contact within **15 minutes** to maximize conversion.
 4. **Today's Callbacks (Slate Badge)**:
    * **Why**: Candidates who asked to be called at a specific time today.
-   * **Rule**: Dial within $\pm 5$ minutes of the agreed time.
+   * **Rule**: Dial within ±5 minutes of the agreed time.
 5. **Payment Pending (Green Badge)**:
-   * **Why**: Candidates who agreed to enroll and received a Razorpay checkout link.
-   * **Rule**: Assist with credit card/EMI or net banking queries to close the sale.
+   * **Why**: Candidates who agreed to enroll and received a payment link.
+   * **Rule**: Assist with credit card/EMI or net banking queries to close the enrollment.
 
 ---
 
-## 4. How to Handle a Lead (Step-by-Step)
+## 4. Using the Kanban Pipeline
+
+You can manage your entire personal pipeline visually using **Kanban Mode**:
+
+1. Click **Kanban Pipeline** in the top-right header (or select the **Kanban Pipeline** tab on `/today`).
+2. Leads are grouped across 8 pipeline columns:
+   * `New Lead` → `Call Pending` → `Connected` → `Interested` → `Qualified` → `Payment Pending` → `Converted` → `Lost`
+3. **Drag & Drop**: Drag any lead card from one column to another to update its stage automatically.
+   * Dropping a card into **Lost** opens a prompt to record the lost reason.
+4. **Quick Actions**: Hover over any card for one-click **Call** or **WhatsApp**, or click the card to open its full **Lead Panel**.
+5. Click **Back to Queue** (or the **Priority Action Queue** tab) anytime to return to your daily calling list.
+
+---
+
+## 5. How to Handle a Lead (Step-by-Step)
 
 ### Step 1: Pre-Call Preparation (30 Seconds)
 Click **Details** on any lead card to open the **Lead Inspection Panel**:
 * Review **Current Role & Experience** (e.g. *Senior Project Lead, 8 yrs*).
 * Check **Primary Goal** (e.g. *Transitioning to AI-Native workflows*).
-* Read **Ad Creative & Comments** to see what hook made them submit the form.
+* Read **Comments & Past Activity** to see their context and prior touchpoints.
 
 ### Step 2: Placing the Call
 * Click the phone number or the **Call** button to initiate the dial on your phone or softphone.
@@ -109,7 +124,7 @@ While speaking, check the **Qualification** tab in the Lead Panel to record:
 * **Current AI Usage**: Beginner / Intermediate / Advanced.
 * **Timeline**: Immediate / Next Cohort.
 * **Budget / Payment Preference**: Full / EMI.
-* Use the **Objections** tab if the candidate asks about fee, live vs recorded sessions, or time commitment.
+* Use the **Objections** tab if the candidate asks about fee, live vs. recorded sessions, or time commitment.
 
 ### Step 4: One-Click Quick Logging
 Immediately after hanging up, click **Log Call**:
@@ -121,11 +136,11 @@ Immediately after hanging up, click **Log Call**:
    * `Unqualified / Not Interested`
 2. Enter a short note (e.g. *"Spoke to candidate. Strong background. Sent brochure on WhatsApp. Scheduled callback for tomorrow 3 PM."*).
 3. Set the **Next Action Date & Time**.
-4. Click **Save Call Log**. The system updates your metrics in real time.
+4. Click **Save Call Log**. Your daily call metrics update in real time.
 
 ---
 
-## 5. WhatsApp Outreach & Instant Follow-Ups
+## 6. WhatsApp Outreach & Instant Follow-Ups
 
 LeadOS includes pre-formatted WhatsApp templates that open directly in WhatsApp Web with the candidate's phone number pre-filled:
 
@@ -139,7 +154,7 @@ LeadOS includes pre-formatted WhatsApp templates that open directly in WhatsApp 
 
 ---
 
-## 6. Power Calling Mode (High-Velocity Outreach)
+## 7. Power Calling Mode (High-Velocity Outreach)
 
 When you need to make continuous calls (e.g. dialing 20–30 new leads or callbacks), use **Calling Mode**:
 
@@ -158,14 +173,14 @@ sequenceDiagram
 
 1. Click **Start Calling Mode** (top-right of `/today`).
 2. The screen switches to a focused, distraction-free dialer.
-3. The lead's background, past notes, and phone number appear in high visibility.
+3. The lead's background, past notes, and phone number appear clearly.
 4. Click **Dial** or **WhatsApp**.
 5. Log your notes in the right sidebar.
-6. Click **Next Candidate** or use keyboard shortcut `Ctrl + Enter` to auto-advance.
+6. Click **Next Candidate** (or press `Ctrl + Enter`) to auto-advance.
 
 ---
 
-## 7. Generating Payment Links & Closing Admissions
+## 8. Generating Payment Links & Closing Admissions
 
 When a candidate agrees to enroll:
 
@@ -180,29 +195,26 @@ When a candidate agrees to enroll:
 
 ---
 
-## 8. Daily Sales Hygiene & Checklist
+## 9. Daily Sales Hygiene & Checklist
 
-To maintain pipeline health and conversion rates, every representative must complete this daily checklist before logging out:
+To maintain pipeline health and conversion rates, complete this daily checklist before logging out:
 
 - [ ] **Zero Overdue Tasks**: Clear all red overdue callbacks first thing in the morning.
 - [ ] **<15 Min New Lead SLA**: Dial every newly assigned inbound lead within 15 minutes.
 - [ ] **Next Action Scheduled**: Never leave an active lead without a scheduled next task date.
 - [ ] **Call Log Completeness**: Every dial must have an outcome and 1-sentence note logged.
-- [ ] **Daily Call Target**: Hit your minimum daily target (25 dials for Hari/Khurram, 30 dials for Yamin/Jay).
+- [ ] **Daily Call Target**: Hit your minimum daily dial target (25–30 calls/day).
 
 ---
 
-## 9. FAQs & Troubleshooting
+## 10. FAQs & Troubleshooting
 
 ### Q: Why don't I see any leads in my queue?
-* Verify you are logged into your correct personal account.
-* If you handle AI Native Builder (Hari, Khurram, Jay), you will only receive leads tagged for the 3-Day Builder Workshop. When Admin uploads an Excel batch for your name, they will instantly appear.
+* Verify you are signed in with your own work email and password.
+* Check the **All Assigned Leads** or **Kanban Pipeline** tab to see leads across all stages, including those scheduled for future dates.
 
-### Q: What if I shared my link with someone and they saw a login screen?
-* This is intentional. LeadOS enforces strict authentication so unauthorized individuals can never view customer phone numbers or confidential admissions data. Have them log in with their assigned work email and password.
-
-### Q: How do I request more leads?
-* Notify Admin Maaz. The admin can assign leads individually, route via automated round-robin, or directly upload an Excel sheet to your profile.
+### Q: Why does opening `/today` in a new tab ask me to sign in again?
+* LeadOS uses strict session-based authentication so confidential candidate phone numbers and pipeline records stay protected whenever a link is opened in a new tab or browser. Simply sign in with your work email and password to resume.
 
 ---
 
